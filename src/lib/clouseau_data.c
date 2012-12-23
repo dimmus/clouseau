@@ -884,25 +884,28 @@ clouseau_data_eet_info_read(const char *filename,
    *ftd = eet_data_read(fp, clouseau_tree_data_edd, CLOUSEAU_TREE_DATA_ENTRY);
    t = eet_data_read(fp, clouseau_shot_list_edd, CLOUSEAU_BMP_LIST_ENTRY);
 
-   EINA_LIST_FREE(t->view, st)
+   if (t)
      {
-        char buf[1024];
-        int alpha;
-        int compress;
-        int quality;
-        int lossy;
+        EINA_LIST_FREE(t->view, st)
+          {
+             char buf[1024];
+             int alpha;
+             int compress;
+             int quality;
+             int lossy;
 
-        sprintf(buf, CLOUSEAU_BMP_DATA_ENTRY"/%llx", st->object);
-        st->bmp = eet_data_image_read(fp, buf,
-                                      (unsigned int *) &st->w,
-                                      (unsigned int *) &st->h,
-                                      &alpha, &compress, &quality, &lossy);
+             sprintf(buf, CLOUSEAU_BMP_DATA_ENTRY"/%llx", st->object);
+             st->bmp = eet_data_image_read(fp, buf,
+                   (unsigned int *) &st->w,
+                   (unsigned int *) &st->h,
+                   &alpha, &compress, &quality, &lossy);
 
-        /* Add the bitmaps to the actuall app data struct */
-        (*a)->view = eina_list_append((*a)->view, st);
+             /* Add the bitmaps to the actuall app data struct */
+             (*a)->view = eina_list_append((*a)->view, st);
+          }
+
+        free(t);
      }
-
-   free(t);
    eet_close(fp);
 
    return EINA_TRUE;
