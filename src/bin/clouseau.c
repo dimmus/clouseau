@@ -1379,10 +1379,12 @@ _bt_save_file(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
    if (event_info)
      {
         /* FIXME: Handle failure. */
-        clouseau_data_eet_info_save(event_info, app, ftd, data);
+        Eina_List *bmp_ck_list  = elm_box_children_get(data);
+
+        clouseau_data_eet_info_save(event_info, app, ftd, bmp_ck_list);
+        eina_list_free(bmp_ck_list);
      }
 
-   eina_list_free(data);
 
    if (event_info)  /* Dismiss save dialog after saving */
      _dismiss_save_dialog(gui, NULL, NULL);
@@ -1501,7 +1503,7 @@ _save_file_dialog(void *data,
    elm_object_text_set(bt_save, "Save File");
    elm_fileselector_button_path_set(bt_save, getenv("HOME"));
    evas_object_smart_callback_add(bt_save, "file,chosen",
-         _bt_save_file, elm_box_children_get(ck_bx));
+         _bt_save_file, ck_bx);
 
    elm_box_pack_end(bt_bx, bt_save);
    evas_object_show(bt_save);
