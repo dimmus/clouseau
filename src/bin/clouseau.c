@@ -1802,6 +1802,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    elm_object_text_set(gui->en, LOCALHOST);
    elm_entry_single_line_set(gui->en, EINA_TRUE);
    elm_entry_select_all(gui->en);
+   evas_object_smart_callback_add(gui->en, "activated", _ok_bt_clicked, (void *)gui);
    elm_box_pack_end(bxx, gui->en);
    evas_object_show(gui->en);
 
