@@ -82,6 +82,7 @@ AC_CHECK_LIB(dl,dlopen)
 AC_CHECK_FUNCS(dlopen dlerror)
 
 AC_CONFIG_FILES([
+clouseau.pc
 Makefile
 src/Makefile
 src/lib/Makefile

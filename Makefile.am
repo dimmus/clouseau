@@ -8,3 +8,6 @@ EXTRA_DIST = README AUTHORS COPYING autogen.sh
 SUBDIRS = src data
 
 ACLOCAL_AMFLAGS = -I m4
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = clouseau.pc
