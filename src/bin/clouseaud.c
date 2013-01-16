@@ -52,7 +52,7 @@ _daemon_cleanup(void)
           free(p->file);
 
         if (p->ptr)
-          free((void *) (uint32_t) p->ptr);
+          free((void *) (uintptr_t) p->ptr);
 
         free(p->name);
         free(p);
@@ -64,7 +64,7 @@ _daemon_cleanup(void)
           free(p->file);
 
         if (p->ptr)
-          free((void *) (uint32_t) p->ptr);
+          free((void *) (uintptr_t) p->ptr);
 
         free(p->name);
         free(p);
@@ -192,7 +192,7 @@ _del(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
         EINA_LIST_FOREACH(gui, l, i)
           {
              sprintf(msg_buf, "\t<%p> Sending APP_CLOSED to <%p>",
-                   reply, (void *) (uint32_t) i->ptr);
+                   reply, (void *) (uintptr_t) i->ptr);
              log_message(LOG_FILE, "a", msg_buf);
              ecore_con_eet_send((void *) (uintptr_t) i->ptr,
                    CLOUSEAU_APP_CLOSED_STR, &t);
@@ -227,7 +227,7 @@ _gui_client_connect_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
    EINA_LIST_FOREACH(app, l, st)
      {
         sprintf(msg_buf, "\t<%p> Sending APP_ADD to <%p>",
-              (void *) (uint32_t) st->ptr, reply);
+              (void *) (uintptr_t) st->ptr, reply);
         log_message(LOG_FILE, "a", msg_buf);
         ecore_con_eet_send(reply, CLOUSEAU_APP_ADD_STR, st);
      }
@@ -252,9 +252,9 @@ _app_client_connect_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
    EINA_LIST_FOREACH(gui, l, st)
      {
         sprintf(msg_buf, "\t<%p> Sending APP_ADD to <%p>",
-              reply, (void *) (uint32_t) st->ptr);
+              reply, (void *) (uintptr_t) st->ptr);
         log_message(LOG_FILE, "a", msg_buf);
-        ecore_con_eet_send((void *) (uint32_t) st->ptr,
+        ecore_con_eet_send((void *) (uintptr_t) st->ptr,
               CLOUSEAU_APP_ADD_STR, &m);
      }
 }
@@ -278,9 +278,9 @@ _data_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
                   (unsigned long long) (uintptr_t) req->app };
 
              sprintf(msg_buf, "\t<%p> Sending DATA_REQ to <%p>",
-                   reply, (void *) (uint32_t) req->app);
+                   reply, (void *) (uintptr_t) req->app);
              log_message(LOG_FILE, "a", msg_buf);
-             ecore_con_eet_send((void *) (uint32_t) req->app,
+             ecore_con_eet_send((void *) (uintptr_t) req->app,
                    CLOUSEAU_DATA_REQ_STR, &t);
           }
      }
@@ -296,9 +296,9 @@ _data_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
           {
              t.app = (unsigned long long) (uintptr_t) st->ptr;
              sprintf(msg_buf, "\t<%p> Sending DATA_REQ to <%p>",
-                   reply, (void *) (uint32_t) st->ptr);
+                   reply, (void *) (uintptr_t) st->ptr);
              log_message(LOG_FILE, "a", msg_buf);
-             ecore_con_eet_send((void *) (uint32_t) st->ptr, CLOUSEAU_DATA_REQ_STR, &t);
+             ecore_con_eet_send((void *) (uintptr_t) st->ptr, CLOUSEAU_DATA_REQ_STR, &t);
           }
      }
 }
@@ -318,9 +318,9 @@ _tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
                  (void *) (uintptr_t) td->gui))
           {  /* Do the req only of GUI connected to daemon */
              sprintf(msg_buf, "\t<%p> Sending TREE_DATA to <%p>",
-                   reply, (void *) (uint32_t) td->gui);
+                   reply, (void *) (uintptr_t) td->gui);
              log_message(LOG_FILE, "a", msg_buf);
-             ecore_con_eet_send((void *) (uint32_t) td->gui,
+             ecore_con_eet_send((void *) (uintptr_t) td->gui,
                    CLOUSEAU_TREE_DATA_STR, value);
           }
      }
@@ -331,9 +331,9 @@ _tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
         EINA_LIST_FOREACH(gui, l, info)
           {
              sprintf(msg_buf, "\t<%p> Sending TREE_DATA to <%p>",
-                   reply, (void *) (uint32_t) info->ptr);
+                   reply, (void *) (uintptr_t) info->ptr);
              log_message(LOG_FILE, "a", msg_buf);
-             ecore_con_eet_send((void *) (uint32_t) info->ptr,
+             ecore_con_eet_send((void *) (uintptr_t) info->ptr,
                    CLOUSEAU_TREE_DATA_STR, value);
           }
      }
@@ -353,9 +353,9 @@ _highlight_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
             _client_ptr_cmp, (void *) (uintptr_t) ht->app))
      {  /* Do the REQ only of APP connected to daemon */
         sprintf(msg_buf, "\t<%p> Sending HIGHLIGHT to <%p>",
-              reply, (void *) (uint32_t) ht->app);
+              reply, (void *) (uintptr_t) ht->app);
         log_message(LOG_FILE, "a", msg_buf);
-        ecore_con_eet_send((void *) (uint32_t) ht->app,
+        ecore_con_eet_send((void *) (uintptr_t) ht->app,
               CLOUSEAU_HIGHLIGHT_STR, value);
      }
 }
@@ -376,9 +376,9 @@ _bmp_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
              req->app, req->object, req->ctr };
 
         sprintf(msg_buf, "\t<%p> Sending BMP_REQ to <%p>",
-              reply, (void *) (uint32_t) req->app);
+              reply, (void *) (uintptr_t) req->app);
         log_message(LOG_FILE, "a", msg_buf);
-        ecore_con_eet_send((void *) (uint32_t) req->app,
+        ecore_con_eet_send((void *) (uintptr_t) req->app,
               CLOUSEAU_BMP_REQ_STR, &t);
      }
 }
@@ -401,9 +401,9 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
                  (void *) (uintptr_t) st->gui))
           {  /* Do the req only of GUI connected to daemon */
              sprintf(msg_buf, "\t<%p> Sending BMP_DATA to <%p>",
-                   reply, (void *) (uint32_t) st->gui);
+                   reply, (void *) (uintptr_t) st->gui);
              log_message(LOG_FILE, "a", msg_buf);
-             ecore_con_eet_raw_send((void *) (uint32_t) st->gui,
+             ecore_con_eet_raw_send((void *) (uintptr_t) st->gui,
                    CLOUSEAU_BMP_DATA_STR, "BMP", value, length);
           }
      }
@@ -414,9 +414,9 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
         EINA_LIST_FOREACH(gui, l, info)
           {
              sprintf(msg_buf, "\t<%p> Sending BMP_DATA to <%p>",
-                   reply, (void *) (uint32_t) info->ptr);
+                   reply, (void *) (uintptr_t) info->ptr);
              log_message(LOG_FILE, "a", msg_buf);
-             ecore_con_eet_raw_send((void *) (uint32_t) info->ptr,
+             ecore_con_eet_raw_send((void *) (uintptr_t) info->ptr,
                    CLOUSEAU_BMP_DATA_STR, "BMP", value, length);
           }
      }
