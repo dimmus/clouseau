@@ -13,13 +13,13 @@ ENDOFMESSAGE
 
 cat <<-ENDOFMESSAGE>clouseau
 #!/bin/sh
+clouseau_client &
 if [ \$# -gt 0 ]
 then
    # Start clouseau daemon (will start single instance), then run app
-   clouseau_start "\$@" &
+   clouseau_start "\$@"
 fi
 
-clouseau_client
 ENDOFMESSAGE
 
 chmod +x clouseau
