@@ -3,7 +3,7 @@
 #endif
 
 #include <fcntl.h>
-#include <sys/file.h>
+#include <unistd.h>
 #include <Ecore_Con_Eet.h>
 
 #include "clouseau_private.h"
@@ -386,8 +386,8 @@ int main(void)
 
      {
         int pid_file = open(LOCK_FILE, O_CREAT | O_RDWR, 0666);
-        int rc = flock(pid_file, LOCK_EX | LOCK_NB);
-        if ((pid_file == -1) || ((rc) && (EWOULDBLOCK == errno)))
+        int rc = lockf(pid_file, F_TLOCK, 0);
+        if ((pid_file == -1) || rc)
           {
              fprintf(stderr, "Clouseaud already running.\n");
              exit(0);
