@@ -1,5 +1,6 @@
 #ifndef EET_DATA_H
 #define EET_DATA_H
+#include <Eo.h>
 #include "Clouseau.h"
 #include <Ecore_Con_Eet.h>
 /*  Global constants  */
@@ -12,19 +13,29 @@
 
 #define CLOUSEAU_GUI_CLIENT_CONNECT_STR "CLOUSEAU_GUI_CLIENT_CONNECT"
 #define CLOUSEAU_APP_CLIENT_CONNECT_STR "CLOUSEAU_APP_CLIENT_CONNECT"
-#define CLOUSEAU_APP_ADD_STR "CLOUSEAU_APP_ADD"
-#define CLOUSEAU_DATA_REQ_STR "CLOUSEAU_DATA_REQ"
-#define CLOUSEAU_TREE_DATA_STR "CLOUSEAU_TREE_DATA"
-#define CLOUSEAU_APP_CLOSED_STR "CLOUSEAU_APP_CLOSED"
-#define CLOUSEAU_HIGHLIGHT_STR "CLOUSEAU_HIGHLIGHT"
-#define CLOUSEAU_BMP_REQ_STR "CLOUSEAU_BMP_REQ"
-#define CLOUSEAU_BMP_DATA_STR "CLOUSEAU_BMP_DATA"
+#define CLOUSEAU_APP_ADD_STR            "CLOUSEAU_APP_ADD"
+#define CLOUSEAU_DATA_REQ_STR           "CLOUSEAU_DATA_REQ"
+#define CLOUSEAU_TREE_DATA_STR          "CLOUSEAU_TREE_DATA"
+#define CLOUSEAU_APP_CLOSED_STR         "CLOUSEAU_APP_CLOSED"
+#define CLOUSEAU_HIGHLIGHT_STR          "CLOUSEAU_HIGHLIGHT"
+#define CLOUSEAU_BMP_REQ_STR            "CLOUSEAU_BMP_REQ"
+#define CLOUSEAU_BMP_DATA_STR           "CLOUSEAU_BMP_DATA"
 
 /* Private function */
 #define CLOUSEAU_APP_ADD_ENTRY   "clouseau/app"
 #define CLOUSEAU_TREE_DATA_ENTRY "clouseau/app/tree"
 #define CLOUSEAU_BMP_LIST_ENTRY  "clouseau/app/shot_list"
 #define CLOUSEAU_BMP_DATA_ENTRY  "clouseau/app/screenshot"
+
+/* START - EO EET defs */
+#define EO_DBG_INFO_TYPE_UNKNOWN_STR      "EO_DBG_INFO_TYPE_UNKNOWN"
+#define EO_DBG_INFO_TYPE_STRING_STR       "EO_DBG_INFO_TYPE_STRING"
+#define EO_DBG_INFO_TYPE_INT_STR          "EO_DBG_INFO_TYPE_INT"
+#define EO_DBG_INFO_TYPE_BOOL_STR         "EO_DBG_INFO_TYPE_BOOL"
+#define EO_DBG_INFO_TYPE_PTR_STR          "EO_DBG_INFO_TYPE_PTR"
+#define EO_DBG_INFO_TYPE_DOUBLE_STR       "EO_DBG_INFO_TYPE_DOUBLE"
+#define EO_DBG_INFO_TYPE_LIST_STR         "EO_DBG_INFO_TYPE_LIST"
+/* END   - EO EET defs */
 
 struct _connect_st
 {  /* This will be used for APP, GUI client connect */
@@ -128,6 +139,64 @@ struct _data_desc
    Eet_Data_Descriptor *obj_info;
 };
 typedef struct _data_desc data_desc;
+
+/* START - EO - debug structs */
+struct _Clouseau_st_string
+{
+   const char *s;
+};
+
+struct _Clouseau_st_int
+{
+   int i;
+};
+
+struct _Clouseau_st_bool
+{
+   Eina_Bool b;
+};
+
+struct _Clouseau_st_ptr
+{
+   unsigned long long p;  /* For pointer value */
+};
+
+struct _Clouseau_st_double
+{
+   double d;
+};
+
+struct _Clouseau_st_dbg_list
+{
+   Eina_List *list;  /* Sub-List of (Eo_Dbg_Info *) if needed */
+};
+
+/* START - EO - debug structs */
+typedef struct _Clouseau_st_string Clouseau_st_string;
+typedef struct _Clouseau_st_int Clouseau_st_int;
+typedef struct _Clouseau_st_bool Clouseau_st_bool;
+typedef struct _Clouseau_st_ptr Clouseau_st_ptr;
+typedef struct _Clouseau_st_double Clouseau_st_double;
+typedef struct _Clouseau_st_dbg_list Clouseau_st_dbg_list;
+typedef struct _Clouseau_Eo_Dbg_Info Clouseau_Eo_Dbg_Info;
+/* END   - EO - debug structs */
+
+struct _Clouseau_Eo_Dbg_Info
+{  /* Debug info composed of a list of Eo_Dbg_Info */
+   const char *name;
+   Eo_Dbg_Info_Type type;
+
+   union _un_dbg_info
+     {
+        Clouseau_st_string text;
+        Clouseau_st_int intg;
+        Clouseau_st_bool bl;
+        Clouseau_st_ptr ptr;
+        Clouseau_st_double dbl;
+        Clouseau_st_dbg_list dbg; /* Sub-List of (Eo_Dbg_Info *) if needed */
+     } un_dbg_info;
+};
+/* END   - EO - debug structs */
 
 /* Exported From Object information */
 EAPI void clouseau_object_information_free(Clouseau_Object *oinfo);
