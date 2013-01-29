@@ -14,13 +14,6 @@ static Eina_List *gui = NULL; /* List of app_info_st for gui clients */
 static Eina_List *app = NULL; /* List of app_info_st for app clients */
 static Ecore_Con_Eet *eet_svr = NULL;
 
-struct _tree_info_st
-{
-   void *app;    /* app ptr to identify where the data came from */
-   void *data;   /* Tree data */
-};
-typedef struct _tree_info_st tree_info_st;
-
 int _clouseaud_log_dom = -1;
 
 #ifdef CRITICAL
