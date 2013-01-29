@@ -559,7 +559,7 @@ _dbg_info_union_type_set(const char *type, void *data, Eina_Bool unknow)
    return EINA_FALSE;
 }
 
-Eet_Data_Descriptor *
+static Eet_Data_Descriptor *
 clouseau_string_desc_make(void)
 {
    Eet_Data_Descriptor *d;
@@ -574,7 +574,7 @@ clouseau_string_desc_make(void)
    return d;
 }
 
-Eet_Data_Descriptor *
+static Eet_Data_Descriptor *
 clouseau_int_desc_make(void)
 {
    Eet_Data_Descriptor *d;
@@ -589,7 +589,7 @@ clouseau_int_desc_make(void)
    return d;
 }
 
-Eet_Data_Descriptor *
+static Eet_Data_Descriptor *
 clouseau_bool_desc_make(void)
 {
    Eet_Data_Descriptor *d;
@@ -604,7 +604,7 @@ clouseau_bool_desc_make(void)
    return d;
 }
 
-Eet_Data_Descriptor *
+static Eet_Data_Descriptor *
 clouseau_ptr_desc_make(void)
 {
    Eet_Data_Descriptor *d;
@@ -619,7 +619,7 @@ clouseau_ptr_desc_make(void)
    return d;
 }
 
-Eet_Data_Descriptor *
+static Eet_Data_Descriptor *
 clouseau_double_desc_make(void)
 {
    Eet_Data_Descriptor *d;
@@ -634,7 +634,7 @@ clouseau_double_desc_make(void)
    return d;
 }
 
-Eet_Data_Descriptor *
+static Eet_Data_Descriptor *
 clouseau_list_desc_make(void)
 {
    Eet_Data_Descriptor *d;
