@@ -6,7 +6,7 @@ then
    echo "Usage: clouseau_start <executable> [executable parameters]"
 else
 # Start clouseau daemon (will start single instance), then run app
-   clouseaud
+   clouseaud &
    LD_PRELOAD="$1/libclouseau.so" "\$@"
 fi
 ENDOFMESSAGE

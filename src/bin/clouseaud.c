@@ -3,20 +3,16 @@
 #endif
 
 #include <fcntl.h>
+#include <sys/file.h>
 #include <Ecore_Con_Eet.h>
 
 #include "clouseau_private.h"
 
-#define RUNNING_DIR  "/tmp"
-#define LOCK_FILE ".clouseaud.lock"
-#define LOG_FILE  "clouseaud.log"
+#define LOCK_FILE "/tmp/clouseaud.pid"
 
 static Eina_List *gui = NULL; /* List of app_info_st for gui clients */
 static Eina_List *app = NULL; /* List of app_info_st for app clients */
 static Ecore_Con_Eet *eet_svr = NULL;
-
-/* For Debug */
-char msg_buf[MAX_LINE+1];
 
 struct _tree_info_st
 {
@@ -25,26 +21,41 @@ struct _tree_info_st
 };
 typedef struct _tree_info_st tree_info_st;
 
-static void
-log_message(char *filename, char *mode, char *message)
-{
-   FILE *logfile;
-   logfile=fopen(filename, mode);
-   if(!logfile) return;
-   fprintf(logfile,"%s\n",message);
-   fclose(logfile);
-}
+int _clouseaud_log_dom = -1;
+
+#ifdef CRITICAL
+#undef CRITICAL
+#endif
+#define CRITICAL(...) EINA_LOG_DOM_CRIT(_clouseaud_log_dom, __VA_ARGS__)
+
+#ifdef ERR
+#undef ERR
+#endif
+#define ERR(...) EINA_LOG_DOM_ERR(_clouseaud_log_dom, __VA_ARGS__)
+
+#ifdef WRN
+#undef WRN
+#endif
+#define WRN(...) EINA_LOG_DOM_WARN(_clouseaud_log_dom, __VA_ARGS__)
+
+#ifdef INF
+#undef INF
+#endif
+#define INF(...) EINA_LOG_DOM_INFO(_clouseaud_log_dom, __VA_ARGS__)
+
+#ifdef DBG
+#undef DBG
+#endif
+#define DBG(...) EINA_LOG_DOM_DBG(_clouseaud_log_dom, __VA_ARGS__)
+
 
 static void
 _daemon_cleanup(void)
 {  /*  Free strings */
    app_info_st *p;
-   time_t currentTime;
 
-   time (&currentTime);
-   sprintf(msg_buf,"\n\n%sClients connected to this server when exiting: %d\n"
-         , ctime(&currentTime), eina_list_count(app) + eina_list_count(gui));
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("Clients connected to this server when exiting: %d",
+         eina_list_count(app) + eina_list_count(gui));
 
    EINA_LIST_FREE(gui, p)
      {
@@ -79,42 +90,6 @@ _daemon_cleanup(void)
    eina_shutdown();
 }
 
-void daemonize(void)
-{
-   int i,lfp;
-   char str[10];
-   time_t currentTime;
-
-   if(getppid()==1) return; /* already a daemon */
-   i=fork();
-   if (i<0) exit(1); /* fork error */
-   if (i>0) exit(0); /* parent exits */
-
-   time (&currentTime);
-
-   /* child (daemon) continues */
-   setsid(); /* obtain a new process group */
-   for (i=getdtablesize();i>=0;--i) close(i); /* close all descriptors */
-   i=open("/dev/null",O_RDWR);
-   if (dup(i) == -1) return; /* handle standart I/O */
-   if (dup(i) == -1) return; /* handle standart I/O */
-   umask(027); /* set newly created file permissions */
-   if (chdir(RUNNING_DIR) == -1) return; /* change running directory */
-   lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
-   if (lfp<0) exit(1); /* can not open */
-   if (lockf(lfp,F_TLOCK,0)<0) exit(0); /* can not lock */
-   /* first instance continues */
-   sprintf(str,"%d\n",getpid());
-   if (write(lfp,str,strlen(str)) == -1) return; /* record pid to lockfile */
-   signal(SIGCHLD,SIG_IGN); /* ignore child */
-   signal(SIGTSTP,SIG_IGN); /* ignore tty signals */
-   signal(SIGTTOU,SIG_IGN);
-   signal(SIGTTIN,SIG_IGN);
-
-   log_message(LOG_FILE, "w", "Daemon Started");
-   log_message(LOG_FILE, "a", ctime(&currentTime));
-}
-
 /* START - Ecore communication callbacks */
 static int
 _client_ptr_cmp(const void *d1, const void *d2)
@@ -125,8 +100,7 @@ _client_ptr_cmp(const void *d1, const void *d2)
 static Eina_List *
 _add_client(Eina_List *clients, connect_st *t, void *client, const char *type)
 {
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, client);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", client);
 
    if(!eina_list_search_unsorted(clients, _client_ptr_cmp, client))
      {
@@ -134,8 +108,7 @@ _add_client(Eina_List *clients, connect_st *t, void *client, const char *type)
         st->name = strdup(t->name);
         st->pid = t->pid;
         st->ptr = (unsigned long long) (uintptr_t) client;
-        sprintf(msg_buf, "\tAdded %s client <%p>", type, client);
-        log_message(LOG_FILE, "a", msg_buf);
+        DBG("Added %s client <%p>", type, client);
         return eina_list_append(clients, st);
      }
 
@@ -146,15 +119,13 @@ static Eina_List *
 _remove_client(Eina_List *clients, void *client, const char *type)
 {
    app_info_st *p = eina_list_search_unsorted(clients, _client_ptr_cmp, client);
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, client);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("Msg from <%p>", client);
 
    if (p)
      {
         free(p->name);
         free(p);
-        sprintf(msg_buf, "\tRemoved %s client <%p>", type, client);
-        log_message(LOG_FILE, "a", msg_buf);
+        DBG("Removed %s client <%p>", type, client);
         return eina_list_remove(clients, p);
      }
 
@@ -166,8 +137,7 @@ _add(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
       EINA_UNUSED Ecore_Con_Client *conn)
 {
 /* TODO:   ecore_ipc_client_data_size_max_set(ev->client, -1); */
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    return ECORE_CALLBACK_RENEW;
 }
@@ -176,8 +146,7 @@ Eina_Bool
 _del(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
       EINA_UNUSED Ecore_Con_Client *conn)
 {
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    /* Now we need to find if its an APP or GUI client */
    app_info_st *i = eina_list_search_unsorted(gui, _client_ptr_cmp, reply);
@@ -191,9 +160,8 @@ _del(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
         Eina_List *l;
         EINA_LIST_FOREACH(gui, l, i)
           {
-             sprintf(msg_buf, "\t<%p> Sending APP_CLOSED to <%p>",
-                   reply, (void *) (uintptr_t) i->ptr);
-             log_message(LOG_FILE, "a", msg_buf);
+             DBG("<%p> Sending APP_CLOSED to <%p>", reply,
+                   (void *) (uintptr_t) i->ptr);
              ecore_con_eet_send((void *) (uintptr_t) i->ptr,
                    CLOUSEAU_APP_CLOSED_STR, &t);
           }
@@ -218,17 +186,16 @@ _gui_client_connect_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
    app_info_st *st;
    Eina_List *l;
    connect_st *t = value;
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    gui = _add_client(gui, t, reply, "GUI");
 
    /* Add all registered apps to newly open GUI */
    EINA_LIST_FOREACH(app, l, st)
      {
-        sprintf(msg_buf, "\t<%p> Sending APP_ADD to <%p>",
+        DBG("<%p> Sending APP_ADD to <%p>",
               (void *) (uintptr_t) st->ptr, reply);
-        log_message(LOG_FILE, "a", msg_buf);
+
         ecore_con_eet_send(reply, CLOUSEAU_APP_ADD_STR, st);
      }
 }
@@ -243,17 +210,15 @@ _app_client_connect_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
    app_info_st m = { t->pid, (char *) t->name, NULL,
         (unsigned long long) (uintptr_t) reply, NULL, 0 };
 
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    app = _add_client(app, t, reply, "APP");
 
    /* Notify all GUI clients to add APP */
    EINA_LIST_FOREACH(gui, l, st)
      {
-        sprintf(msg_buf, "\t<%p> Sending APP_ADD to <%p>",
+        DBG("<%p> Sending APP_ADD to <%p>",
               reply, (void *) (uintptr_t) st->ptr);
-        log_message(LOG_FILE, "a", msg_buf);
         ecore_con_eet_send((void *) (uintptr_t) st->ptr,
               CLOUSEAU_APP_ADD_STR, &m);
      }
@@ -264,8 +229,7 @@ _data_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
       EINA_UNUSED const char *protocol_name, void *value)
 {  /* msg coming from GUI, FWD this to APP specified in REQ */
    data_req_st *req = value;
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    if (req->app)
      {  /* Requesting specific app data */
@@ -277,9 +241,8 @@ _data_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
                   (unsigned long long) (uintptr_t) reply,
                   (unsigned long long) (uintptr_t) req->app };
 
-             sprintf(msg_buf, "\t<%p> Sending DATA_REQ to <%p>",
+             DBG("<%p> Sending DATA_REQ to <%p>",
                    reply, (void *) (uintptr_t) req->app);
-             log_message(LOG_FILE, "a", msg_buf);
              ecore_con_eet_send((void *) (uintptr_t) req->app,
                    CLOUSEAU_DATA_REQ_STR, &t);
           }
@@ -295,9 +258,8 @@ _data_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
         EINA_LIST_FOREACH(app, l, st)
           {
              t.app = (unsigned long long) (uintptr_t) st->ptr;
-             sprintf(msg_buf, "\t<%p> Sending DATA_REQ to <%p>",
+             DBG("<%p> Sending DATA_REQ to <%p>",
                    reply, (void *) (uintptr_t) st->ptr);
-             log_message(LOG_FILE, "a", msg_buf);
              ecore_con_eet_send((void *) (uintptr_t) st->ptr, CLOUSEAU_DATA_REQ_STR, &t);
           }
      }
@@ -308,8 +270,7 @@ _tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
       EINA_UNUSED const char *protocol_name, void *value)
 {  /* Tree Data comes from APP, GUI client specified in msg */
    tree_data_st *td = value;
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    if (td->gui)
      {  /* Sending tree data to specific GUI client */
@@ -317,9 +278,8 @@ _tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
                  _client_ptr_cmp,
                  (void *) (uintptr_t) td->gui))
           {  /* Do the req only of GUI connected to daemon */
-             sprintf(msg_buf, "\t<%p> Sending TREE_DATA to <%p>",
+             DBG("<%p> Sending TREE_DATA to <%p>",
                    reply, (void *) (uintptr_t) td->gui);
-             log_message(LOG_FILE, "a", msg_buf);
              ecore_con_eet_send((void *) (uintptr_t) td->gui,
                    CLOUSEAU_TREE_DATA_STR, value);
           }
@@ -330,9 +290,8 @@ _tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
         app_info_st *info;
         EINA_LIST_FOREACH(gui, l, info)
           {
-             sprintf(msg_buf, "\t<%p> Sending TREE_DATA to <%p>",
+             DBG("<%p> Sending TREE_DATA to <%p>",
                    reply, (void *) (uintptr_t) info->ptr);
-             log_message(LOG_FILE, "a", msg_buf);
              ecore_con_eet_send((void *) (uintptr_t) info->ptr,
                    CLOUSEAU_TREE_DATA_STR, value);
           }
@@ -346,15 +305,13 @@ _highlight_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
       EINA_UNUSED const char *protocol_name, void *value)
 {  /* FWD this message to APP */
    highlight_st *ht = value;
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    if(eina_list_search_unsorted(app,
             _client_ptr_cmp, (void *) (uintptr_t) ht->app))
      {  /* Do the REQ only of APP connected to daemon */
-        sprintf(msg_buf, "\t<%p> Sending HIGHLIGHT to <%p>",
+        DBG("<%p> Sending HIGHLIGHT to <%p>",
               reply, (void *) (uintptr_t) ht->app);
-        log_message(LOG_FILE, "a", msg_buf);
         ecore_con_eet_send((void *) (uintptr_t) ht->app,
               CLOUSEAU_HIGHLIGHT_STR, value);
      }
@@ -365,8 +322,7 @@ _bmp_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
       EINA_UNUSED const char *protocol_name, void *value)
 {  /* BMP data request coming from GUI to APP client */
    bmp_req_st *req = value;
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    if(eina_list_search_unsorted(app,
             _client_ptr_cmp, (void *) (uintptr_t) req->app))
@@ -375,9 +331,8 @@ _bmp_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
              (unsigned long long) (uintptr_t) reply,
              req->app, req->object, req->ctr };
 
-        sprintf(msg_buf, "\t<%p> Sending BMP_REQ to <%p>",
+        DBG("<%p> Sending BMP_REQ to <%p>",
               reply, (void *) (uintptr_t) req->app);
-        log_message(LOG_FILE, "a", msg_buf);
         ecore_con_eet_send((void *) (uintptr_t) req->app,
               CLOUSEAU_BMP_REQ_STR, &t);
      }
@@ -391,8 +346,7 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
    bmp_info_st *st = clouseau_data_packet_info_get(protocol_name,
          value, length);
 
-   sprintf(msg_buf, "\n<%s> msg from <%p>", __func__, reply);
-   log_message(LOG_FILE, "a", msg_buf);
+   DBG("msg from <%p>", reply);
 
    if (st->gui)
      {  /* Sending BMP data to specific GUI client */
@@ -400,9 +354,8 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
                  _client_ptr_cmp,
                  (void *) (uintptr_t) st->gui))
           {  /* Do the req only of GUI connected to daemon */
-             sprintf(msg_buf, "\t<%p> Sending BMP_DATA to <%p>",
+             DBG("<%p> Sending BMP_DATA to <%p>",
                    reply, (void *) (uintptr_t) st->gui);
-             log_message(LOG_FILE, "a", msg_buf);
              ecore_con_eet_raw_send((void *) (uintptr_t) st->gui,
                    CLOUSEAU_BMP_DATA_STR, "BMP", value, length);
           }
@@ -413,9 +366,8 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
         app_info_st *info;
         EINA_LIST_FOREACH(gui, l, info)
           {
-             sprintf(msg_buf, "\t<%p> Sending BMP_DATA to <%p>",
+             DBG("<%p> Sending BMP_DATA to <%p>",
                    reply, (void *) (uintptr_t) info->ptr);
-             log_message(LOG_FILE, "a", msg_buf);
              ecore_con_eet_raw_send((void *) (uintptr_t) info->ptr,
                    CLOUSEAU_BMP_DATA_STR, "BMP", value, length);
           }
@@ -430,12 +382,33 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
 
 int main(void)
 {
-   daemonize();
+   /* Check single instance. */
+
+     {
+        int pid_file = open(LOCK_FILE, O_CREAT | O_RDWR, 0666);
+        int rc = flock(pid_file, LOCK_EX | LOCK_NB);
+        if ((pid_file == -1) || ((rc) && (EWOULDBLOCK == errno)))
+          {
+             fprintf(stderr, "Clouseaud already running.\n");
+             exit(0);
+          }
+     }
+   /* End of check single instance. */
+
    eina_init();
    ecore_init();
    ecore_con_init();
    clouseau_data_init();
    Ecore_Con_Server *server = NULL;
+   const char *log_dom = "clouseaud";
+
+
+   _clouseaud_log_dom = eina_log_domain_register(log_dom, EINA_COLOR_LIGHTBLUE);
+   if (_clouseaud_log_dom < 0)
+     {
+        EINA_LOG_ERR("Could not register log domain: %s", log_dom);
+        return EINA_FALSE;
+     }
 
    if (!(server = ecore_con_server_add(ECORE_CON_REMOTE_TCP,
                LISTEN_IP, PORT, NULL)))
