@@ -198,6 +198,9 @@ struct _Clouseau_Eo_Dbg_Info
 };
 /* END   - EO - debug structs */
 
+Eo_Dbg_Info *clouseau_eo_from_legacy_convert(Eina_List *root);
+Eina_List *clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root);
+
 /* Exported From Object information */
 EAPI void clouseau_object_information_free(Clouseau_Object *oinfo);
 EAPI Clouseau_Object * clouseau_object_information_get(Clouseau_Tree_Item *treeit);

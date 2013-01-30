@@ -969,6 +969,8 @@ _tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
         _free_app_tree_data(st->td);
         st->td = value;
 
+        /* FIXME-TOM: Convert to the new type */
+
         if (selected->ptr == td->app)
           {  /* Update GUI only if TREE_DATA is from SELECTED app */
              elm_genlist_clear(gui->gl);

@@ -49,13 +49,50 @@ clouseau_object_information_free(Clouseau_Object *oinfo)
    free(oinfo);
 }
 
-static Eina_List *
-_clouseau_eo_list_convert(Eo_Dbg_Info *root)
-{  /* This function converts a list of Eo_Dbg_Info
-    * to a list of Clouseau_Eo_Dbg_Info.
-    * This is required because we would like to keep the def of
-    * Eo_Dbg_Info in EO code. Thus, avoiding API/ABI error if user
-    * does not do a full update of Clouseau and EO                 */
+static void
+_clouseau_eo_from_legacy_convert_helper(Eo_Dbg_Info *new_root, Clouseau_Eo_Dbg_Info *root)
+{
+   if (root->type != EINA_VALUE_TYPE_LIST)
+     {
+        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info);
+     }
+   else
+     {
+        Eina_List *l;
+        Clouseau_Eo_Dbg_Info *eo;
+
+        new_root = EO_DBG_INFO_LIST_APPEND(new_root, root->name);
+        EINA_LIST_FOREACH(root->un_dbg_info.dbg.list, l, eo)
+          {
+             _clouseau_eo_from_legacy_convert_helper(new_root, eo);
+          }
+     }
+}
+
+Eo_Dbg_Info *
+clouseau_eo_from_legacy_convert(Eina_List *root)
+{
+   Eo_Dbg_Info *new_root = NULL;
+   Eina_List *l;
+   Clouseau_Eo_Dbg_Info *eo;
+
+   new_root = EO_DBG_INFO_LIST_APPEND(NULL, "");
+   EINA_LIST_FOREACH(root, l, eo)
+     {
+        _clouseau_eo_from_legacy_convert_helper(new_root, eo);
+     }
+
+   return new_root;
+}
+
+/* This function converts a list of Eo_Dbg_Info
+ * to a list of Clouseau_Eo_Dbg_Info.
+ * This is required because we would like to keep the def of
+ * Eo_Dbg_Info in EO code. Thus, avoiding API/ABI error if user
+ * does not do a full update of Clouseau and EO                 */
+Eina_List *
+clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root)
+{
    Eina_List *l;
    Eina_List *new_list = NULL;
    Eo_Dbg_Info *eo;
@@ -98,7 +135,7 @@ _clouseau_eo_list_convert(Eo_Dbg_Info *root)
         else if (info->type == EINA_VALUE_TYPE_LIST)
           {
              info->un_dbg_info.dbg.list =
-                _clouseau_eo_list_convert(eo);
+                clouseau_eo_to_legacy_convert(eo);
           }
         else
           {
@@ -122,7 +159,7 @@ clouseau_object_information_get(Clouseau_Tree_Item *treeit)
      return NULL;
 
    eo_do(obj, eo_dbg_info_get(eo_dbg_info));
-   treeit->eo_info = _clouseau_eo_list_convert(eo_dbg_info);
+   treeit->eo_info = clouseau_eo_to_legacy_convert(eo_dbg_info);
 
    eo_dbg_info_free(eo_dbg_info); /* Free original list */
 
@@ -320,7 +357,7 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Objec
            elm_object_text_set(lb, NULL);
 
         /* Convert Old format to Clouseau_eo */
-        treeit->eo_info = _clouseau_eo_list_convert(root);
+        treeit->eo_info = clouseau_eo_to_legacy_convert(root);
         eo_dbg_info_free(root);
      }
 }
