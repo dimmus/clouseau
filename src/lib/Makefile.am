@@ -9,8 +9,8 @@ AM_CPPFLAGS = \
 @EFL_CFLAGS@
 
 EXTRA_DIST = \
-	     Clouseau.h \
-	     clouseau_private.h
+	     clouseau_private.h \
+	     clouseau_private2.h
 
 pkgdir = $(libdir)/clouseau
 pkg_LTLIBRARIES = libclouseau.la libclouseau_client.la

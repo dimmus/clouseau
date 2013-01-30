@@ -1,5 +1,4 @@
 #include <Elementary_Cursor.h>
-#include "Clouseau.h"
 #include <Ecore_Con_Eet.h>
 
 #include "clouseau_private.h"

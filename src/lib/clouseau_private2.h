@@ -1,5 +1,11 @@
-#ifndef _LIBCLOUSEAU_H
-#define _LIBCLOUSEAU_H
+#ifndef _CLOUSEAU_PRIVATE2_H
+#define _CLOUSEAU_PRIVATE2_H
+
+/* This header replaces Clouseau.h
+ * The contents here are not public by any means, and the name indicated as if
+ * they were.
+ * We will "whitelist" parts from here to the public header when we'll need
+ * it. */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"

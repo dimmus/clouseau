@@ -1,7 +1,7 @@
-#ifndef EET_DATA_H
-#define EET_DATA_H
+#ifndef _CLOUSEAU_PRIVATE_H
+#define _CLOUSEAU_PRIVATE_H
 #include <Eo.h>
-#include "Clouseau.h"
+#include "clouseau_private2.h"
 #include <Ecore_Con_Eet.h>
 /*  Global constants  */
 #define BMP_FIELD "bmp"
