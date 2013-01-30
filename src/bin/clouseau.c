@@ -10,6 +10,33 @@
 #define TAKE_SCREENSHOT     "/images/take-screenshot.png"
 #define SCREENSHOT_MISSING  "/images/screenshot-missing.png"
 
+static int _clouseau_client_log_dom = -1;
+
+#ifdef CRITICAL
+#undef CRITICAL
+#endif
+#define CRITICAL(...) EINA_LOG_DOM_CRIT(_clouseau_client_log_dom, __VA_ARGS__)
+
+#ifdef ERR
+#undef ERR
+#endif
+#define ERR(...) EINA_LOG_DOM_ERR(_clouseau_client_log_dom, __VA_ARGS__)
+
+#ifdef WRN
+#undef WRN
+#endif
+#define WRN(...) EINA_LOG_DOM_WARN(_clouseau_client_log_dom, __VA_ARGS__)
+
+#ifdef INF
+#undef INF
+#endif
+#define INF(...) EINA_LOG_DOM_INFO(_clouseau_client_log_dom, __VA_ARGS__)
+
+#ifdef DBG
+#undef DBG
+#endif
+#define DBG(...) EINA_LOG_DOM_DBG(_clouseau_client_log_dom, __VA_ARGS__)
+
 static Evas_Object *prop_list = NULL;
 static Elm_Genlist_Item_Class _obj_info_itc;
 
@@ -226,7 +253,7 @@ _del(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
         return ECORE_CALLBACK_RENEW;
      }
 
-   printf("Lost server with ip <%s>!\n", ecore_con_server_ip_get(conn));
+   ERR("Lost server with ip <%s>!\n", ecore_con_server_ip_get(conn));
 
    ecore_con_server_del(conn);
    eet_svr = NULL; /* Global svr var */
@@ -1228,7 +1255,7 @@ _connect_to_daemon(gui_elements *g)
 
    if (!server)
      {
-        printf("could not connect to the server: %s\n", g->address);
+        ERR("could not connect to the server: %s\n", g->address);
         return EINA_FALSE;
      }
 
@@ -1237,7 +1264,7 @@ _connect_to_daemon(gui_elements *g)
    ece = ecore_con_eet_client_new(server);
    if (!ece)
      {
-        printf("could not connect to the server: %s\n", g->address);
+        ERR("could not connect to the server: %s\n", g->address);
         return EINA_FALSE;
      }
 
@@ -1653,7 +1680,7 @@ _show_gui(gui_elements *g, Eina_Bool work_offline)
 
         if (!_connect_to_daemon(g))
           {
-             printf("Failed to connect to server.\n");
+             ERR("Failed to connect to server.\n");
              elm_exit(); /* exit the program's main loop,runs in elm_run() */
           }
      }
@@ -1871,6 +1898,14 @@ _property_list_create(Evas_Object *panes)
 EAPI int
 elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 {  /* Create Client Window */
+   const char *log_dom = "clouseau_client";
+   _clouseau_client_log_dom = eina_log_domain_register(log_dom, EINA_COLOR_LIGHTBLUE);
+   if (_clouseau_client_log_dom < 0)
+     {
+        EINA_LOG_ERR("Could not register log domain: %s", log_dom);
+        return EINA_FALSE;
+     }
+
    Evas_Object *win, *panes;
 
    /* For inwin popup */

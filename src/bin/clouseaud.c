@@ -14,7 +14,7 @@ static Eina_List *gui = NULL; /* List of app_info_st for gui clients */
 static Eina_List *app = NULL; /* List of app_info_st for app clients */
 static Ecore_Con_Eet *eet_svr = NULL;
 
-int _clouseaud_log_dom = -1;
+static int _clouseaud_log_dom = -1;
 
 #ifdef CRITICAL
 #undef CRITICAL
