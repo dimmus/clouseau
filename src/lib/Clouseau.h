@@ -7,9 +7,6 @@
 
 #include <Elementary.h>
 
-#define ELM_INTERNAL_API_ARGESFSDFEFC
-#include <elm_widget.h>
-
 typedef struct _Clouseau_Evas_Props Clouseau_Evas_Props;
 typedef struct _Clouseau_Evas_Text_Props Clouseau_Evas_Text_Props;
 typedef struct _Clouseau_Evas_Image_Props Clouseau_Evas_Image_Props;
