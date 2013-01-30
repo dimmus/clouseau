@@ -153,9 +153,7 @@ struct _Clouseau_Tree_Item
 
 Eet_Data_Descriptor *clouseau_object_desc_make(void);
 void clouseau_object_desc_shutdown(void);
-void clouseau_object_information_list_clear(void);
 
 /* Public */
-EAPI Evas_Object *clouseau_object_information_list_add(Evas_Object *parent);
 EAPI void clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Object *lb);
 #endif
