@@ -680,7 +680,7 @@ _clouseau_eo_descs_make(void)
    EET_DATA_DESCRIPTOR_ADD_BASIC (eo_dbg_info_edd, Clouseau_Eo_Dbg_Info,
          "name", name, EET_T_STRING);
    EET_DATA_DESCRIPTOR_ADD_BASIC (eo_dbg_info_edd, Clouseau_Eo_Dbg_Info,
-         "type", type, EET_T_INT);
+         "type", type, EET_T_LONG_LONG);
 
    /* Here because clouseau_list_desc_make() uses eo_dbg_info_edd */
    eo_list_edd = clouseau_list_desc_make();
