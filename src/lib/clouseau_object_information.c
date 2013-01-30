@@ -194,7 +194,6 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Objec
    Clouseau_Object *oinfo;
    char buf[1024];
    unsigned int i;
-   Eo_Dbg_Info *root = EO_DBG_INFO_LIST_APPEND(NULL, "");
 
    if (!treeit->is_obj)
       return;
@@ -204,6 +203,7 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Objec
    /* This code is here only for backward compatibility and will be removed soon */
    if (!treeit->eo_info)
      {
+        Eo_Dbg_Info *root = EO_DBG_INFO_LIST_APPEND(NULL, "");
         /* Populate evas properties list */
         Eo_Dbg_Info *group = EO_DBG_INFO_LIST_APPEND(root, "Evas");
         Eo_Dbg_Info *node;
