@@ -1795,10 +1795,6 @@ _main_list_create(Evas_Object *panes)
 }
 
 static void
-_clouseau_object_dbg_string_build(Clouseau_Eo_Dbg_Info *eo,
-      char *buf, int buf_size);
-
-static void
 _obj_info_gl_selected(void *data EINA_UNUSED, Evas_Object *pobj EINA_UNUSED,
       void *event_info EINA_UNUSED)
 {

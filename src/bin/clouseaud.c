@@ -76,11 +76,6 @@ _daemon_cleanup(void)
 
    gui = app = NULL;
    eet_svr = NULL;
-
-   clouseau_data_shutdown();
-   ecore_con_shutdown();
-   ecore_shutdown();
-   eina_shutdown();
 }
 
 /* START - Ecore communication callbacks */
@@ -432,7 +427,13 @@ int main(void)
          _bmp_data_cb, NULL);
 
    ecore_main_loop_begin();
+
    _daemon_cleanup();
+
+   clouseau_data_shutdown();
+   ecore_con_shutdown();
+   ecore_shutdown();
+   eina_shutdown();
 
    return 0;
 }
