@@ -1853,7 +1853,7 @@ _obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
 {
    Clouseau_Eo_Dbg_Info *eo = data;
    char buf[1024];
-   _clouseau_object_dbg_string_build(eo, (char*)buf, 1024);
+   _clouseau_object_dbg_string_build(eo, buf, sizeof(buf));
    return strdup(buf);
 }
 
