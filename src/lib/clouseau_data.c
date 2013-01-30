@@ -30,14 +30,14 @@ static Eet_Data_Descriptor *eo_double_edd = NULL;
 static Eet_Data_Descriptor *eo_list_edd = NULL;
 static Eet_Data_Descriptor *eo_dbg_info_edd = NULL;
 
-static void
-_clouseau_eo_info_free(Clouseau_Eo_Dbg_Info *parent)
+EAPI void
+clouseau_eo_info_free(Clouseau_Eo_Dbg_Info *parent)
 {
    Clouseau_Eo_Dbg_Info *eo;
 
    if (parent->type == EINA_VALUE_TYPE_LIST)
      EINA_LIST_FREE(parent->un_dbg_info.dbg.list, eo)
-        _clouseau_eo_info_free(eo);
+        clouseau_eo_info_free(eo);
    else if (parent->type == EINA_VALUE_TYPE_STRING)
       eina_stringshare_del(parent->un_dbg_info.text.s);
 
@@ -51,8 +51,11 @@ _clouseau_tree_item_free(Clouseau_Tree_Item *parent)
    Clouseau_Tree_Item *treeit;
    Clouseau_Eo_Dbg_Info *eo;
 
+   if (parent->new_eo_info)
+      eo_dbg_info_free(parent->new_eo_info);
+
    EINA_LIST_FREE(parent->eo_info, eo)
-      _clouseau_eo_info_free(eo);
+      clouseau_eo_info_free(eo);
 
    EINA_LIST_FREE(parent->children, treeit)
      _clouseau_tree_item_free(treeit);

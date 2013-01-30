@@ -95,57 +95,6 @@ static void _cancel_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *e
 static void _ofl_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED);
 
 static void
-_clouseau_object_dbg_string_build(Clouseau_Eo_Dbg_Info *eo,
-      char *buf, int buf_size)
-{  /* Build a string from dbg-info in buffer, or return empty buffer */
-   int i;
-   *buf = '\0';
-   if (eo->type == EINA_VALUE_TYPE_STRING)
-           {  /* First set flags to say if got info from eo */
-              snprintf(buf, buf_size, "%s",
-                    eo->un_dbg_info.text.s);
-
-              for(i = 0; buf[i]; i++)
-                buf[i] = tolower(buf[i]);
-
-              snprintf(buf, buf_size, "%s: %s",
-                    eo->name, eo->un_dbg_info.text.s);
-           }
-   else if (eo->type == EINA_VALUE_TYPE_INT)
-           {
-              snprintf(buf, buf_size, "%s: %d",
-                    eo->name, eo->un_dbg_info.intg.i);
-           }
-   else if (eo->type == EINA_VALUE_TYPE_CHAR)
-     {
-
-         snprintf(buf, buf_size, "%s: %s",
-               eo->name, (eo->un_dbg_info.bl.b) ?
-               "TRUE" : "FALSE");
-     }
-   else if (eo->type == EINA_VALUE_TYPE_UINT64)
-
-     {
-         snprintf(buf, buf_size, "%s: %llx",
-               eo->name, eo->un_dbg_info.ptr.p);
-     }
-
-   else if (eo->type == EINA_VALUE_TYPE_DOUBLE)
-     {
-         snprintf(buf, buf_size, "%s: %.2f",
-               eo->name, eo->un_dbg_info.dbl.d);
-     }
-   else if (eo->type == EINA_VALUE_TYPE_LIST)
-     {
-         snprintf(buf, buf_size, "%s", eo->name);
-     }
-   else
-     {
-     }
-}
-
-
-static void
 _titlebar_string_set(gui_elements *g, Eina_Bool online)
 {
    if (online)
@@ -969,8 +918,6 @@ _tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
         _free_app_tree_data(st->td);
         st->td = value;
 
-        /* FIXME-TOM: Convert to the new type */
-
         if (selected->ptr == td->app)
           {  /* Update GUI only if TREE_DATA is from SELECTED app */
              elm_genlist_clear(gui->gl);
@@ -1308,16 +1255,28 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
 
           {
              /* Fetch properties of eo object */
-             Clouseau_Eo_Dbg_Info *eo;
              Eina_List *expand_list = NULL, *l, *l_prev;
              Elm_Object_Item *eo_it;
-             EINA_LIST_FOREACH(treeit->eo_info,l, eo)
+
+             /* Populate the property list. */
                {
-                  Elm_Genlist_Item_Type iflag = (eo->type == EINA_VALUE_TYPE_LIST) ?
-                     ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-                  eo_it = elm_genlist_item_append(prop_list, &_obj_info_itc, eo, NULL,
-                        iflag, _gl_selected, NULL);
-                  expand_list = eina_list_append(expand_list, eo_it);
+                  Eo_Dbg_Info *eo_root, *eo;
+                  Eina_Value_List eo_list;
+                  /* FIXME: Do it before and save it like that. Probably at the
+                   * eet conversion stage. */
+                  clouseau_tree_item_from_legacy_convert(treeit);
+                  eo_root = treeit->new_eo_info;
+
+                  eina_value_pget(&(eo_root->value), &eo_list);
+
+                  EINA_LIST_FOREACH(eo_list.list, l, eo)
+                    {
+                       Elm_Genlist_Item_Type iflag = (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST) ?
+                          ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
+                       eo_it = elm_genlist_item_append(prop_list, &_obj_info_itc, eo, NULL,
+                             iflag, _gl_selected, NULL);
+                       expand_list = eina_list_append(expand_list, eo_it);
+                    }
                }
              EINA_LIST_REVERSE_FOREACH_SAFE(expand_list, l, l_prev, eo_it)
                {
@@ -1808,16 +1767,21 @@ static void
 _obj_info_gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
-   Eina_List *itr;
 
-   Clouseau_Eo_Dbg_Info *eo = elm_object_item_data_get(glit);
-   Clouseau_Eo_Dbg_Info *child;
-   EINA_LIST_FOREACH(eo->un_dbg_info.dbg.list, itr, child)
      {
-        Elm_Genlist_Item_Type iflag = (child->type == EINA_VALUE_TYPE_LIST) ?
-           ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-        elm_genlist_item_append(prop_list, &_obj_info_itc, child, glit,
-              iflag, _obj_info_gl_selected, NULL);
+        Eina_List *l;
+        Eina_Value_List eo_list;
+        Eo_Dbg_Info *eo_root, *eo;
+        eo_root = elm_object_item_data_get(glit);
+        eina_value_pget(&(eo_root->value), &eo_list);
+
+        EINA_LIST_FOREACH(eo_list.list, l, eo)
+          {
+             Elm_Genlist_Item_Type iflag = (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST) ?
+                ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
+             elm_genlist_item_append(prop_list, &_obj_info_itc, eo, glit,
+                   iflag, _obj_info_gl_selected, NULL);
+          }
      }
 }
 
@@ -1853,9 +1817,19 @@ static char *
 _obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
-   Clouseau_Eo_Dbg_Info *eo = data;
-   char buf[1024];
-   _clouseau_object_dbg_string_build(eo, buf, sizeof(buf));
+   Eo_Dbg_Info *eo = data;
+   char buf[1024] = "";
+   if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
+     {
+        return strdup(eo->name);
+     }
+   else
+     {
+        char *strval = eina_value_to_string(&(eo->value));
+        snprintf(buf, sizeof(buf), "%s: %s", eo->name, strval);
+        free(strval);
+     }
+
    return strdup(buf);
 }
 

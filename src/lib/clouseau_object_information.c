@@ -52,11 +52,27 @@ clouseau_object_information_free(Clouseau_Object *oinfo)
 static void
 _clouseau_eo_from_legacy_convert_helper(Eo_Dbg_Info *new_root, Clouseau_Eo_Dbg_Info *root)
 {
-   if (root->type != EINA_VALUE_TYPE_LIST)
+   if (root->type == EINA_VALUE_TYPE_STRING)
      {
-        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info);
+        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.text.s);
      }
-   else
+   else if (root->type == EINA_VALUE_TYPE_INT)
+     {
+        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.intg.i);
+     }
+   else if (root->type == EINA_VALUE_TYPE_CHAR)
+     {
+        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.bl.b);
+     }
+   else if (root->type == EINA_VALUE_TYPE_UINT64)
+     {
+        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.ptr.p);
+     }
+   else if (root->type == EINA_VALUE_TYPE_DOUBLE)
+     {
+        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.dbl.d);
+     }
+   else if (root->type == EINA_VALUE_TYPE_LIST)
      {
         Eina_List *l;
         Clouseau_Eo_Dbg_Info *eo;
@@ -67,11 +83,19 @@ _clouseau_eo_from_legacy_convert_helper(Eo_Dbg_Info *new_root, Clouseau_Eo_Dbg_I
              _clouseau_eo_from_legacy_convert_helper(new_root, eo);
           }
      }
+   else
+     {
+        // FIXME
+        printf("Oops, wrong type.\n");
+     }
 }
 
-Eo_Dbg_Info *
-clouseau_eo_from_legacy_convert(Eina_List *root)
+EAPI void
+clouseau_tree_item_from_legacy_convert(Clouseau_Tree_Item *treeit)
 {
+   if (!treeit->eo_info)
+      return;
+   Eina_List *root = treeit->eo_info;
    Eo_Dbg_Info *new_root = NULL;
    Eina_List *l;
    Clouseau_Eo_Dbg_Info *eo;
@@ -80,9 +104,12 @@ clouseau_eo_from_legacy_convert(Eina_List *root)
    EINA_LIST_FOREACH(root, l, eo)
      {
         _clouseau_eo_from_legacy_convert_helper(new_root, eo);
+        clouseau_eo_info_free(eo);
      }
 
-   return new_root;
+   eina_list_free(treeit->eo_info);
+   treeit->eo_info = NULL;
+   treeit->new_eo_info = new_root;
 }
 
 /* This function converts a list of Eo_Dbg_Info
@@ -90,7 +117,7 @@ clouseau_eo_from_legacy_convert(Eina_List *root)
  * This is required because we would like to keep the def of
  * Eo_Dbg_Info in EO code. Thus, avoiding API/ABI error if user
  * does not do a full update of Clouseau and EO                 */
-Eina_List *
+EAPI Eina_List *
 clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root)
 {
    Eina_List *l;
@@ -201,7 +228,7 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Objec
    oinfo = treeit->info;
 
    /* This code is here only for backward compatibility and will be removed soon */
-   if (!treeit->eo_info)
+   if (!treeit->eo_info && !treeit->new_eo_info)
      {
         Eo_Dbg_Info *root = EO_DBG_INFO_LIST_APPEND(NULL, "");
         /* Populate evas properties list */
@@ -357,8 +384,7 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Objec
            elm_object_text_set(lb, NULL);
 
         /* Convert Old format to Clouseau_eo */
-        treeit->eo_info = clouseau_eo_to_legacy_convert(root);
-        eo_dbg_info_free(root);
+        treeit->new_eo_info = root;
      }
 }
 

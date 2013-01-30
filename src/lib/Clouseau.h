@@ -143,6 +143,7 @@ struct _Clouseau_Tree_Item
 {
    Eina_List *children;
    Eina_List *eo_info;          /* A list of Eo_Dbg_Info, to be shown */
+   Eo_Dbg_Info *new_eo_info;
    const char *name;
    unsigned long long ptr;      /* Just a ptr, we keep the value but not accessing mem */
    Clouseau_Object *info;
