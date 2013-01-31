@@ -7,10 +7,6 @@
  * We will "whitelist" parts from here to the public header when we'll need
  * it. */
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
-
 #include <Elementary.h>
 
 typedef struct _Clouseau_Evas_Props Clouseau_Evas_Props;

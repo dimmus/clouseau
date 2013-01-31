@@ -1,4 +1,6 @@
-#include "clouseau_private2.h"
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
 #include <dlfcn.h>
 #include <execinfo.h>
 
@@ -8,7 +10,7 @@
 #include <Elementary.h>
 #include <Ecore_X.h>
 
-#include "clouseau_private.h"
+#include "Clouseau.h"
 
 static Eina_Bool _elm_is_init = EINA_FALSE;
 static const char *_my_app_name = NULL;
