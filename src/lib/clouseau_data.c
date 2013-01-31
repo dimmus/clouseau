@@ -3,6 +3,7 @@
 
 static int clouseau_init_count = 0;
 
+static Eet_Data_Descriptor *clouseau_union_edd = NULL;
 static Eet_Data_Descriptor *clouseau_connect_edd = NULL;
 static Eet_Data_Descriptor *clouseau_app_add_edd = NULL;
 static Eet_Data_Descriptor *clouseau_data_req_edd = NULL;
@@ -477,6 +478,7 @@ clouseau_data_descriptors_shutdown(void)
    eet_data_descriptor_free(eo_double_edd);
    eet_data_descriptor_free(eo_list_edd);
    eet_data_descriptor_free(eo_dbg_info_edd);
+   eet_data_descriptor_free(clouseau_union_edd);
 
    eet_data_descriptor_free(clouseau_connect_edd);
    eet_data_descriptor_free(clouseau_app_add_edd);

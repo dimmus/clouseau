@@ -1,7 +1,7 @@
 #include "clouseau_data_legacy.h"
 
 Eet_Data_Descriptor *clouseau_object_edd = NULL;
-Eet_Data_Descriptor *clouseau_union_edd = NULL;
+static Eet_Data_Descriptor *clouseau_union_edd = NULL;
 static Eet_Data_Descriptor *clouseau_textblock_edd = NULL;
 static Eet_Data_Descriptor *clouseau_edje_edd = NULL;
 static Eet_Data_Descriptor *clouseau_image_edd = NULL;
