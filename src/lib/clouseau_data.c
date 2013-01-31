@@ -29,10 +29,10 @@ clouseau_eo_info_free(Clouseau_Eo_Dbg_Info *parent)
 {
    Clouseau_Eo_Dbg_Info *eo;
 
-   if (parent->type == EINA_VALUE_TYPE_LIST)
+   if (parent->type == (uintptr_t) EINA_VALUE_TYPE_LIST)
      EINA_LIST_FREE(parent->un_dbg_info.dbg.list, eo)
         clouseau_eo_info_free(eo);
-   else if (parent->type == EINA_VALUE_TYPE_STRING)
+   else if (parent->type == (uintptr_t) EINA_VALUE_TYPE_STRING)
       eina_stringshare_del(parent->un_dbg_info.text.s);
 
    eina_stringshare_del(parent->name);
@@ -407,7 +407,7 @@ _clouseau_eo_descs_make(void)
    EET_DATA_DESCRIPTOR_ADD_BASIC (eo_dbg_info_edd, Clouseau_Eo_Dbg_Info,
          "name", name, EET_T_STRING);
    EET_DATA_DESCRIPTOR_ADD_BASIC (eo_dbg_info_edd, Clouseau_Eo_Dbg_Info,
-         "type", type, EET_T_LONG_LONG);
+         "type", type, EET_T_ULONG_LONG);
 
    /* Here because clouseau_list_desc_make() uses eo_dbg_info_edd */
    eo_list_edd = clouseau_list_desc_make();

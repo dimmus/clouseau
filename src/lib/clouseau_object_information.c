@@ -51,27 +51,28 @@ clouseau_object_information_free(Clouseau_Object *oinfo)
 static void
 _clouseau_eo_from_legacy_convert_helper(Eo_Dbg_Info *new_root, Clouseau_Eo_Dbg_Info *root)
 {
-   if (root->type == EINA_VALUE_TYPE_STRING)
+   const Eina_Value_Type *type = (void *) (uintptr_t) root->type;
+   if (type == EINA_VALUE_TYPE_STRING)
      {
-        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.text.s);
+        EO_DBG_INFO_APPEND(new_root, root->name, type, root->un_dbg_info.text.s);
      }
-   else if (root->type == EINA_VALUE_TYPE_INT)
+   else if (type == EINA_VALUE_TYPE_INT)
      {
-        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.intg.i);
+        EO_DBG_INFO_APPEND(new_root, root->name, type, root->un_dbg_info.intg.i);
      }
-   else if (root->type == EINA_VALUE_TYPE_CHAR)
+   else if (type == EINA_VALUE_TYPE_CHAR)
      {
-        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.bl.b);
+        EO_DBG_INFO_APPEND(new_root, root->name, type, root->un_dbg_info.bl.b);
      }
-   else if (root->type == EINA_VALUE_TYPE_UINT64)
+   else if (type == EINA_VALUE_TYPE_UINT64)
      {
-        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.ptr.p);
+        EO_DBG_INFO_APPEND(new_root, root->name, type, root->un_dbg_info.ptr.p);
      }
-   else if (root->type == EINA_VALUE_TYPE_DOUBLE)
+   else if (type == EINA_VALUE_TYPE_DOUBLE)
      {
-        EO_DBG_INFO_APPEND(new_root, root->name, root->type, root->un_dbg_info.dbl.d);
+        EO_DBG_INFO_APPEND(new_root, root->name, type, root->un_dbg_info.dbl.d);
      }
-   else if (root->type == EINA_VALUE_TYPE_LIST)
+   else if (type == EINA_VALUE_TYPE_LIST)
      {
         Eina_List *l;
         Clouseau_Eo_Dbg_Info *eo;
@@ -131,34 +132,35 @@ clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root)
    EINA_LIST_FOREACH(root_list.list, l, eo)
      {
         Clouseau_Eo_Dbg_Info *info = calloc(1, sizeof(*info));
-        info->type = eina_value_type_get(&(eo->value));
+        info->type = (uintptr_t) eina_value_type_get(&(eo->value));
         info->name = eina_stringshare_add(eo->name);
+        const Eina_Value_Type *type = (void *) (uintptr_t) info->type;
 
-        if (info->type == EINA_VALUE_TYPE_STRING)
+        if (type == EINA_VALUE_TYPE_STRING)
           {
              const char *tmp;
              eina_value_get(&(eo->value), &tmp);
              info->un_dbg_info.text.s = eina_stringshare_add(tmp);
           }
-        else if (info->type == EINA_VALUE_TYPE_INT)
+        else if (type == EINA_VALUE_TYPE_INT)
           {
              eina_value_get(&(eo->value), &(info->un_dbg_info.intg.i));
           }
-        else if (info->type == EINA_VALUE_TYPE_CHAR)
+        else if (type == EINA_VALUE_TYPE_CHAR)
           {
              eina_value_get(&(eo->value), &(info->un_dbg_info.bl.b));
           }
-        else if (info->type == EINA_VALUE_TYPE_UINT64)
+        else if (type == EINA_VALUE_TYPE_UINT64)
           {
              uint64_t tmp;
              eina_value_get(&(eo->value), &tmp);
              info->un_dbg_info.ptr.p = tmp;
           }
-        else if (info->type == EINA_VALUE_TYPE_DOUBLE)
+        else if (type == EINA_VALUE_TYPE_DOUBLE)
           {
              eina_value_get(&(eo->value), &(info->un_dbg_info.dbl.d));
           }
-        else if (info->type == EINA_VALUE_TYPE_LIST)
+        else if (type == EINA_VALUE_TYPE_LIST)
           {
              info->un_dbg_info.dbg.list =
                 clouseau_eo_to_legacy_convert(eo);

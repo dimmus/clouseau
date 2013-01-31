@@ -184,7 +184,7 @@ typedef struct _Clouseau_Eo_Dbg_Info Clouseau_Eo_Dbg_Info;
 struct _Clouseau_Eo_Dbg_Info
 {  /* Debug info composed of a list of Eo_Dbg_Info */
    const char *name;
-   const Eina_Value_Type *type;
+   unsigned long long type;
 
    union _un_dbg_info
      {
