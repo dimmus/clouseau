@@ -10,7 +10,8 @@ AM_CPPFLAGS = \
 
 EXTRA_DIST = \
 	     clouseau_private.h \
-	     clouseau_private2.h
+	     clouseau_private2.h \
+	     clouseau_data_legacy.h
 
 pkgdir = $(libdir)/clouseau
 pkg_LTLIBRARIES = libclouseau.la libclouseau_client.la
@@ -18,6 +19,7 @@ pkg_LTLIBRARIES = libclouseau.la libclouseau_client.la
 libclouseau_la_SOURCES = \
 			 clouseau_client.c \
 			 clouseau_object_information.c \
+			 clouseau_data_legacy.c \
 			 clouseau_data.c
 
 libclouseau_la_LDFLAGS = -module -avoid-version -rdynamic
@@ -26,6 +28,7 @@ libclouseau_la_LIBADD = @EFL_LIBS@
 libclouseau_la_CFLAGS = @EFL_CFLAGS@
 
 libclouseau_client_la_SOURCES = clouseau_object_information.c \
+				clouseau_data_legacy.c \
 				clouseau_data.c
 
 libclouseau_client_la_DEPENDENCIES = $(top_builddir)/config.h

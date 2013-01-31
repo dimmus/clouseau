@@ -155,7 +155,6 @@ struct _Clouseau_Tree_Item
    Eina_Bool is_visible;
 };
 
-Eet_Data_Descriptor *clouseau_object_desc_make(void);
 void clouseau_object_desc_shutdown(void);
 
 /* Public */
