@@ -14,5 +14,5 @@ AM_CPPFLAGS = \
 -DPACKAGE_DATA_DIR=\"$(datadir)/$(PACKAGE)\" \
 @EFL_CFLAGS@
 
-clouseaud_LDADD = $(top_builddir)/src/lib/libclouseau_client.la @EFL_LIBS@
-clouseau_client_LDADD = $(top_builddir)/src/lib/libclouseau_client.la @EFL_LIBS@
+clouseaud_LDADD = $(top_builddir)/src/lib/libclouseau.la @EFL_LIBS@
+clouseau_client_LDADD = $(top_builddir)/src/lib/libclouseau.la @EFL_LIBS@

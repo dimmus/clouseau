@@ -7,7 +7,7 @@ then
 else
 # Start clouseau daemon (will start single instance), then run app
    clouseaud &
-   LD_PRELOAD="$1/libclouseau.so" "\$@"
+   LD_PRELOAD="$1/libclouseau_preload.so" "\$@"
 fi
 ENDOFMESSAGE
 
