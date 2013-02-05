@@ -181,10 +181,21 @@ typedef struct _Clouseau_st_dbg_list Clouseau_st_dbg_list;
 typedef struct _Clouseau_Eo_Dbg_Info Clouseau_Eo_Dbg_Info;
 /* END   - EO - debug structs */
 
+typedef enum
+{
+   CLOUSEAU_DBG_INFO_TYPE_STRING,
+   CLOUSEAU_DBG_INFO_TYPE_INT,
+   CLOUSEAU_DBG_INFO_TYPE_BOOL,
+   CLOUSEAU_DBG_INFO_TYPE_PTR,
+   CLOUSEAU_DBG_INFO_TYPE_DOUBLE,
+   CLOUSEAU_DBG_INFO_TYPE_LIST,
+   CLOUSEAU_DBG_INFO_TYPE_UNKNOWN
+} Clouseau_Dbg_Info_Type;
+
 struct _Clouseau_Eo_Dbg_Info
 {  /* Debug info composed of a list of Eo_Dbg_Info */
    const char *name;
-   unsigned long long type;
+   Clouseau_Dbg_Info_Type type;
 
    union _un_dbg_info
      {
