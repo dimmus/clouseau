@@ -141,134 +141,6 @@ _load_list(void)
    return tree;  /* User has to call clouseau_tree_free() */
 }
 
-Eina_Bool
-_add(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
-      EINA_UNUSED Ecore_Con_Server *conn)
-{
-/*   ecore_con_server_data_size_max_set(conn, -1); */
-   connect_st t = { getpid(), _my_app_name };
-   ecore_con_eet_send(reply, CLOUSEAU_APP_CLIENT_CONNECT_STR, &t);
-
-   return ECORE_CALLBACK_RENEW;
-}
-
-Eina_Bool
-_del(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      Ecore_Con_Server *conn)
-{
-   if (!conn)
-     {
-        printf("Failed to establish connection to the server.\nExiting.\n");
-        ecore_main_loop_quit();
-        return ECORE_CALLBACK_RENEW;
-     }
-
-   printf("Lost server with ip <%s>\n", ecore_con_server_ip_get(conn));
-
-   ecore_con_server_del(conn);
-
-   ecore_main_loop_quit();
-   return ECORE_CALLBACK_RENEW;
-}
-
-void
-_data_req_cb(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
-      EINA_UNUSED const char *protocol_name, void *value)
-{  /* data req includes ptr to GUI, to tell which client asking */
-   data_req_st *req = value;
-   tree_data_st t;
-   t.gui = req->gui;  /* GUI client requesting data from daemon */
-   t.app = req->app;  /* APP client sending data to daemon */
-   t.tree = _load_list();
-
-   if (t.tree)
-     {  /* Reply with tree data to data request */
-        ecore_con_eet_send(reply, CLOUSEAU_TREE_DATA_STR, &t);
-        clouseau_data_tree_free(t.tree);
-     }
-}
-
-void
-_highlight_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      EINA_UNUSED const char *protocol_name, void *value)
-{  /* Highlight msg contains PTR of object to highlight */
-   highlight_st *ht = value;
-   Evas_Object *obj = (Evas_Object *) (uintptr_t) ht->object;
-   clouseau_data_object_highlight(obj, NULL, NULL);
-}
-
-void
-_bmp_req_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      EINA_UNUSED const char *protocol_name, void *value)
-{  /* Bitmap req msg contains PTR of Ecore Evas */
-   bmp_req_st *req = value;
-   Evas_Coord w, h;
-   unsigned int size = 0;
-   void *bmp = _canvas_bmp_get((Ecore_Evas *) (uintptr_t)
-         req->object, &w, &h);
-
-   bmp_info_st t = { req->gui,
-        req->app, req->object , req->ctr, w, h,
-        NULL,NULL, NULL, 1.0,
-        NULL, NULL, NULL, NULL, NULL, NULL };
-
-   void *p = clouseau_data_packet_compose(CLOUSEAU_BMP_DATA_STR,
-         &t, &size, bmp, (w * h * sizeof(int)));
-
-
-   if (p)
-     {
-        ecore_con_eet_raw_send(reply, CLOUSEAU_BMP_DATA_STR, "BMP", p, size);
-        free(p);
-     }
-
-   if (bmp)
-     free(bmp);
-}
-
-static Eina_Bool
-_connect_to_daemon(void)
-{
-   Ecore_Con_Server *server;
-   const char *address = LOCALHOST;
-   Ecore_Con_Eet *eet_svr = NULL;
-
-   eina_init();
-   ecore_init();
-   ecore_con_init();
-
-   server = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
-         LOCALHOST, PORT, NULL);
-
-   if (!server)
-     {
-        printf("could not connect to the server: %s, port %d.\n",
-              address, PORT);
-        return EINA_FALSE;
-     }
-
-   eet_svr = ecore_con_eet_client_new(server);
-   if (!eet_svr)
-     {
-        printf("could not create con_eet client.\n");
-        return EINA_FALSE;
-     }
-
-   clouseau_register_descs(eet_svr);
-
-   /* Register callbacks for ecore_con_eet */
-   ecore_con_eet_server_connect_callback_add(eet_svr, _add, NULL);
-   ecore_con_eet_server_disconnect_callback_add(eet_svr, _del, NULL);
-   ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_DATA_REQ_STR,
-         _data_req_cb, NULL);
-   ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_HIGHLIGHT_STR,
-         _highlight_cb, NULL);
-   ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_BMP_REQ_STR,
-         _bmp_req_cb, NULL);
-
-   return EINA_TRUE;
-}
-
 /** PRELOAD functions. */
 
 /* Hook on the elm_init
@@ -301,9 +173,11 @@ ecore_main_loop_begin(void)
         _my_app_name = "clouseau";
      }
 
-   clouseau_data_init();
+   clouseau_init(_my_app_name);
+   clouseau_app_data_req_cb_set(_load_list);
+   clouseau_app_canvas_bmp_cb_set(_canvas_bmp_get);
 
-   if(!_connect_to_daemon())
+   if(!clouseau_app_connect())
      {
         printf("Failed to connect to server.\n");
         return;
@@ -311,7 +185,7 @@ ecore_main_loop_begin(void)
 
    _ecore_main_loop_begin();
 
-   clouseau_data_shutdown();
+   clouseau_shutdown();
 
    return;
 }

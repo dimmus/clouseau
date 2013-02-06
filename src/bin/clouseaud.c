@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <Ecore_Con_Eet.h>
 
-#include "clouseau_private.h"
+#include "Clouseau.h"
 
 #define LOCK_FILE "/tmp/clouseaud.pid"
 

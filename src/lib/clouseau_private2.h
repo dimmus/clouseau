@@ -1,13 +1,15 @@
 #ifndef _CLOUSEAU_PRIVATE2_H
 #define _CLOUSEAU_PRIVATE2_H
 
-/* This header replaces Clouseau.h
+#include <Elementary.h>
+
+/* This header replaces the old Clouseau.h
  * The contents here are not public by any means, and the name indicated as if
  * they were.
  * We will "whitelist" parts from here to the public header when we'll need
  * it. */
 
-#include <Elementary.h>
+#include "Clouseau.h"
 
 typedef struct _Clouseau_Evas_Props Clouseau_Evas_Props;
 typedef struct _Clouseau_Evas_Text_Props Clouseau_Evas_Text_Props;
@@ -17,10 +19,6 @@ typedef struct _Clouseau_Edje_Props Clouseau_Edje_Props;
 typedef struct _Clouseau_Evas_Map_Point_Props Clouseau_Evas_Map_Point_Props;
 
 typedef struct _Clouseau_Extra_Props Clouseau_Extra_Props;
-typedef struct _Clouseau_Object Clouseau_Object;
-typedef struct _Clouseau_Bitmap Clouseau_Bitmap;
-
-typedef struct _Clouseau_Tree_Item Clouseau_Tree_Item;
 
 /* The color of the highlight */
 enum {
@@ -33,17 +31,6 @@ enum {
     * Currently we don't want any. */
    PADDING = 0,
 };
-
-typedef enum
-{
-   CLOUSEAU_OBJ_TYPE_UNKNOWN,
-   CLOUSEAU_OBJ_TYPE_OTHER,
-   CLOUSEAU_OBJ_TYPE_ELM,
-   CLOUSEAU_OBJ_TYPE_TEXT,
-   CLOUSEAU_OBJ_TYPE_IMAGE,
-   CLOUSEAU_OBJ_TYPE_EDJE,
-   CLOUSEAU_OBJ_TYPE_TEXTBLOCK
-} Clouseau_Object_Type;
 
 struct _Clouseau_Evas_Map_Point_Props
 {
@@ -128,27 +115,6 @@ struct _Clouseau_Object
 {
    Clouseau_Evas_Props evas_props;
    Clouseau_Extra_Props extra_props;
-};
-
-struct _Clouseau_Bitmap
-{
-   unsigned char  *bmp;
-   int bmp_count; /* is (w * h), for EET_DATA_DESCRIPTOR_ADD_BASIC_VAR_ARRAY */
-   Evas_Coord w;
-   Evas_Coord h;
-};
-
-struct _Clouseau_Tree_Item
-{
-   Eina_List *children;
-   Eina_List *eo_info;          /* A list of Eo_Dbg_Info, to be shown */
-   Eo_Dbg_Info *new_eo_info;
-   const char *name;
-   unsigned long long ptr;      /* Just a ptr, we keep the value but not accessing mem */
-   Clouseau_Object *info;
-   Eina_Bool is_obj;
-   Eina_Bool is_clipper;
-   Eina_Bool is_visible;
 };
 
 void clouseau_object_desc_shutdown(void);

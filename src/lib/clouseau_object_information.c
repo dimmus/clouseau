@@ -191,23 +191,6 @@ clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root)
    return new_list;
 }
 
-EAPI Clouseau_Object *
-clouseau_object_information_get(Clouseau_Tree_Item *treeit)
-{
-   Evas_Object *obj = (void*) (uintptr_t) treeit->ptr;
-   Eo_Dbg_Info *eo_dbg_info = EO_DBG_INFO_LIST_APPEND(NULL, "");
-
-   if (!treeit->is_obj)
-     return NULL;
-
-   eo_do(obj, eo_dbg_info_get(eo_dbg_info));
-   treeit->eo_info = clouseau_eo_to_legacy_convert(eo_dbg_info);
-
-   eo_dbg_info_free(eo_dbg_info); /* Free original list */
-
-   return NULL;
-}
-
 static const struct {
    const char *text;
    Evas_Object_Pointer_Mode mode;

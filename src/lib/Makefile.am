@@ -28,10 +28,7 @@ libclouseau_la_CFLAGS = @EFL_CFLAGS@
 libclouseau_la_LDFLAGS = -no-undefined @lt_enable_auto_import@ -version-info @version_info@ @release_info@
 
 libclouseau_preload_la_SOURCES = \
-			 clouseau_preload.c \
-			 clouseau_object_information.c \
-			 clouseau_data_legacy.c \
-			 clouseau_data.c
+			 clouseau_preload.c
 
 libclouseau_preload_la_LDFLAGS = -module -avoid-version -rdynamic
 libclouseau_preload_la_DEPENDENCIES = $(top_builddir)/config.h libclouseau.la

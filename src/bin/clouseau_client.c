@@ -1,7 +1,11 @@
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include <Elementary_Cursor.h>
 #include <Ecore_Con_Eet.h>
 
-#include "clouseau_private.h"
+#include "Clouseau.h"
 
 #define CLIENT_NAME         "Clouseau Client"
 
