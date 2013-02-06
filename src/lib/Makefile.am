@@ -20,6 +20,7 @@ lib_LTLIBRARIES = libclouseau.la
 libclouseau_la_SOURCES = clouseau_object_information.c \
 				clouseau_data_legacy.c \
 				clouseau.c \
+				clouseau_app.c \
 				clouseau_data.c
 
 libclouseau_la_DEPENDENCIES = $(top_builddir)/config.h
