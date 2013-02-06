@@ -50,7 +50,7 @@ struct _Clouseau_Tree_Item
    Eina_Bool is_visible;
 };
 
-EAPI Eina_Bool clouseau_app_connect(void);
+EAPI Eina_Bool clouseau_app_connect(const char *appname);
 EAPI void clouseau_app_data_req_cb_set(Eina_List *(*cb)(void));
 EAPI void clouseau_app_canvas_bmp_cb_set(void *(*cb)(Ecore_Evas *ee, Evas_Coord *w_out, Evas_Coord *h_out));
 EAPI Clouseau_Object *clouseau_object_information_get(Clouseau_Tree_Item *treeit);
@@ -59,7 +59,7 @@ EAPI Eina_Bool clouseau_daemon_connect(void);
 EAPI Eina_Bool clouseau_client_connect(void);
 EAPI Eina_Bool clouseau_disconnect(void);
 
-EAPI int clouseau_init(const char *appname);
+EAPI int clouseau_init(void);
 EAPI int clouseau_shutdown(void);
 
 /* FIXME: Remove. */

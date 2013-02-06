@@ -173,11 +173,11 @@ ecore_main_loop_begin(void)
         _my_app_name = "clouseau";
      }
 
-   clouseau_init(_my_app_name);
+   clouseau_init();
    clouseau_app_data_req_cb_set(_load_list);
    clouseau_app_canvas_bmp_cb_set(_canvas_bmp_get);
 
-   if(!clouseau_app_connect())
+   if(!clouseau_app_connect(_my_app_name))
      {
         printf("Failed to connect to server.\n");
         return;

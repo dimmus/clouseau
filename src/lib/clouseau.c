@@ -265,11 +265,13 @@ clouseau_app_canvas_bmp_cb_set(void *(*cb)(Ecore_Evas *ee, Evas_Coord *w_out, Ev
 }
 
 EAPI Eina_Bool
-clouseau_app_connect(void)
+clouseau_app_connect(const char *appname)
 {
    Ecore_Con_Server *server;
    const char *address = LOCALHOST;
    Ecore_Con_Eet *eet_svr = NULL;
+
+   eina_stringshare_replace(&_my_appname, appname);
 
    server = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
          LOCALHOST, PORT, NULL);
@@ -322,12 +324,10 @@ clouseau_disconnect(void)
 }
 
 EAPI int
-clouseau_init(const char *appname)
+clouseau_init(void)
 {
    if (++_clouseau_init_count == 1)
      {
-        _my_appname = eina_stringshare_add(appname);
-
         eina_init();
         ecore_init();
         ecore_con_init();
