@@ -11,6 +11,8 @@
 
 #include "Clouseau.h"
 
+#define CLOUSEAUD_READY_STR "READY"
+
 typedef struct _Clouseau_Evas_Props Clouseau_Evas_Props;
 typedef struct _Clouseau_Evas_Text_Props Clouseau_Evas_Text_Props;
 typedef struct _Clouseau_Evas_Image_Props Clouseau_Evas_Image_Props;

@@ -25,7 +25,7 @@ libclouseau_la_SOURCES = clouseau_object_information.c \
 
 libclouseau_la_DEPENDENCIES = $(top_builddir)/config.h
 libclouseau_la_LIBADD = @EFL_LIBS@
-libclouseau_la_CFLAGS = @EFL_CFLAGS@
+libclouseau_la_CFLAGS = @EFL_CFLAGS@ -DCLOUSEAUD_PATH=\"$(bindir)/clouseaud\"
 libclouseau_la_LDFLAGS = -no-undefined @lt_enable_auto_import@ -version-info @version_info@ @release_info@
 
 libclouseau_preload_la_SOURCES = \

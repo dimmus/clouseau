@@ -368,6 +368,14 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
 }
 /* END   - Ecore communication callbacks */
 
+static void
+_clouseaud_send_ready(void)
+{
+   printf("%s", CLOUSEAUD_READY_STR);
+   printf("\n");
+   fflush(stdout);
+}
+
 int main(void)
 {
    /* Check single instance. */
@@ -377,7 +385,7 @@ int main(void)
         int rc = lockf(pid_file, F_TLOCK, 0);
         if ((pid_file == -1) || rc)
           {
-             fprintf(stderr, "Clouseaud already running.\n");
+             _clouseaud_send_ready();
              exit(0);
           }
      }
@@ -425,6 +433,9 @@ int main(void)
          _bmp_req_cb, NULL);
    ecore_con_eet_raw_data_callback_add(eet_svr, CLOUSEAU_BMP_DATA_STR,
          _bmp_data_cb, NULL);
+
+   /* Print to stdout which will be read by the monitoring app. */
+   _clouseaud_send_ready();
 
    ecore_main_loop_begin();
 

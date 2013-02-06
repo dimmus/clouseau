@@ -378,43 +378,85 @@ _bmp_req_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
      free(bmp);
 }
 
+typedef struct
+{
+   Ecore_Event_Handler *ee_handle;
+   Ecore_Exe *daemon_exe;
+} Msg_From_Daemon_Data;
+
+static void
+_msg_from_daemon_data_free(Msg_From_Daemon_Data *msg_data)
+{
+   ecore_event_handler_del(msg_data->ee_handle);
+   ecore_exe_free(msg_data->daemon_exe);
+   free(msg_data);
+}
+
+static Eina_Bool
+_msg_from_daemon(void *data, int type EINA_UNUSED, void *event)
+{
+   Ecore_Exe_Event_Data *msg = (Ecore_Exe_Event_Data *)event;
+
+   if (!strncmp(msg->data, CLOUSEAUD_READY_STR, sizeof(CLOUSEAUD_READY_STR)))
+     {
+        Ecore_Con_Server *server;
+        const char *address = LOCALHOST;
+        Ecore_Con_Eet *eet_svr = NULL;
+
+        server = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
+              LOCALHOST, PORT, NULL);
+
+        if (!server)
+          {
+             printf("could not connect to the server: %s, port %d.\n",
+                   address, PORT);
+             return ECORE_CALLBACK_DONE;
+          }
+
+        eet_svr = ecore_con_eet_client_new(server);
+        if (!eet_svr)
+          {
+             printf("could not create con_eet client.\n");
+             return ECORE_CALLBACK_DONE;
+          }
+
+        clouseau_register_descs(eet_svr);
+
+        /* Register callbacks for ecore_con_eet */
+        ecore_con_eet_server_connect_callback_add(eet_svr, _add, NULL);
+        ecore_con_eet_server_disconnect_callback_add(eet_svr, _del, NULL);
+        ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_DATA_REQ_STR,
+              _data_req_cb, NULL);
+        ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_HIGHLIGHT_STR,
+              _highlight_cb, NULL);
+        ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_BMP_REQ_STR,
+              _bmp_req_cb, NULL);
+
+        _msg_from_daemon_data_free(data);
+     }
+
+   return ECORE_CALLBACK_DONE;
+}
+
 EAPI Eina_Bool
 clouseau_app_connect(const char *appname)
 {
-   Ecore_Con_Server *server;
-   const char *address = LOCALHOST;
-   Ecore_Con_Eet *eet_svr = NULL;
+   Msg_From_Daemon_Data *msg_data = calloc(1, sizeof(*msg_data));
 
    eina_stringshare_replace(&_my_appname, appname);
 
-   server = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
-         LOCALHOST, PORT, NULL);
+   msg_data->ee_handle = ecore_event_handler_add(ECORE_EXE_EVENT_DATA, _msg_from_daemon, msg_data);
+   /* FIXME: Possibly have a better way to get rid of preload. */
+   msg_data->daemon_exe = ecore_exe_pipe_run("LD_PRELOAD='' " CLOUSEAUD_PATH,
+         ECORE_EXE_PIPE_READ_LINE_BUFFERED |
+         ECORE_EXE_PIPE_READ, NULL);
 
-   if (!server)
+   if (!msg_data->daemon_exe)
      {
-        printf("could not connect to the server: %s, port %d.\n",
-              address, PORT);
+        _msg_from_daemon_data_free(msg_data);
+        fprintf(stderr, "Could not start the daemon.!\n");
         return EINA_FALSE;
      }
-
-   eet_svr = ecore_con_eet_client_new(server);
-   if (!eet_svr)
-     {
-        printf("could not create con_eet client.\n");
-        return EINA_FALSE;
-     }
-
-   clouseau_register_descs(eet_svr);
-
-   /* Register callbacks for ecore_con_eet */
-   ecore_con_eet_server_connect_callback_add(eet_svr, _add, NULL);
-   ecore_con_eet_server_disconnect_callback_add(eet_svr, _del, NULL);
-   ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_DATA_REQ_STR,
-         _data_req_cb, NULL);
-   ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_HIGHLIGHT_STR,
-         _highlight_cb, NULL);
-   ecore_con_eet_data_callback_add(eet_svr, CLOUSEAU_BMP_REQ_STR,
-         _bmp_req_cb, NULL);
 
    return EINA_TRUE;
 }
