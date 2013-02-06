@@ -13,6 +13,10 @@ EXTRA_DIST = \
 	     clouseau_private2.h \
 	     clouseau_data_legacy.h
 
+includesdir = $(includedir)/clouseau-@VMAJ@
+includes_HEADERS = \
+		  Clouseau.h
+
 pkgdir = $(libdir)/clouseau
 pkg_LTLIBRARIES = libclouseau_preload.la
 lib_LTLIBRARIES = libclouseau.la
