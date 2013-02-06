@@ -32,6 +32,17 @@ enum {
    PADDING = 0,
 };
 
+typedef enum
+{
+   CLOUSEAU_OBJ_TYPE_UNKNOWN,
+   CLOUSEAU_OBJ_TYPE_OTHER,
+   CLOUSEAU_OBJ_TYPE_ELM,
+   CLOUSEAU_OBJ_TYPE_TEXT,
+   CLOUSEAU_OBJ_TYPE_IMAGE,
+   CLOUSEAU_OBJ_TYPE_EDJE,
+   CLOUSEAU_OBJ_TYPE_TEXTBLOCK
+} Clouseau_Object_Type;
+
 struct _Clouseau_Evas_Map_Point_Props
 {
    Evas_Coord x, y, z;

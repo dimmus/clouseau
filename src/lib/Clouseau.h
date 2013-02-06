@@ -15,17 +15,6 @@ typedef struct _Clouseau_Tree_Item Clouseau_Tree_Item;
 /* Legacy type. */
 typedef struct _Clouseau_Object Clouseau_Object;
 
-typedef enum
-{
-   CLOUSEAU_OBJ_TYPE_UNKNOWN,
-   CLOUSEAU_OBJ_TYPE_OTHER,
-   CLOUSEAU_OBJ_TYPE_ELM,
-   CLOUSEAU_OBJ_TYPE_TEXT,
-   CLOUSEAU_OBJ_TYPE_IMAGE,
-   CLOUSEAU_OBJ_TYPE_EDJE,
-   CLOUSEAU_OBJ_TYPE_TEXTBLOCK
-} Clouseau_Object_Type;
-
 struct _Clouseau_Bitmap
 {
    unsigned char  *bmp;
