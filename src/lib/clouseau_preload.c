@@ -4,142 +4,10 @@
 #include <dlfcn.h>
 #include <execinfo.h>
 
-#include <Ecore_Con_Eet.h>
-#include <Edje.h>
-#include <Evas.h>
-#include <Elementary.h>
-#include <Ecore_X.h>
-
 #include "Clouseau.h"
 
 static Eina_Bool _elm_is_init = EINA_FALSE;
 static const char *_my_app_name = NULL;
-
-static void
-libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
-{
-   Clouseau_Tree_Item *treeit;
-   Eina_List *children;
-   Evas_Object *child;
-
-   treeit = calloc(1, sizeof(Clouseau_Tree_Item));
-   if (!treeit) return ;
-
-   treeit->ptr = (uintptr_t) o;
-   treeit->is_obj = EINA_TRUE;
-
-   treeit->name = eina_stringshare_add(evas_object_type_get(o));
-   treeit->is_clipper = !!evas_object_clipees_get(o);
-   treeit->is_visible = evas_object_visible_get(o);
-   treeit->info = clouseau_object_information_get(treeit);
-
-   parent->children = eina_list_append(parent->children, treeit);
-
-   /* if (!evas_object_smart_data_get(o)) return ; */
-
-   /* Do this only for smart object */
-   children = evas_object_smart_members_get(o);
-   EINA_LIST_FREE(children, child)
-     libclouseau_item_add(child, treeit);
-}
-
-static void *
-_canvas_bmp_get(Ecore_Evas *ee, Evas_Coord *w_out, Evas_Coord *h_out)
-{
-   Ecore_X_Image *img;
-   Ecore_X_Window_Attributes att;
-   unsigned char *src;
-   unsigned int *dst;
-   int bpl = 0, rows = 0, bpp = 0;
-   Evas_Coord w, h;
-
-   /* Check that this window still exists */
-   Eina_List *eeitr, *ees = ecore_evas_ecore_evas_list_get();
-   Ecore_Evas *eel;
-   Eina_Bool found_evas = EINA_FALSE;
-
-   EINA_LIST_FOREACH(ees, eeitr, eel)
-      if (eel == ee)
-        {
-           found_evas = EINA_TRUE;
-           break;
-        }
-
-   Ecore_X_Window xwin = (found_evas) ?
-      (Ecore_X_Window) ecore_evas_window_get(ee) : 0;
-
-   if (!xwin)
-     {
-        printf("Can't grab X window.\n");
-        *w_out = *h_out = 0;
-        return NULL;
-     }
-
-   Evas *e = ecore_evas_get(ee);
-   evas_output_size_get(e, &w, &h);
-   memset(&att, 0, sizeof(Ecore_X_Window_Attributes));
-   ecore_x_window_attributes_get(xwin, &att);
-   img = ecore_x_image_new(w, h, att.visual, att.depth);
-   ecore_x_image_get(img, xwin, 0, 0, 0, 0, w, h);
-   src = ecore_x_image_data_get(img, &bpl, &rows, &bpp);
-   dst = malloc(w * h * sizeof(int));  /* Will be freed by the user */
-   if (!ecore_x_image_is_argb32_get(img))
-     {  /* Fill dst buffer with image convert */
-        ecore_x_image_to_argb_convert(src, bpp, bpl,
-              att.colormap, att.visual,
-              0, 0, w, h,
-              dst, (w * sizeof(int)), 0, 0);
-     }
-   else
-     {  /* Fill dst buffer by copy */
-        memcpy(dst, src, (w * h * sizeof(int)));
-     }
-
-   /* dst now holds window bitmap */
-   ecore_x_image_free(img);
-   *w_out = w;
-   *h_out = h;
-   return (void *) dst;
-}
-
-static Eina_List *
-_load_list(void)
-{
-   Eina_List *tree = NULL;
-   Eina_List *ees;
-   Ecore_Evas *ee;
-
-   ees = ecore_evas_ecore_evas_list_get();
-
-   EINA_LIST_FREE(ees, ee)
-     {
-        Eina_List *objs;
-        Evas_Object *obj;
-        Clouseau_Tree_Item *treeit;
-
-        Evas *e;
-        int w, h;
-
-        e = ecore_evas_get(ee);
-        evas_output_size_get(e, &w, &h);
-
-        treeit = calloc(1, sizeof(Clouseau_Tree_Item));
-        if (!treeit) continue ;
-
-        treeit->name = eina_stringshare_add(ecore_evas_title_get(ee));
-        treeit->ptr = (uintptr_t) ee;
-
-        tree = eina_list_append(tree, treeit);
-
-        objs = evas_objects_in_rectangle_get(e, SHRT_MIN, SHRT_MIN,
-              USHRT_MAX, USHRT_MAX, EINA_TRUE, EINA_TRUE);
-
-        EINA_LIST_FREE(objs, obj)
-          libclouseau_item_add(obj, treeit);
-    }
-
-   return tree;  /* User has to call clouseau_tree_free() */
-}
 
 /** PRELOAD functions. */
 
@@ -174,8 +42,6 @@ ecore_main_loop_begin(void)
      }
 
    clouseau_init();
-   clouseau_app_data_req_cb_set(_load_list);
-   clouseau_app_canvas_bmp_cb_set(_canvas_bmp_get);
 
    if(!clouseau_app_connect(_my_app_name))
      {
