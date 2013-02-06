@@ -441,7 +441,7 @@ _clouseau_eo_descs_make(void)
 
 
 static void
-clouseau_data_descriptors_init(void)
+_clouseau_data_descriptors_init(void)
 {
    clouseau_data_descriptors_legacy_init();
    _clouseau_eo_descs_make();
@@ -458,7 +458,7 @@ clouseau_data_descriptors_init(void)
 }
 
 static void
-clouseau_data_descriptors_shutdown(void)
+_clouseau_data_descriptors_shutdown(void)
 {
    eet_data_descriptor_free(eo_string_edd);
    eet_data_descriptor_free(eo_int_edd);
@@ -743,12 +743,12 @@ clouseau_data_init(void)
    eet_init();
    ecore_init();
 
-   clouseau_data_descriptors_init();
+   _clouseau_data_descriptors_init();
 
    return clouseau_init_count;
 }
 
-EAPI int
+int
 clouseau_register_descs(Ecore_Con_Eet *eet_svr)
 {  /* Register descriptors for ecore_con_eet */
    if (clouseau_init_count)
@@ -782,7 +782,7 @@ clouseau_data_shutdown(void)
    if (--clouseau_init_count != 0)
      return clouseau_init_count;
 
-   clouseau_data_descriptors_shutdown();
+   _clouseau_data_descriptors_shutdown();
 
    ecore_shutdown();
    eet_shutdown();
