@@ -282,11 +282,12 @@ static Clouseau_Object *
 _clouseau_object_information_get(Clouseau_Tree_Item *treeit)
 {
    Evas_Object *obj = (void*) (uintptr_t) treeit->ptr;
-   Eo_Dbg_Info *eo_dbg_info = EO_DBG_INFO_LIST_APPEND(NULL, "");
+   Eo_Dbg_Info *eo_dbg_info;
 
    if (!treeit->is_obj)
      return NULL;
 
+   eo_dbg_info = EO_DBG_INFO_LIST_APPEND(NULL, "");
    eo_do(obj, eo_dbg_info_get(eo_dbg_info));
    treeit->eo_info = clouseau_eo_to_legacy_convert(eo_dbg_info);
 
