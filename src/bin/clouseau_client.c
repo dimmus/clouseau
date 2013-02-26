@@ -42,6 +42,8 @@ static int _clouseau_client_log_dom = -1;
 
 static Evas_Object *prop_list = NULL;
 static Elm_Genlist_Item_Class _obj_info_itc;
+// Item class for objects classnames
+static Elm_Genlist_Item_Class _class_info_itc;
 
 struct _app_data_st
 {
@@ -1276,7 +1278,8 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
                     {
                        Elm_Genlist_Item_Type iflag = (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST) ?
                           ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-                       eo_it = elm_genlist_item_append(prop_list, &_obj_info_itc, eo, NULL,
+                       // We force the item to be a tree for the class layers
+                       eo_it = elm_genlist_item_append(prop_list, &_class_info_itc, eo, NULL,
                              iflag, _gl_selected, NULL);
                        expand_list = eina_list_append(expand_list, eo_it);
                     }
@@ -1876,10 +1879,27 @@ _obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
    return strdup(buf);
 }
 
+// Classes are not displayed in the same way as infos.
+// Infos lists can be compacted, not class infos.
+static char *
+_class_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
+      const char *part EINA_UNUSED)
+{
+   Eo_Dbg_Info *eo = data;
+   return strdup(eo->name);
+}
+
 static Evas_Object *
 _clouseau_object_information_list_add(Evas_Object *parent)
 {
    prop_list = elm_genlist_add(parent);
+
+   _class_info_itc.item_style = "default";
+   _class_info_itc.func.text_get = _class_info_gl_item_text_get;
+   _class_info_itc.func.content_get = _obj_info_gl_item_icon_get;
+   _class_info_itc.func.state_get = NULL;
+   _class_info_itc.func.del = NULL;
+
    _obj_info_itc.item_style = "default";
    _obj_info_itc.func.text_get = _obj_info_gl_item_text_get;
    _obj_info_itc.func.content_get = _obj_info_gl_item_icon_get;
