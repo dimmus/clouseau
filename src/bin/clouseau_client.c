@@ -1759,6 +1759,39 @@ _main_list_create(Evas_Object *panes)
 }
 
 static void
+_obj_info_compactable_list_to_buffer(Eo_Dbg_Info *root_eo, char* buffer, unsigned int buffer_size)
+{
+   Eina_List *l; // Iterator
+   Eina_Value_List list; // list of the elements in root_eo
+   eina_value_pget(&(root_eo->value), &list);
+   Eo_Dbg_Info *eo; // List element
+   buffer += snprintf(buffer, buffer_size, "%s:", root_eo->name);
+   EINA_LIST_FOREACH(list.list, l, eo)
+     {
+        char *strval = eina_value_to_string(&(eo->value));
+        buffer += snprintf(buffer, buffer_size, "   %s: %s", eo->name, strval);
+        free(strval);
+     }
+}
+
+static Eina_Bool
+_obj_info_can_list_be_compacted(Eo_Dbg_Info *root_eo)
+{
+   Eina_List *l; // Iterator
+   Eina_Value_List list; // list of the elements in root_eo
+   Eo_Dbg_Info *eo; // List element
+   eina_value_pget(&(root_eo->value), &list);
+   // We check that there is no list into this list. If such list exists,
+   // we can't compact the list.
+   EINA_LIST_FOREACH(list.list, l, eo)
+     {
+        if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
+           return EINA_FALSE;
+     }
+   return EINA_TRUE;
+}
+
+static void
 _obj_info_gl_selected(void *data EINA_UNUSED, Evas_Object *pobj EINA_UNUSED,
       void *event_info EINA_UNUSED)
 {
@@ -1780,8 +1813,12 @@ _obj_info_gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *eve
 
         EINA_LIST_FOREACH(eo_list.list, l, eo)
           {
-             Elm_Genlist_Item_Type iflag = (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST) ?
-                ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
+             Elm_Genlist_Item_Type iflag = ELM_GENLIST_ITEM_NONE;
+             if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
+               {
+                  if (!_obj_info_can_list_be_compacted(eo))
+                     iflag = ELM_GENLIST_ITEM_TREE;
+               }
              elm_genlist_item_append(prop_list, &_obj_info_itc, eo, glit,
                    iflag, _obj_info_gl_selected, NULL);
           }
@@ -1824,7 +1861,10 @@ _obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
    char buf[1024] = "";
    if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
      {
-        return strdup(eo->name);
+        if (_obj_info_can_list_be_compacted(eo))
+           _obj_info_compactable_list_to_buffer(eo, buf, sizeof(buf));
+        else
+           snprintf(buf, sizeof(buf), "%s", eo->name);
      }
    else
      {
