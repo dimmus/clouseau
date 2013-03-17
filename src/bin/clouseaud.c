@@ -406,8 +406,8 @@ int main(void)
         return EINA_FALSE;
      }
 
-   if (!(server = ecore_con_server_add(ECORE_CON_REMOTE_TCP,
-               LISTEN_IP, PORT, NULL)))
+   if (!(server = ecore_con_server_add(ECORE_CON_REMOTE_TCP | ECORE_CON_SOCKET_ACTIVATE,
+				       LISTEN_IP, PORT, NULL)))
      exit(1);
 
    eet_svr = ecore_con_eet_server_new(server);

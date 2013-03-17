@@ -1,0 +1,10 @@
+[Unit]
+Description=Clouseau system service
+Requires=xorg.target
+After=xorg.target
+
+[Service]
+ExecStart=/usr/bin/clouseaud
+
+[Install]
+Also=clouseaud.socket

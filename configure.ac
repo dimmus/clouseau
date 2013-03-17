@@ -62,6 +62,12 @@ PKG_CHECK_MODULES([EFL],
    ]
  )
 
+# Detect systemd user session directory properly
+EFL_PKG_CHECK_VAR([USER_SESSION_DIR], [systemd], [systemduserunitdir],
+        [have_systemd_user_session="yes"], [have_systemd_user_session="no"])
+AM_CONDITIONAL([HAVE_SYSTEMD_USER_SESSION], [test "x${have_systemd_user_session}" = "xyes"])
+AC_SUBST([USER_SESSION_DIR])
+
 ### Checks for linker characteristics
 lt_enable_auto_import=""
 case "${host_os}" in
@@ -90,6 +96,7 @@ src/bin/Makefile
 src/scripts/Makefile
 data/Makefile
 data/images/Makefile
+data/units/Makefile
 ])
 
 AC_OUTPUT
