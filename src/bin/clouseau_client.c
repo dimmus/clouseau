@@ -1991,6 +1991,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    gui->pb = elm_progressbar_add(win);
    elm_object_style_set(gui->pb, "wheel");
    elm_object_text_set(gui->pb, "Style: wheel");
+   elm_progressbar_pulse_set(gui->pb, EINA_TRUE);
    elm_progressbar_pulse(gui->pb, EINA_FALSE);
    evas_object_size_hint_align_set(gui->pb, 0.5, 0.0);
    evas_object_size_hint_weight_set(gui->pb,
