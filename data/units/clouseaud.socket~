@@ -1,8 +1,0 @@
-[Unit]
-Description=Clouseau Service Sockets
-
-[Socket]
-ListenStream=%t/.ecore/elev8-serversockpath/6523
-
-[Install]
-WantedBy=sockets.target

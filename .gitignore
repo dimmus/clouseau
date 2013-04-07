@@ -7,6 +7,7 @@
 Makefile
 Makefile.in
 *.so
+*~
 .*.sw[po]
 *.gcov
 *.gcno
