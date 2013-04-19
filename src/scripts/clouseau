@@ -1,0 +1,8 @@
+#!/bin/sh
+clouseau_client &
+if [ $# -gt 0 ]
+then
+   # Start clouseau daemon (will start single instance), then run app
+   clouseau_start "$@"
+fi
+

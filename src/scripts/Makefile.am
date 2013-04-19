@@ -1,16 +1,11 @@
 MAINTAINERCLEANFILES = Makefile.in
 
-EXTRA_DIST = gen_script.sh
+clouseau_start: clouseau_start.in
+	$(AM_V_GEN) $(SED) -e "s|\@libdir\@|$(libdir)|" $(srcdir)/clouseau_start.in > $(builddir)/clouseau_start
 
-uninstall-local:
-	rm -f $(DESTDIR)$(bindir)/clouseau
-	rm -f $(DESTDIR)$(bindir)/clouseau_start
+bin_SCRIPTS = clouseau clouseau_start
 
-clean-local:
-	rm -f clouseau
-	rm -f clouseau_start
+CLEAN_FILES = clouseau_start
 
-install-exec-local:
-	$(srcdir)/gen_script.sh $(libdir)/clouseau
-	$(INSTALL) clouseau_start $(DESTDIR)$(bindir)
-	$(INSTALL) clouseau $(DESTDIR)$(bindir)
+# FIXME: I'm not even sure .in files should be included here.
+EXTRA_DIST = clouseau_start.in
