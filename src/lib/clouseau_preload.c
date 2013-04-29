@@ -19,6 +19,8 @@ elm_init(int argc, char **argv)
 {
    int (*_elm_init)(int, char **) = dlsym(RTLD_NEXT, __func__);
 
+   setenv("ELM_CLOUSEAU", "0", 1);
+
    if (!_elm_is_init)
      {
         _my_app_name = argv[0];

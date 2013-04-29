@@ -1929,9 +1929,8 @@ _property_list_create(Evas_Object *panes)
    evas_object_show(o);
 }
 
-#ifndef ELM_LIB_QUICKLAUNCH
-EAPI int
-elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
+int
+main(int argc, char **argv)
 {  /* Create Client Window */
    const char *log_dom = "clouseau_client";
    _clouseau_client_log_dom = eina_log_domain_register(log_dom, EINA_COLOR_LIGHTBLUE);
@@ -1949,6 +1948,9 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    void *st;
 
    gui = calloc(1, sizeof(gui_elements));
+
+   setenv("ELM_CLOUSEAU", "0", 1);
+   elm_init(argc, argv);
 
    gui->win = win = elm_win_util_standard_add("client", CLIENT_NAME);
    elm_win_autodel_set(win, EINA_TRUE);
@@ -2096,5 +2098,3 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 
    return 0;
 }
-ELM_MAIN()
-#endif
