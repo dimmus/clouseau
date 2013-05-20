@@ -39,6 +39,7 @@ clouseau_shutdown(void)
 {
    if (--_clouseau_init_count == 0)
      {
+        clouseau_disconnect();
         clouseau_data_shutdown();
         ecore_con_shutdown();
         ecore_shutdown();
