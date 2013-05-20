@@ -439,6 +439,11 @@ _msg_from_daemon(void *data, int type EINA_UNUSED, void *event)
    return ECORE_CALLBACK_DONE;
 }
 
+void
+clouseau_app_disconnect(void)
+{
+}
+
 EAPI Eina_Bool
 clouseau_app_connect(const char *appname)
 {

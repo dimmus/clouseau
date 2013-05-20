@@ -209,6 +209,8 @@ struct _Clouseau_Eo_Dbg_Info
 };
 /* END   - EO - debug structs */
 
+void clouseau_app_disconnect(void);
+
 EAPI void clouseau_eo_info_free(Clouseau_Eo_Dbg_Info *parent);
 EAPI void clouseau_tree_item_from_legacy_convert(Clouseau_Tree_Item *treeit);
 EAPI Eina_List *clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root);

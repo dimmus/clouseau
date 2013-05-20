@@ -17,6 +17,7 @@ clouseau_client_connect(void)
 EAPI Eina_Bool
 clouseau_disconnect(void)
 {
+   clouseau_app_disconnect();
    return EINA_TRUE;
 }
 
