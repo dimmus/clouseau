@@ -3,6 +3,8 @@
 #include <Elementary.h>
 #include <Ecore_X.h>
 
+static Ecore_Con_Server *econ_server = NULL;
+static Ecore_Con_Eet *eet_svr = NULL;
 static Eina_Stringshare *_my_appname = NULL;
 
 static Clouseau_Object *_clouseau_object_information_get(Clouseau_Tree_Item *treeit);
@@ -400,21 +402,25 @@ _msg_from_daemon(void *data, int type EINA_UNUSED, void *event)
 
    if (!strncmp(msg->data, CLOUSEAUD_READY_STR, sizeof(CLOUSEAUD_READY_STR)))
      {
-        Ecore_Con_Server *server;
         const char *address = LOCALHOST;
-        Ecore_Con_Eet *eet_svr = NULL;
 
-        server = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
+        if (eet_svr)
+          {
+             fprintf(stderr, "Clouseau: Trying to connect to daemon although already supposedly connected. Error.\n");
+             return ECORE_CALLBACK_DONE;
+          }
+
+        econ_server = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
               LOCALHOST, PORT, NULL);
 
-        if (!server)
+        if (!econ_server)
           {
              printf("could not connect to the server: %s, port %d.\n",
                    address, PORT);
              return ECORE_CALLBACK_DONE;
           }
 
-        eet_svr = ecore_con_eet_client_new(server);
+        eet_svr = ecore_con_eet_client_new(econ_server);
         if (!eet_svr)
           {
              printf("could not create con_eet client.\n");
@@ -442,6 +448,10 @@ _msg_from_daemon(void *data, int type EINA_UNUSED, void *event)
 void
 clouseau_app_disconnect(void)
 {
+   ecore_con_server_del(econ_server);
+   econ_server = NULL;
+   ecore_con_eet_server_free(eet_svr);
+   eet_svr = NULL;
 }
 
 EAPI Eina_Bool
