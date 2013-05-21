@@ -448,10 +448,10 @@ _msg_from_daemon(void *data, int type EINA_UNUSED, void *event)
 void
 clouseau_app_disconnect(void)
 {
-   ecore_con_server_del(econ_server);
-   econ_server = NULL;
    ecore_con_eet_server_free(eet_svr);
    eet_svr = NULL;
+   ecore_con_server_del(econ_server);
+   econ_server = NULL;
 }
 
 EAPI Eina_Bool
