@@ -1951,6 +1951,7 @@ main(int argc, char **argv)
 
    setenv("ELM_CLOUSEAU", "0", 1);
    elm_init(argc, argv);
+   if (argc == 2) gui->address = strdup(argv[1]); // if the user executes the client with ip and port in the arguments line
 
    gui->win = win = elm_win_util_standard_add("client", CLIENT_NAME);
    elm_win_autodel_set(win, EINA_TRUE);
@@ -2011,73 +2012,80 @@ main(int argc, char **argv)
    ecore_con_init();
    clouseau_data_init();
 
-   /* START - Popup to get IP, PORT from user */
-   gui->connect_inwin = elm_win_inwin_add(win);
-   evas_object_show(gui->connect_inwin);
+   if (gui->address)
+     {
+        _show_gui(gui, EINA_FALSE);
+     }
+   else
+     {
+        /* START - Popup to get IP, PORT from user */
+        gui->connect_inwin = elm_win_inwin_add(win);
+        evas_object_show(gui->connect_inwin);
 
-   bxx = elm_box_add(gui->connect_inwin);
-   evas_object_size_hint_weight_set(bxx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_show(bxx);
+        bxx = elm_box_add(gui->connect_inwin);
+        evas_object_size_hint_weight_set(bxx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+        evas_object_show(bxx);
 
-   lb = elm_label_add(bxx);
-   evas_object_size_hint_weight_set(lb, EVAS_HINT_EXPAND, 0.0);
-   evas_object_size_hint_align_set(lb, EVAS_HINT_FILL, 0.0);
-   elm_object_text_set(lb, "Enter remote address[:port]");
-   elm_box_pack_end(bxx, lb);
-   evas_object_show(lb);
+        lb = elm_label_add(bxx);
+        evas_object_size_hint_weight_set(lb, EVAS_HINT_EXPAND, 0.0);
+        evas_object_size_hint_align_set(lb, EVAS_HINT_FILL, 0.0);
+        elm_object_text_set(lb, "Enter remote address[:port]");
+        elm_box_pack_end(bxx, lb);
+        evas_object_show(lb);
 
-   /* Single line selected entry */
-   gui->en = elm_entry_add(bxx);
-   elm_entry_scrollable_set(gui->en, EINA_TRUE);
-   evas_object_size_hint_weight_set(gui->en,
-         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(gui->en, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_object_style_set(gui->connect_inwin, "minimal_vertical");
-   elm_scroller_policy_set(gui->en, ELM_SCROLLER_POLICY_OFF,
-                           ELM_SCROLLER_POLICY_OFF);
-   elm_object_text_set(gui->en, LOCALHOST);
-   elm_entry_single_line_set(gui->en, EINA_TRUE);
-   elm_entry_select_all(gui->en);
-   evas_object_smart_callback_add(gui->en, "activated", _ok_bt_clicked, (void *)gui);
-   elm_box_pack_end(bxx, gui->en);
-   evas_object_show(gui->en);
+        /* Single line selected entry */
+        gui->en = elm_entry_add(bxx);
+        elm_entry_scrollable_set(gui->en, EINA_TRUE);
+        evas_object_size_hint_weight_set(gui->en,
+              EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+        evas_object_size_hint_align_set(gui->en, EVAS_HINT_FILL, EVAS_HINT_FILL);
+        elm_object_style_set(gui->connect_inwin, "minimal_vertical");
+        elm_scroller_policy_set(gui->en, ELM_SCROLLER_POLICY_OFF,
+              ELM_SCROLLER_POLICY_OFF);
+        elm_object_text_set(gui->en, LOCALHOST);
+        elm_entry_single_line_set(gui->en, EINA_TRUE);
+        elm_entry_select_all(gui->en);
+        evas_object_smart_callback_add(gui->en, "activated", _ok_bt_clicked, (void *)gui);
+        elm_box_pack_end(bxx, gui->en);
+        evas_object_show(gui->en);
 
-   bt_bx = elm_box_add(bxx);
-   elm_box_horizontal_set(bt_bx, EINA_TRUE);
-   elm_box_homogeneous_set(bt_bx, EINA_TRUE);
-   evas_object_size_hint_align_set(bt_bx, 0.5, 0.5);
-   evas_object_size_hint_weight_set(bt_bx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_show(bt_bx);
-   elm_box_pack_end(bxx, bt_bx);
+        bt_bx = elm_box_add(bxx);
+        elm_box_horizontal_set(bt_bx, EINA_TRUE);
+        elm_box_homogeneous_set(bt_bx, EINA_TRUE);
+        evas_object_size_hint_align_set(bt_bx, 0.5, 0.5);
+        evas_object_size_hint_weight_set(bt_bx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+        evas_object_show(bt_bx);
+        elm_box_pack_end(bxx, bt_bx);
 
-   /* Add the cancel button */
-   bt_cancel = elm_button_add(bt_bx);
-   elm_object_text_set(bt_cancel, "Cancel");
-   evas_object_smart_callback_add(bt_cancel, "clicked",
-         _cancel_bt_clicked, (void *) gui);
+        /* Add the cancel button */
+        bt_cancel = elm_button_add(bt_bx);
+        elm_object_text_set(bt_cancel, "Cancel");
+        evas_object_smart_callback_add(bt_cancel, "clicked",
+              _cancel_bt_clicked, (void *) gui);
 
-   elm_box_pack_end(bt_bx, bt_cancel);
-   evas_object_show(bt_cancel);
+        elm_box_pack_end(bt_bx, bt_cancel);
+        evas_object_show(bt_cancel);
 
-   /* Add the OK button */
-   bt_ok = elm_button_add(bt_bx);
-   elm_object_text_set(bt_ok, "OK");
-   evas_object_smart_callback_add(bt_ok, "clicked",
-         _ok_bt_clicked, (void *) gui);
+        /* Add the OK button */
+        bt_ok = elm_button_add(bt_bx);
+        elm_object_text_set(bt_ok, "OK");
+        evas_object_smart_callback_add(bt_ok, "clicked",
+              _ok_bt_clicked, (void *) gui);
 
-   elm_box_pack_end(bt_bx, bt_ok);
-   evas_object_show(bt_ok);
+        elm_box_pack_end(bt_bx, bt_ok);
+        evas_object_show(bt_ok);
 
-   bt_ofl = elm_button_add(bt_bx);
-   elm_object_text_set(bt_ofl, "Work Offline");
-   evas_object_smart_callback_add(bt_ofl, "clicked",
-         _ofl_bt_clicked, (void *) gui);
+        bt_ofl = elm_button_add(bt_bx);
+        elm_object_text_set(bt_ofl, "Work Offline");
+        evas_object_smart_callback_add(bt_ofl, "clicked",
+              _ofl_bt_clicked, (void *) gui);
 
-   elm_box_pack_end(bt_bx, bt_ofl);
-   evas_object_show(bt_ofl);
+        elm_box_pack_end(bt_bx, bt_ofl);
+        evas_object_show(bt_ofl);
 
-   elm_win_inwin_content_set(gui->connect_inwin, bxx);
-   /* END   - Popup to get IP, PORT from user */
+        elm_win_inwin_content_set(gui->connect_inwin, bxx);
+        /* END   - Popup to get IP, PORT from user */
+     }
 
    elm_run();
 
