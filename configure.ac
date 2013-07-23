@@ -62,6 +62,8 @@ PKG_CHECK_MODULES([EFL],
    ]
  )
 
+EFL_ENABLE_BETA_API_SUPPORT
+
 # Detect systemd user session directory properly
 EFL_PKG_CHECK_VAR([USER_SESSION_DIR], [systemd], [systemduserunitdir],
         [have_systemd_user_session="yes"], [have_systemd_user_session="no"])
