@@ -1,8 +1,15 @@
 #ifndef _CLOUSEAU_PRIVATE_H
 #define _CLOUSEAU_PRIVATE_H
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <Eo.h>
-#include "clouseau_private2.h"
 #include <Ecore_Con_Eet.h>
+
+#include "clouseau_private2.h"
+
 /*  Global constants  */
 #define BMP_FIELD "bmp"
 
