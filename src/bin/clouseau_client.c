@@ -1391,7 +1391,7 @@ _show_hidden_check_changed(void *data, Evas_Object *obj,
 }
 
 static void
-_bt_clicked(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
+_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    gui_elements *g = data;
 
@@ -1403,7 +1403,6 @@ _bt_clicked(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
         st->refresh_ctr++;
      }
 
-   elm_object_text_set(obj, "Reload");
    _free_app_tree_data(g->sel_app->td);
    g->sel_app->td = NULL;
    g->gl_it = NULL;
@@ -1626,7 +1625,7 @@ _show_gui(gui_elements *g, Eina_Bool work_offline)
      }
    else
      {
-        elm_object_text_set(g->bt_load, "Load Tree");
+        elm_object_text_set(g->bt_load, "Reload");
         evas_object_smart_callback_add(g->bt_load, "clicked", _bt_clicked, g);
 
         /* Add the Save button to open save dialog */
