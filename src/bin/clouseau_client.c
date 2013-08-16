@@ -1633,7 +1633,7 @@ _show_gui(gui_elements *g, Eina_Bool work_offline)
           evas_object_del(g->bt_save);
 
         g->bt_save = elm_button_add(g->hbx);
-        elm_object_text_set(g->bt_save, "SAVE");
+        elm_object_text_set(g->bt_save, "Save");
         evas_object_smart_callback_add(g->bt_save, "clicked",
               _save_file_dialog, (void *) gui);
 
@@ -1698,7 +1698,7 @@ _control_buttons_create(gui_elements *g, Evas_Object *win)
 
    g->dd_list = elm_hoversel_add(g->hbx);
    elm_hoversel_hover_parent_set(g->dd_list, win);
-   elm_object_text_set(g->dd_list, "SELECT APP");
+   elm_object_text_set(g->dd_list, "Select App");
 
    evas_object_size_hint_align_set(g->dd_list, 0.0, 0.3);
    elm_box_pack_end(g->hbx, g->dd_list);
