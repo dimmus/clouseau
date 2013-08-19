@@ -45,6 +45,10 @@ static Elm_Genlist_Item_Class _obj_info_itc;
 // Item class for objects classnames
 static Elm_Genlist_Item_Class _class_info_itc;
 
+/* FIXME: Most hackish thing even seen. Needed because of the lack of a
+ * way to list genlist item's children. */
+static Elm_Object_Item *_tree_item_show_last_expanded_item = NULL;
+
 struct _app_data_st
 {
    app_info_st *app;
@@ -251,6 +255,8 @@ _load_gui_with_list(gui_elements *g, Eina_List *trees)
    /* Stop progress wheel as we load tree data */
    elm_progressbar_pulse(g->pb, EINA_FALSE);
    evas_object_hide(g->pb);
+
+   elm_genlist_clear(g->gl);
 
    EINA_LIST_FOREACH(trees, l, treeit)
      {  /* Insert the base ee items */
@@ -1016,8 +1022,9 @@ gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 
         Elm_Genlist_Item_Type iflag = (treeit->children) ?
            ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-        elm_genlist_item_append(gl, &itc, treeit, glit, iflag,
-              NULL, NULL);
+        _tree_item_show_last_expanded_item =
+           elm_genlist_item_append(gl, &itc, treeit, glit, iflag,
+                 NULL, NULL);
      }
 }
 
@@ -1485,6 +1492,94 @@ _save_all(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
    eina_list_free(ck_list);
 }
 
+static Eina_Bool
+_tree_item_show_item(Elm_Object_Item *git, Eina_List *item_list)
+{
+   if (eina_list_data_get(item_list) == elm_object_item_data_get(git))
+     {
+        item_list = eina_list_next(item_list);
+        if (item_list)
+          {
+             Elm_Object_Item *gitc;
+             _tree_item_show_last_expanded_item = NULL;
+             elm_genlist_item_expanded_set(git, EINA_TRUE);
+             gitc = _tree_item_show_last_expanded_item;
+
+             while (gitc && (gitc != git))
+               {
+                  if (_tree_item_show_item(gitc, item_list))
+                     return EINA_TRUE;
+                  gitc = elm_genlist_item_prev_get(gitc);
+               }
+          }
+        else
+          {
+             elm_genlist_item_bring_in(git, ELM_GENLIST_ITEM_SCROLLTO_MIDDLE);
+             elm_genlist_item_selected_set(git, EINA_TRUE);
+             return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
+static void
+_tree_item_show(Evas_Object *tree_genlist, Eina_List *item_list)
+{
+   Elm_Object_Item *git = elm_genlist_first_item_get(tree_genlist);
+   while (git)
+     {
+        if (_tree_item_show_item(git, item_list))
+           break;
+        git = elm_genlist_item_next_get(git);
+     }
+
+}
+
+static Eina_List *
+_tree_item_pointer_find(Clouseau_Tree_Item *treeit, uintptr_t ptr)
+{
+   Eina_List *l;
+
+   /* Mark that we found the item, and start adding. */
+   if (treeit->ptr == ptr)
+      return eina_list_prepend(NULL, NULL);
+
+   EINA_LIST_FOREACH(treeit->children, l, treeit)
+     {
+        Eina_List *found;
+        if ((found = _tree_item_pointer_find(treeit, ptr)))
+          {
+             if (!eina_list_data_get(found))
+               {
+                  eina_list_free(found);
+                  found = NULL;
+               }
+             return eina_list_prepend(found, treeit);
+          }
+     }
+
+   return NULL;
+}
+
+static Eina_List *
+_list_tree_item_pointer_find(Eina_List *tree, uintptr_t ptr)
+{
+   Clouseau_Tree_Item *treeit;
+   Eina_List *l;
+   EINA_LIST_FOREACH(tree, l, treeit)
+     {
+        Eina_List *found;
+        if ((found = _tree_item_pointer_find(treeit, ptr)))
+          {
+             found = eina_list_prepend(found, treeit);
+             return found;
+          }
+     }
+
+   return NULL;
+}
+
 static void
 _save_file_dialog(void *data,
       Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
@@ -1680,15 +1775,35 @@ _ofl_bt_clicked(void *data,
 }
 
 static void
+_jump_to_entry_activated(void *data,
+      Evas_Object *obj, void *event_info EINA_UNUSED)
+{
+   gui_elements *g = data;
+   tree_data_st *td = (g->sel_app->td) ? g->sel_app->td : NULL;
+   long long int ptr = strtol(elm_object_text_get(obj), NULL, 16);
+   Eina_List *found = NULL;
+
+   if ((found = _list_tree_item_pointer_find(td->tree, (uintptr_t) ptr)))
+     {
+        _load_gui_with_list(g, td->tree);
+        _tree_item_show(g->gl, found);
+        eina_list_free(found);
+     }
+}
+
+static void
 _control_buttons_create(gui_elements *g, Evas_Object *win)
 {
    Evas_Object *show_hidden_check, *show_clippers_check, *highlight_check;
+   Evas_Object *jump_to_entry;
 
    g->hbx = elm_box_add(g->bx);
    evas_object_size_hint_align_set(g->hbx, 0.0, 0.5);
    elm_box_horizontal_set(g->hbx, EINA_TRUE);
    elm_box_pack_end(g->bx, g->hbx);
    elm_box_padding_set(g->hbx, 10, 0);
+   evas_object_size_hint_align_set(g->hbx, EVAS_HINT_FILL, 0.0);
+   evas_object_size_hint_weight_set(g->hbx, EVAS_HINT_EXPAND, 0.0);
    evas_object_show(g->hbx);
 
    g->bt_load = elm_button_add(g->hbx);
@@ -1728,6 +1843,21 @@ _control_buttons_create(gui_elements *g, Evas_Object *win)
                                   _show_clippers_check_changed, g);
    evas_object_smart_callback_add(highlight_check, "changed",
                                   _highlight_check_check_changed, g);
+
+   jump_to_entry = elm_entry_add(g->hbx);
+   elm_entry_scrollable_set(jump_to_entry, EINA_FALSE);
+   elm_entry_single_line_set(jump_to_entry, EINA_TRUE);
+   /* FIXME: Hack because for some reason we don't have "hints" in entry */
+   elm_object_text_set(jump_to_entry, "Jump To");
+   evas_object_size_hint_align_set(jump_to_entry,
+                                   EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_size_hint_weight_set(jump_to_entry,
+                                    EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   elm_box_pack_end(g->hbx, jump_to_entry);
+   evas_object_show(jump_to_entry);
+
+   evas_object_smart_callback_add(jump_to_entry, "activated",
+                                  _jump_to_entry_activated, g);
 }
 
 static void
