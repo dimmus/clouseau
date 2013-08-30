@@ -13,6 +13,65 @@
 static Eina_Bool _elm_is_init = EINA_FALSE;
 static const char *_my_app_name = NULL;
 
+static int _connect_to_daemon(void);
+
+/**************************************************************************/
+/* This is an attempt to somehow replicate what's available in new versions
+ * of clouseau. I.e the module interface. */
+
+static int _clouseau_init_count = 0;
+static char *_module_my_app_name = NULL;
+
+EAPI Eina_Bool
+clouseau_app_connect(const char *appname)
+{
+   _my_app_name = _module_my_app_name = strdup(appname);
+   if(!_connect_to_daemon())
+     {
+        printf("Failed to connect to server.\n");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+EAPI int
+clouseau_init(void)
+{
+   if (++_clouseau_init_count == 1)
+     {
+        eina_init();
+        ecore_init();
+        ecore_con_init();
+        clouseau_data_init();
+     }
+
+   return _clouseau_init_count;
+}
+
+EAPI int
+clouseau_shutdown(void)
+{
+   if (--_clouseau_init_count == 0)
+     {
+        clouseau_data_shutdown();
+        ecore_con_shutdown();
+        ecore_shutdown();
+        eina_shutdown();
+        free(_module_my_app_name);
+        _my_app_name = _module_my_app_name = NULL;
+     }
+   else if (_clouseau_init_count < 0)
+     {
+        _clouseau_init_count = 0;
+        printf("Tried to shutdown although not initiated.\n");
+     }
+
+   return _clouseau_init_count;
+}
+
+/***************************** END OF EINA MODULE *************************/
+
 static void
 libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
 {
@@ -302,6 +361,8 @@ elm_init(int argc, char **argv)
 {
    int (*_elm_init)(int, char **) = dlsym(RTLD_NEXT, __func__);
 
+   setenv("ELM_CLOUSEAU", "0", 1);
+
    if (!_elm_is_init)
      {
         _my_app_name = argv[0];
@@ -324,17 +385,17 @@ ecore_main_loop_begin(void)
         _my_app_name = "clouseau";
      }
 
-   if(!_connect_to_daemon())
+   clouseau_init();
+
+   if (!clouseau_app_connect(_my_app_name))
      {
         printf("Failed to connect to server.\n");
         return;
      }
 
-   clouseau_data_init();
-
    _ecore_main_loop_begin();
 
-   clouseau_data_shutdown();
+   clouseau_shutdown();
 
    return;
 }
@@ -383,3 +444,4 @@ evas_object_free(Evas_Object *obj, int clean_layer)
 
    _evas_object_free(obj, clean_layer);
 }
+

@@ -7,7 +7,8 @@ then
 else
 # Start clouseau daemon (will start single instance), then run app
    clouseaud
-   LD_PRELOAD="$1/libclouseau.so" "\$@"
+   #Set the ELM_CLOUSEAU in case preload is disabled.
+   ELM_CLOUSEAU=1 LD_PRELOAD="$1/libclouseau.so" "\$@"
 fi
 ENDOFMESSAGE
 
