@@ -1845,10 +1845,9 @@ _control_buttons_create(Gui_Elements *g, Evas_Object *win)
                                   _highlight_check_check_changed, g);
 
    jump_to_entry = elm_entry_add(g->hbx);
-   elm_entry_scrollable_set(jump_to_entry, EINA_FALSE);
+   elm_entry_scrollable_set(jump_to_entry, EINA_TRUE);
    elm_entry_single_line_set(jump_to_entry, EINA_TRUE);
-   /* FIXME: Hack because for some reason we don't have "hints" in entry */
-   elm_object_text_set(jump_to_entry, "Jump To");
+   elm_object_part_text_set(jump_to_entry, "guide", "Jump To Pointer");
    evas_object_size_hint_align_set(jump_to_entry,
                                    EVAS_HINT_FILL, EVAS_HINT_FILL);
    evas_object_size_hint_weight_set(jump_to_entry,
