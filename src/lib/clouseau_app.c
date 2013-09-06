@@ -265,6 +265,8 @@ clouseau_data_object_highlight(Evas_Object *obj, Clouseau_Evas_Props *props, bmp
 
    /* Continue and do the Highlight */
    r = evas_object_rectangle_add(e);
+   /* Put the object as high as possible. */
+   evas_object_layer_set(r, EVAS_LAYER_MAX);
    evas_object_move(r, x - PADDING, y - PADDING);
    evas_object_resize(r, wd + (2 * PADDING), ht + (2 * PADDING));
    evas_object_color_set(r,
