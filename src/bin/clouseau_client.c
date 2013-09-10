@@ -1795,13 +1795,20 @@ static void
 _control_buttons_create(Gui_Elements *g, Evas_Object *win)
 {
    Evas_Object *show_hidden_check, *show_clippers_check, *highlight_check;
-   Evas_Object *jump_to_entry;
+   Evas_Object *jump_to_entry, *frame;
 
+   frame = elm_frame_add(gui->bx);
+   elm_object_style_set(frame, "pad_medium");
+   evas_object_size_hint_weight_set(frame, EVAS_HINT_EXPAND, 0.0);
+   evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   elm_box_pack_end(g->bx, frame);
+   evas_object_show(frame);
+   
    g->hbx = elm_box_add(g->bx);
    evas_object_size_hint_align_set(g->hbx, 0.0, 0.5);
    elm_box_horizontal_set(g->hbx, EINA_TRUE);
-   elm_box_pack_end(g->bx, g->hbx);
-   elm_box_padding_set(g->hbx, 10, 0);
+   elm_object_content_set(frame, g->hbx);
+   elm_box_padding_set(g->hbx, 4, 0);
    evas_object_size_hint_align_set(g->hbx, EVAS_HINT_FILL, 0.0);
    evas_object_size_hint_weight_set(g->hbx, EVAS_HINT_EXPAND, 0.0);
    evas_object_show(g->hbx);
@@ -2068,7 +2075,7 @@ main(int argc, char **argv)
         return EINA_FALSE;
      }
 
-   Evas_Object *win, *panes;
+   Evas_Object *win, *panes, *frame;
 
    /* For inwin popup */
    Evas_Object *lb, *bxx, *bt_bx, *bt_ok, *bt_cancel;
@@ -2092,10 +2099,18 @@ main(int argc, char **argv)
    elm_win_resize_object_add(win, gui->bx);
 
    _control_buttons_create(gui, win);
+   
+   frame = elm_frame_add(gui->bx);
+   elm_object_style_set(frame, "pad_medium");
+   evas_object_size_hint_weight_set(frame, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   elm_box_pack_end(gui->bx, frame);
+   evas_object_show(frame);
+   
    panes = elm_panes_add(gui->bx);
    evas_object_size_hint_weight_set(panes, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(panes, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_box_pack_end(gui->bx, panes);
+   elm_object_content_set(frame, panes);
    evas_object_show(panes);
 
    _main_list_create(panes);
