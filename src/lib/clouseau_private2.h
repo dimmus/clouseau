@@ -27,11 +27,7 @@ enum {
    HIGHLIGHT_R = 255,
    HIGHLIGHT_G = 128,
    HIGHLIGHT_B = 128,
-   HIGHLIGHT_A = 255,
-
-   /* How much padding around the highlight box.
-    * Currently we don't want any. */
-   PADDING = 0,
+   HIGHLIGHT_A = 255
 };
 
 typedef enum

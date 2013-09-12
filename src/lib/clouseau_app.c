@@ -235,15 +235,6 @@ clouseau_data_object_highlight(Evas_Object *obj, Clouseau_Evas_Props *props, bmp
 
    if (props)
      {
-        /* When working offline grab info from struct */
-        Evas_Coord x_bmp, y_bmp;
-
-        evas_object_geometry_get(view->o, &x_bmp, &y_bmp, NULL, NULL);
-        x =  (view->zoom_val * props->x) + x_bmp;
-        y =  (view->zoom_val * props->y) + y_bmp;
-        wd = (view->zoom_val * props->w);
-        ht = (view->zoom_val * props->h);
-
         e = evas_object_evas_get(view->win);
      }
    else
@@ -256,19 +247,68 @@ clouseau_data_object_highlight(Evas_Object *obj, Clouseau_Evas_Props *props, bmp
              return;
           }
 
-        evas_object_geometry_get(obj, &x, &y, &wd, &ht);
-
         /* Take evas from object if working online */
         e = evas_object_evas_get(obj);
         if (!e) return;
      }
 
    /* Continue and do the Highlight */
-   r = evas_object_rectangle_add(e);
+   r = evas_object_polygon_add(e);
+   evas_object_move(r, 0, 0);
+
+   if (props)
+     {
+        /* When working offline grab info from struct */
+        Evas_Coord x_bmp, y_bmp;
+
+        /* If there's a map, highlight the map coords, not the object's */
+        if (props->points_count > 0)
+          {
+             int i = props->points_count;
+             for ( ; i > 0 ; i--)
+               {
+                  evas_object_polygon_point_add(r,
+                        props->points[i].x, props->points[i].y);
+               }
+          }
+        else
+          {
+             evas_object_geometry_get(view->o, &x_bmp, &y_bmp, NULL, NULL);
+             x =  (view->zoom_val * props->x) + x_bmp;
+             y =  (view->zoom_val * props->y) + y_bmp;
+             wd = (view->zoom_val * props->w);
+             ht = (view->zoom_val * props->h);
+             evas_object_polygon_point_add(r, x, y);
+             evas_object_polygon_point_add(r, x + wd, y);
+             evas_object_polygon_point_add(r, x + wd, y + ht);
+             evas_object_polygon_point_add(r, x, y + ht);
+          }
+     }
+   else
+     {
+        const Evas_Map *map;
+        if ((map = evas_object_map_get(obj)))
+          {
+             int i = evas_map_count_get(map);
+             for ( ; i > 0 ; i--)
+               {
+                  Evas_Coord mx, my;
+                  evas_map_point_coord_get(map, i - 1, &mx, &my, NULL);
+                  evas_object_polygon_point_add(r, mx, my);
+               }
+          }
+        else
+          {
+             evas_object_geometry_get(obj, &x, &y, &wd, &ht);
+             evas_object_polygon_point_add(r, x, y);
+             evas_object_polygon_point_add(r, x + wd, y);
+             evas_object_polygon_point_add(r, x + wd, y + ht);
+             evas_object_polygon_point_add(r, x, y + ht);
+          }
+     }
+
    /* Put the object as high as possible. */
    evas_object_layer_set(r, EVAS_LAYER_MAX);
-   evas_object_move(r, x - PADDING, y - PADDING);
-   evas_object_resize(r, wd + (2 * PADDING), ht + (2 * PADDING));
    evas_object_color_set(r,
                          HIGHLIGHT_R, HIGHLIGHT_G, HIGHLIGHT_B, HIGHLIGHT_A);
    evas_object_show(r);
