@@ -62,13 +62,26 @@ PKG_CHECK_MODULES([EFL],
    ]
  )
 
+want_systemd="yes"
 EFL_ENABLE_BETA_API_SUPPORT
+AC_ARG_ENABLE([systemd],
+   [AC_HELP_STRING([--disable-systemd],
+       [disable systemd integration. @<:@default=enabled@:>@])],
+   [
+    if test "x${enableval}" = "xyes" ; then
+       want_systemd="yes"
+    else
+       want_systemd="no"
+    fi
+   ])
 
-# Detect systemd user session directory properly
-EFL_PKG_CHECK_VAR([USER_SESSION_DIR], [systemd], [systemduserunitdir],
-        [have_systemd_user_session="yes"], [have_systemd_user_session="no"])
+if test "x${want_systemd}" = "xyes"; then
+    # Detect systemd user session directory properly
+    EFL_PKG_CHECK_VAR([USER_SESSION_DIR], [systemd], [systemduserunitdir],
+            [have_systemd_user_session="yes"], [have_systemd_user_session="no"])
+    AC_SUBST([USER_SESSION_DIR])
+fi
 AM_CONDITIONAL([HAVE_SYSTEMD_USER_SESSION], [test "x${have_systemd_user_session}" = "xyes"])
-AC_SUBST([USER_SESSION_DIR])
 
 ### Checks for linker characteristics
 lt_enable_auto_import=""
