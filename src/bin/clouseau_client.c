@@ -1759,7 +1759,7 @@ _jump_to_entry_activated(void *data,
 {
    Gui_Elements *g = data;
    tree_data_st *td = (g->sel_app->td) ? g->sel_app->td : NULL;
-   long long int ptr = strtol(elm_object_text_get(obj), NULL, 16);
+   long long unsigned int ptr = strtoul(elm_object_text_get(obj), NULL, 16);
    Eina_List *found = NULL;
 
    if ((found = _list_tree_item_pointer_find(td->tree, (uintptr_t) ptr)))
