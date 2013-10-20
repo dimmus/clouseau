@@ -108,7 +108,7 @@ _titlebar_string_set(Gui_Elements *g, Eina_Bool online)
 {
    if (online)
      {
-        char *str = malloc(strlen(CLIENT_NAME) + strlen(g->address) + 32);
+        char *str = malloc(strlen(CLIENT_NAME) + (g->address ? strlen(g->address) : 0) + 32);
         sprintf(str, "%s - %s", CLIENT_NAME, g->address);
         elm_win_title_set(g->win, str);
         free(str);
