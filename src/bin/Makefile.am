@@ -3,7 +3,9 @@ MAINTAINERCLEANFILES = Makefile.in
 bin_PROGRAMS = clouseaud clouseau_client
 
 clouseaud_SOURCES = clouseaud.c
-clouseau_client_SOURCES = clouseau_client.c
+clouseau_client_SOURCES = \
+    clouseau_client.c \
+    client/cfg.c
 
 AM_CPPFLAGS = \
 -I$(top_srcdir)/src/lib \

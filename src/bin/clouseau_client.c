@@ -6,6 +6,7 @@
 #include <Ecore_Con_Eet.h>
 
 #include "Clouseau.h"
+#include "client/cfg.h"
 
 #define CLIENT_NAME         "Clouseau Client"
 
@@ -95,7 +96,6 @@ static Eina_List *apps = NULL;    /* List of (App_Data_St *)  */
 static Eina_List *bmp_req = NULL; /* List of (Bmp_Node *)     */
 
 static Elm_Genlist_Item_Class itc;
-static Eina_Bool list_show_clippers = EINA_TRUE, list_show_hidden = EINA_TRUE;
 static Eina_Bool do_highlight = EINA_TRUE;
 static Ecore_Con_Reply *eet_svr = NULL;
 static Eina_Bool _add_callback_called = EINA_FALSE;
@@ -994,8 +994,8 @@ gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 
    EINA_LIST_FOREACH(parent->children, itr, treeit)
      {
-        if ((!list_show_hidden && !treeit->is_visible) ||
-              (!list_show_clippers && treeit->is_clipper))
+        if ((!_clouseau_cfg->show_hidden && !treeit->is_visible) ||
+              (!_clouseau_cfg->show_clippers && treeit->is_clipper))
            continue;
 
         Elm_Genlist_Item_Type iflag = (treeit->children) ?
@@ -1356,7 +1356,7 @@ static void
 _show_clippers_check_changed(void *data, Evas_Object *obj,
       void *event_info EINA_UNUSED)
 {
-   list_show_clippers = elm_check_state_get(obj);
+   _clouseau_cfg->show_clippers = elm_check_state_get(obj);
    _load_list(data);
 }
 
@@ -1371,7 +1371,7 @@ static void
 _show_hidden_check_changed(void *data, Evas_Object *obj,
       void *event_info EINA_UNUSED)
 {
-   list_show_hidden = elm_check_state_get(obj);
+   _clouseau_cfg->show_hidden = elm_check_state_get(obj);
    _load_list(data);
 }
 
@@ -1805,13 +1805,13 @@ _control_buttons_create(Gui_Elements *g, Evas_Object *win)
 
    show_hidden_check = elm_check_add(g->hbx);
    elm_object_text_set(show_hidden_check, "Show Hidden");
-   elm_check_state_set(show_hidden_check, list_show_hidden);
+   elm_check_state_set(show_hidden_check, _clouseau_cfg->show_hidden);
    elm_box_pack_end(g->hbx, show_hidden_check);
    evas_object_show(show_hidden_check);
 
    show_clippers_check = elm_check_add(g->hbx);
    elm_object_text_set(show_clippers_check, "Show Clippers");
-   elm_check_state_set(show_clippers_check, list_show_clippers);
+   elm_check_state_set(show_clippers_check, _clouseau_cfg->show_clippers);
    elm_box_pack_end(g->hbx, show_clippers_check);
    evas_object_show(show_clippers_check);
 
@@ -2063,6 +2063,11 @@ main(int argc, char **argv)
 
    setenv("ELM_CLOUSEAU", "0", 1);
    elm_init(argc, argv);
+
+   clouseau_cfg_init(PACKAGE_NAME);
+   clouseau_cfg_load();
+
+
    if (argc == 2) gui->address = strdup(argv[1]); // if the user executes the client with ip and port in the arguments line
 
    gui->win = win = elm_win_util_standard_add("client", CLIENT_NAME);
@@ -2205,6 +2210,8 @@ main(int argc, char **argv)
 
    free(gui);
 
+   clouseau_cfg_save();
+   clouseau_cfg_shutdown();
    elm_shutdown();
 
    return 0;
