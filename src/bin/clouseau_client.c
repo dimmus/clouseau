@@ -69,7 +69,6 @@ struct _Gui_Elementns
    Evas_Object *win;
    Evas_Object *bx;     /* The main box */
    Evas_Object *hbx;    /* The top menu box */
-   Evas_Object *panel;  /* Button panel */
    Evas_Object *bt_load;
    Evas_Object *bt_save;
    Evas_Object *dd_list;
@@ -1726,7 +1725,6 @@ _show_gui(Gui_Elements *g, Eina_Bool work_offline)
      }
 
    evas_object_show(g->bx);
-   evas_object_show(g->panel);
 }
 
 static void
@@ -2094,23 +2092,6 @@ main(int argc, char **argv)
 
    _main_list_create(panes);
    _property_list_create(panes);
-
-   /* START Add buttom panel */
-   gui->panel = elm_panel_add(win);
-   elm_panel_orient_set(gui->panel, ELM_PANEL_ORIENT_BOTTOM);
-   evas_object_size_hint_weight_set(gui->panel,
-         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(gui->panel, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_panel_hidden_set(gui->panel, EINA_TRUE);
-   elm_win_resize_object_add(win, gui->panel);
-
-   gui->lb = elm_label_add(win);
-   evas_object_size_hint_weight_set(gui->lb, EVAS_HINT_EXPAND, 0);
-   evas_object_size_hint_align_set(gui->lb, EVAS_HINT_FILL, 0);
-   evas_object_show(gui->lb);
-
-   elm_object_content_set(gui->panel, gui->lb);
-   /* END   Add buttom panel */
 
    /* Add progress wheel */
    gui->pb = elm_progressbar_add(win);
