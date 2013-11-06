@@ -980,27 +980,61 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
      }
 }
 
+static Eina_Bool
+_tree_it_is_elm(Clouseau_Tree_Item *treeit)
+{
+   Eina_List *l;
+   Eo_Dbg_Info *eo_root, *eo;
+   Eina_Value_List eo_list;
+   clouseau_tree_item_from_legacy_convert(treeit);
+   eo_root = treeit->new_eo_info;
+
+   eina_value_pget(&(eo_root->value), &eo_list);
+
+   EINA_LIST_FOREACH(eo_list.list, l, eo)
+     {
+        if (!strcmp(eo->name, "elm_widget"))
+           return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static void
+_gl_exp_add_subitems(Evas_Object *gl, Elm_Object_Item *glit, Clouseau_Tree_Item *parent)
+{
+   Clouseau_Tree_Item *treeit;
+   Eina_List *itr;
+
+   EINA_LIST_FOREACH(parent->children, itr, treeit)
+     {
+        /* Skip the item if we don't want to show it. */
+        if ((!_clouseau_cfg->show_hidden && !treeit->is_visible) ||
+              (!_clouseau_cfg->show_clippers && treeit->is_clipper))
+           continue;
+
+        if (_clouseau_cfg->show_elm_only && !_tree_it_is_elm(treeit))
+          {
+             _gl_exp_add_subitems(gl, glit, treeit);
+          }
+        else
+          {
+             Elm_Genlist_Item_Type iflag = (treeit->children) ?
+                ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
+             _tree_item_show_last_expanded_item =
+                elm_genlist_item_append(gl, &itc, treeit, glit, iflag,
+                      NULL, NULL);
+          }
+     }
+}
+
 static void
 gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    Evas_Object *gl = elm_object_item_widget_get(glit);
    Clouseau_Tree_Item *parent = elm_object_item_data_get(glit);
-   Clouseau_Tree_Item *treeit;
-   Eina_List *itr;
-
-   EINA_LIST_FOREACH(parent->children, itr, treeit)
-     {
-        if ((!_clouseau_cfg->show_hidden && !treeit->is_visible) ||
-              (!_clouseau_cfg->show_clippers && treeit->is_clipper))
-           continue;
-
-        Elm_Genlist_Item_Type iflag = (treeit->children) ?
-           ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-        _tree_item_show_last_expanded_item =
-           elm_genlist_item_append(gl, &itc, treeit, glit, iflag,
-                 NULL, NULL);
-     }
+   _gl_exp_add_subitems(gl, glit, parent);
 }
 
 static void
