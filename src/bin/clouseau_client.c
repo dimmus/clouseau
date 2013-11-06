@@ -74,7 +74,6 @@ struct _Gui_Elementns
    Evas_Object *bt_save;
    Evas_Object *dd_list;
    Evas_Object *gl;
-   Evas_Object *lb;  /* Label showing backtrace */
    Evas_Object *prop_list;
    Evas_Object *connect_inwin;
    Evas_Object *save_inwin;
@@ -245,8 +244,6 @@ _load_gui_with_list(Gui_Elements *g, Eina_List *trees)
 {
    Eina_List *l;
    Clouseau_Tree_Item *treeit;
-
-   elm_object_text_set(g->lb, NULL); /* Clear backtrace label */
 
    if (!trees)
      return EINA_TRUE;
@@ -1240,7 +1237,7 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
    if (g->gl_it != event_info)
      {
         elm_genlist_clear(prop_list);
-        clouseau_object_information_list_populate(treeit, g->lb);
+        clouseau_object_information_list_populate(treeit);
         g->gl_it = event_info;
 
           {

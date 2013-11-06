@@ -214,7 +214,7 @@ static const struct {
 };
 
 EAPI void
-clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Object *lb)
+clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit)
 {
    Clouseau_Object *oinfo;
    char buf[1024];
@@ -365,21 +365,6 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Objec
              EO_DBG_INFO_APPEND(group, "Style", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.textblock.style);
              EO_DBG_INFO_APPEND(group, "Text", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.textblock.text);
           }
-
-        /* Update backtrace text */
-        if (oinfo->evas_props.bt)
-          {  /* Build backtrace label */
-             char *k = malloc(strlen("Creation backtrace:\n\n") +
-                   strlen(oinfo->evas_props.bt) + 1);
-
-             sprintf(k, "Creation backtrace:\n\n%s", oinfo->evas_props.bt);
-             char *p = elm_entry_utf8_to_markup(k);
-             elm_object_text_set(lb, p);
-             free(p);
-             free(k);
-          }
-        else
-           elm_object_text_set(lb, NULL);
 
         /* Convert Old format to Clouseau_eo */
         treeit->new_eo_info = root;

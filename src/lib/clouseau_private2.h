@@ -129,5 +129,5 @@ struct _Clouseau_Object
 void clouseau_object_desc_shutdown(void);
 
 /* Public */
-EAPI void clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit, Evas_Object *lb);
+EAPI void clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit);
 #endif
