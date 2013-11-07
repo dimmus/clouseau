@@ -8,7 +8,7 @@
 #include "cfg.h"
 #include "Clouseau.h"
 
-Clouseau_Cfg *_clouseau_cfg;
+Clouseau_Cfg *_clouseau_cfg = NULL;
 static Eet_Data_Descriptor * _clouseau_cfg_descriptor;
 #define _CONFIG_ENTRY "config"
 
