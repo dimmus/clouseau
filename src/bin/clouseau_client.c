@@ -7,6 +7,7 @@
 
 #include "Clouseau.h"
 #include "client/cfg.h"
+#include "client/config_dialog.h"
 
 #define CLIENT_NAME         "Clouseau Client"
 
@@ -85,7 +86,7 @@ struct _Gui_Elementns
 };
 typedef struct _Gui_Elementns Gui_Elements;
 
-static int _load_list(Gui_Elements *g);
+static void _load_list(Gui_Elements *g);
 static void _bt_load_file(void *data, Evas_Object *obj EINA_UNUSED, void *event_info);
 static void _show_gui(Gui_Elements *g, Eina_Bool work_offline);
 
@@ -980,27 +981,61 @@ _bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
      }
 }
 
+static Eina_Bool
+_tree_it_is_elm(Clouseau_Tree_Item *treeit)
+{
+   Eina_List *l;
+   Eo_Dbg_Info *eo_root, *eo;
+   Eina_Value_List eo_list;
+   clouseau_tree_item_from_legacy_convert(treeit);
+   eo_root = treeit->new_eo_info;
+
+   eina_value_pget(&(eo_root->value), &eo_list);
+
+   EINA_LIST_FOREACH(eo_list.list, l, eo)
+     {
+        if (!strcmp(eo->name, "elm_widget"))
+           return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static void
+_gl_exp_add_subitems(Evas_Object *gl, Elm_Object_Item *glit, Clouseau_Tree_Item *parent)
+{
+   Clouseau_Tree_Item *treeit;
+   Eina_List *itr;
+
+   EINA_LIST_FOREACH(parent->children, itr, treeit)
+     {
+        /* Skip the item if we don't want to show it. */
+        if ((!_clouseau_cfg->show_hidden && !treeit->is_visible) ||
+              (!_clouseau_cfg->show_clippers && treeit->is_clipper))
+           continue;
+
+        if (_clouseau_cfg->show_elm_only && !_tree_it_is_elm(treeit))
+          {
+             _gl_exp_add_subitems(gl, glit, treeit);
+          }
+        else
+          {
+             Elm_Genlist_Item_Type iflag = (treeit->children) ?
+                ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
+             _tree_item_show_last_expanded_item =
+                elm_genlist_item_append(gl, &itc, treeit, glit, iflag,
+                      NULL, NULL);
+          }
+     }
+}
+
 static void
 gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    Evas_Object *gl = elm_object_item_widget_get(glit);
    Clouseau_Tree_Item *parent = elm_object_item_data_get(glit);
-   Clouseau_Tree_Item *treeit;
-   Eina_List *itr;
-
-   EINA_LIST_FOREACH(parent->children, itr, treeit)
-     {
-        if ((!_clouseau_cfg->show_hidden && !treeit->is_visible) ||
-              (!_clouseau_cfg->show_clippers && treeit->is_clipper))
-           continue;
-
-        Elm_Genlist_Item_Type iflag = (treeit->children) ?
-           ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-        _tree_item_show_last_expanded_item =
-           elm_genlist_item_append(gl, &itc, treeit, glit, iflag,
-                 NULL, NULL);
-     }
+   _gl_exp_add_subitems(gl, glit, parent);
 }
 
 static void
@@ -1308,7 +1343,7 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
    /* END   - replacing clouseau_object_highlight(obj); */
 }
 
-static int
+static void
 _load_list(Gui_Elements *g)
 {
    elm_progressbar_pulse(g->pb, EINA_FALSE);
@@ -1330,7 +1365,7 @@ _load_list(Gui_Elements *g)
              if (!eet_svr)
                {
                   _update_tree_offline(g, g->sel_app->td);
-                  return 0;
+                  return;
                }
 
              if (eina_list_search_unsorted(apps, _app_ptr_cmp,
@@ -1345,16 +1380,6 @@ _load_list(Gui_Elements *g)
                }
           }
      }
-
-   return 0;
-}
-
-static void
-_show_clippers_check_changed(void *data, Evas_Object *obj,
-      void *event_info EINA_UNUSED)
-{
-   _clouseau_cfg->show_clippers = elm_check_state_get(obj);
-   _load_list(data);
 }
 
 static void
@@ -1362,14 +1387,6 @@ _highlight_check_check_changed(EINA_UNUSED void *data, Evas_Object *obj,
       void *event_info EINA_UNUSED)
 {
    do_highlight = elm_check_state_get(obj);
-}
-
-static void
-_show_hidden_check_changed(void *data, Evas_Object *obj,
-      void *event_info EINA_UNUSED)
-{
-   _clouseau_cfg->show_hidden = elm_check_state_get(obj);
-   _load_list(data);
 }
 
 static void
@@ -1553,6 +1570,14 @@ _list_tree_item_pointer_find(Eina_List *tree, uintptr_t ptr)
      }
 
    return NULL;
+}
+
+static void
+_settings_btn_clicked(void *data EINA_UNUSED,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   clouseau_settings_dialog_open(gui->win,
+         (Clouseau_Config_Changed_Cb) _load_list, (void *) gui);
 }
 
 static void
@@ -1768,7 +1793,7 @@ _jump_to_entry_activated(void *data,
 static void
 _control_buttons_create(Gui_Elements *g, Evas_Object *win)
 {
-   Evas_Object *show_hidden_check, *show_clippers_check, *highlight_check;
+   Evas_Object *highlight_check;
    Evas_Object *jump_to_entry, *frame;
 
    frame = elm_frame_add(gui->bx);
@@ -1800,28 +1825,12 @@ _control_buttons_create(Gui_Elements *g, Evas_Object *win)
    elm_box_pack_end(g->hbx, g->dd_list);
    evas_object_show(g->dd_list);
 
-   show_hidden_check = elm_check_add(g->hbx);
-   elm_object_text_set(show_hidden_check, "Show Hidden");
-   elm_check_state_set(show_hidden_check, _clouseau_cfg->show_hidden);
-   elm_box_pack_end(g->hbx, show_hidden_check);
-   evas_object_show(show_hidden_check);
-
-   show_clippers_check = elm_check_add(g->hbx);
-   elm_object_text_set(show_clippers_check, "Show Clippers");
-   elm_check_state_set(show_clippers_check, _clouseau_cfg->show_clippers);
-   elm_box_pack_end(g->hbx, show_clippers_check);
-   evas_object_show(show_clippers_check);
-
    highlight_check = elm_check_add(g->hbx);
    elm_object_text_set(highlight_check , "Highlight");
    elm_check_state_set(highlight_check , do_highlight);
    elm_box_pack_end(g->hbx, highlight_check);
    evas_object_show(highlight_check);
 
-   evas_object_smart_callback_add(show_hidden_check, "changed",
-                                  _show_hidden_check_changed, g);
-   evas_object_smart_callback_add(show_clippers_check, "changed",
-                                  _show_clippers_check_changed, g);
    evas_object_smart_callback_add(highlight_check, "changed",
                                   _highlight_check_check_changed, g);
 
@@ -1838,6 +1847,15 @@ _control_buttons_create(Gui_Elements *g, Evas_Object *win)
 
    evas_object_smart_callback_add(jump_to_entry, "activated",
                                   _jump_to_entry_activated, g);
+
+   Evas_Object *btn_settings;
+
+   btn_settings = elm_button_add(g->hbx);
+   elm_object_text_set(btn_settings, "Settings");
+   evas_object_smart_callback_add(btn_settings, "clicked",
+         _settings_btn_clicked, NULL);
+   elm_box_pack_end(g->hbx, btn_settings);
+   evas_object_show(btn_settings);
 }
 
 static void
