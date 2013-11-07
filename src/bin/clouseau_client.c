@@ -1182,7 +1182,7 @@ item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
 {
    Clouseau_Tree_Item *treeit = data;
    char buf[256];
-   snprintf(buf, sizeof(buf), "%llx %s", treeit->ptr, treeit->name);
+   snprintf(buf, sizeof(buf), "%s %llx", treeit->name, treeit->ptr);
    return strdup(buf);
 }
 
