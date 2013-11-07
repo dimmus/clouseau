@@ -994,7 +994,7 @@ _tree_it_is_elm(Clouseau_Tree_Item *treeit)
 
    EINA_LIST_FOREACH(eo_list.list, l, eo)
      {
-        if (!strcmp(eo->name, "elm_widget"))
+        if (!strcmp(eo->name, "Elm_Widget"))
            return EINA_TRUE;
      }
 
