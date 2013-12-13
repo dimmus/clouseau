@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include "clouseau_private.h"
 
 #include <Elementary.h>
@@ -23,6 +27,16 @@ libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
    treeit->is_obj = EINA_TRUE;
 
    treeit->name = eina_stringshare_add(eo_class_name_get(o));
+
+   /* FIXME: Hack to work with old smart inheritance.
+    * Check if the class *is* (not just implements) Evas_Smart. */
+   if (eo_class_get(o) == EVAS_OBJ_SMART_CLASS)
+     {
+        char buf[1024];
+        snprintf(buf, sizeof(buf), "%s (%s)", evas_object_type_get(o), treeit->name);
+        eina_stringshare_replace(&treeit->name, buf);
+     }
+
    treeit->is_clipper = !!evas_object_clipees_get(o);
    treeit->is_visible = evas_object_visible_get(o);
    treeit->info = _clouseau_object_information_get(treeit);
