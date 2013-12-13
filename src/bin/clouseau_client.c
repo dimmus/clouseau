@@ -10,6 +10,7 @@
 #include "client/config_dialog.h"
 
 #define CLIENT_NAME         "Clouseau Client"
+#define SELECT_APP_TEXT     "Select App"
 
 #define SHOW_SCREENSHOT     "/images/show-screenshot.png"
 #define TAKE_SCREENSHOT     "/images/take-screenshot.png"
@@ -353,7 +354,7 @@ _set_selected_app(void *data, Evas_Object *pobj,
      }
    else
      {  /* If we got a NULL ptr, reset lists and dd_list text */
-        elm_object_text_set(pobj, "SELECT APP");
+        elm_object_text_set(pobj, SELECT_APP_TEXT);
         elm_genlist_clear(gui->gl);
         elm_genlist_clear(gui->prop_list);
         gui->sel_app = NULL;
@@ -1840,7 +1841,7 @@ _control_buttons_create(Gui_Elements *g, Evas_Object *win)
 
    g->dd_list = elm_hoversel_add(g->hbx);
    elm_hoversel_hover_parent_set(g->dd_list, win);
-   elm_object_text_set(g->dd_list, "Select App");
+   elm_object_text_set(g->dd_list, SELECT_APP_TEXT);
 
    evas_object_size_hint_align_set(g->dd_list, 0.0, 0.3);
    elm_box_pack_end(g->hbx, g->dd_list);
