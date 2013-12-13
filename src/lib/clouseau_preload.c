@@ -40,7 +40,7 @@ ecore_main_loop_begin(void)
 
    if (!_elm_is_init)
      {
-        _my_app_name = "clouseau";
+        _my_app_name = "unknown";
      }
 
    clouseau_init();
