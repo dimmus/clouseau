@@ -64,6 +64,8 @@ PKG_CHECK_MODULES([EFL],
 
 want_systemd="yes"
 EFL_ENABLE_BETA_API_SUPPORT
+
+AC_DEFINE([EFL_EO_API_SUPPORT], [1], [Enable access to unstable EFL EO API.])
 AC_ARG_ENABLE([systemd],
    [AC_HELP_STRING([--disable-systemd],
        [disable systemd integration. @<:@default=enabled@:>@])],
