@@ -473,9 +473,30 @@ _free_app(App_Data_St *st)
 }
 
 static void
-_remove_app(Gui_Elements *g EINA_UNUSED, app_closed_st *app EINA_UNUSED)
-{
-   /* We don't really want to do anything with app removals atm. */
+_remove_app(Gui_Elements *g, app_closed_st *app)
+{  /* Handle the case that NO app is selected, set sel_app to NULL */
+   app_info_st *sel_app = (g->sel_app) ? g->sel_app->app: NULL;
+   App_Data_St *st = (App_Data_St *)
+      eina_list_search_unsorted(apps, _app_ptr_cmp,
+            (void *) (uintptr_t) app->ptr);
+
+   /* if NO app selected OR closing app is the selected one, reset display */
+   if ((!sel_app) || (app->ptr == sel_app->ptr))
+     _set_selected_app(NULL, g->dd_list, NULL);
+
+   if (st)
+     {  /* Remove from list and free all app info */
+        Eina_List *l;
+        apps = eina_list_remove(apps, st);
+        _free_app(st);
+
+        if (elm_hoversel_expanded_get(g->dd_list))
+          elm_hoversel_hover_end(g->dd_list);
+
+        elm_hoversel_clear(g->dd_list);
+        EINA_LIST_FOREACH(apps, l , st)
+           _add_app_to_dd_list(g->dd_list, st);
+     }
 }
 
 static void
