@@ -84,6 +84,7 @@ struct _Gui_Elementns
    char *address;
    App_Data_St *sel_app; /* Currently selected app data */
    Elm_Object_Item *gl_it; /* Currently selected genlist item */
+   uintptr_t jump_to_ptr;
 };
 typedef struct _Gui_Elementns Gui_Elements;
 
@@ -102,6 +103,7 @@ static Ecore_Con_Reply *eet_svr = NULL;
 static Eina_Bool _add_callback_called = EINA_FALSE;
 static void _cancel_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED);
 static void _ofl_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED);
+static void _jump_to_ptr(Gui_Elements *g, uintptr_t ptr);
 
 static void
 _titlebar_string_set(Gui_Elements *g, Eina_Bool online)
@@ -262,6 +264,12 @@ _load_gui_with_list(Gui_Elements *g, Eina_List *trees)
            ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
         elm_genlist_item_append(g->gl, &itc, treeit, NULL,
               glflag, NULL, NULL);
+     }
+
+   if (g->jump_to_ptr)
+     {
+        _jump_to_ptr(g, g->jump_to_ptr);
+        g->jump_to_ptr = 0;
      }
 
    return EINA_TRUE;
@@ -1287,8 +1295,12 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
    Clouseau_Tree_Item *treeit = elm_object_item_data_get(event_info);
    const Elm_Object_Item *parent;
    const Elm_Object_Item *prt = elm_genlist_item_parent_get(event_info);
+
    if (!prt)
-     return;
+     {
+        g->gl_it = NULL;
+        return;
+     }
 
    /* Populate object information, then do highlight */
    if (g->gl_it != event_info)
@@ -1415,6 +1427,13 @@ static void
 _bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Gui_Elements *g = data;
+
+   /* If there's a currently selected item, try to reopening it. */
+   if (g->gl_it)
+     {
+        Clouseau_Tree_Item *treeit = elm_object_item_data_get(g->gl_it);
+        g->jump_to_ptr = (treeit) ? (uintptr_t) treeit->ptr : 0;
+     }
 
    /* Close all app-bmp-view windows here and clear mem */
    if (g->sel_app)
@@ -1796,20 +1815,26 @@ _ofl_bt_clicked(void *data,
 }
 
 static void
+_jump_to_ptr(Gui_Elements *g, uintptr_t ptr)
+{
+   tree_data_st *td = (g->sel_app->td) ? g->sel_app->td : NULL;
+   Eina_List *found = NULL;
+
+   if (td && (found = _list_tree_item_pointer_find(td->tree, (uintptr_t) ptr)))
+     {
+        _tree_item_show(g->gl, found);
+        eina_list_free(found);
+     }
+}
+
+static void
 _jump_to_entry_activated(void *data,
       Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    Gui_Elements *g = data;
-   tree_data_st *td = (g->sel_app->td) ? g->sel_app->td : NULL;
    long long unsigned int ptr = strtoul(elm_object_text_get(obj), NULL, 16);
-   Eina_List *found = NULL;
 
-   if ((found = _list_tree_item_pointer_find(td->tree, (uintptr_t) ptr)))
-     {
-        _load_gui_with_list(g, td->tree);
-        _tree_item_show(g->gl, found);
-        eina_list_free(found);
-     }
+   _jump_to_ptr(g, ptr);
 }
 
 static void
