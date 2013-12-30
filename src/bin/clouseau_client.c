@@ -1613,6 +1613,126 @@ _list_tree_item_pointer_find(Eina_List *tree, uintptr_t ptr)
    return NULL;
 }
 
+/* Load/unload modules. */
+
+static Eina_List *_client_modules = NULL;
+
+static void
+_modules_load_from_path(const char *path)
+{
+   Eina_Array *modules = NULL;
+
+   modules = eina_module_list_get(modules, path, EINA_TRUE, NULL, NULL);
+   if (modules)
+     {
+        eina_module_list_load(modules);
+
+        _client_modules = eina_list_append(_client_modules, modules);
+     }
+}
+
+#define MODULES_POSTFIX PACKAGE "/client/modules"
+
+static void
+_modules_init(void)
+{
+   char *path;
+
+   path = eina_module_environment_path_get("HOME", "/." MODULES_POSTFIX);
+   _modules_load_from_path(path);
+   free(path);
+
+   path = PACKAGE_LIB_DIR "/" MODULES_POSTFIX;
+   _modules_load_from_path(path);
+}
+
+static void
+_modules_shutdown(void)
+{
+   Eina_Array *module_list;
+
+   EINA_LIST_FREE(_client_modules, module_list)
+      eina_module_list_free(module_list);
+}
+
+static void
+_run_module_btn_clicked(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Eina_Module *module = data;
+   tree_data_st *td = NULL;
+ 
+   if (gui && gui->sel_app)
+      td = (gui->sel_app->td) ? gui->sel_app->td : NULL;
+
+   if (td)
+     {
+        void (*module_run)(Eina_List *) = eina_module_symbol_get(module, "clouseau_client_module_run");
+
+        module_run(td->tree);
+     }
+   else
+     {
+        ERR("No selected apps!");
+     }
+}
+
+static Eina_Bool
+_module_name_get_cb(const void *container EINA_UNUSED, void *data, void *fdata)
+{
+   Evas_Object *box = fdata;
+   Eina_Module *module = data;
+   Evas_Object *btn = NULL;
+
+   const char **name = eina_module_symbol_get(module, "clouseau_module_name");
+   if (name)
+     {
+        btn = elm_button_add(box);
+        elm_object_text_set(btn, *name);
+        evas_object_smart_callback_add(btn, "clicked", _run_module_btn_clicked, module);
+        elm_box_pack_end(box, btn);
+        evas_object_show(btn);
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_popup_close_clicked_cb(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   evas_object_del(data);
+}
+
+static void
+_extensions_btn_clicked(void *data EINA_UNUSED,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Eina_List *itr;
+   Eina_Array *module_list;
+   Evas_Object *popup, *box, *btn;
+
+   popup = elm_popup_add(gui->win);
+   elm_object_part_text_set(popup, "title,text", "Run Extensions");
+   evas_object_show(popup);
+
+   box = elm_box_add(popup);
+   elm_object_content_set(popup, box);
+   evas_object_show(box);
+
+   EINA_LIST_FOREACH(_client_modules, itr, module_list)
+     {
+        eina_array_foreach(module_list, _module_name_get_cb, box);
+     }
+
+   btn = elm_button_add(box);
+   elm_object_text_set(btn, "Close");
+   evas_object_smart_callback_add(btn, "clicked", _popup_close_clicked_cb, popup);
+   evas_object_size_hint_align_set(btn, 1.0, 0.5);
+   elm_box_pack_end(box, btn);
+   evas_object_show(btn);
+}
+
 static void
 _settings_btn_clicked(void *data EINA_UNUSED,
       Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
@@ -1895,6 +2015,15 @@ _control_buttons_create(Gui_Elements *g, Evas_Object *win)
    evas_object_smart_callback_add(jump_to_entry, "activated",
                                   _jump_to_entry_activated, g);
 
+   Evas_Object *btn_extensions;
+
+   btn_extensions = elm_button_add(g->hbx);
+   elm_object_text_set(btn_extensions, "Extensions");
+   evas_object_smart_callback_add(btn_extensions, "clicked",
+         _extensions_btn_clicked, NULL);
+   elm_box_pack_end(g->hbx, btn_extensions);
+   evas_object_show(btn_extensions);
+
    Evas_Object *btn_settings;
 
    btn_settings = elm_button_add(g->hbx);
@@ -2129,6 +2258,8 @@ main(int argc, char **argv)
    clouseau_cfg_init(PACKAGE_NAME);
    clouseau_cfg_load();
 
+   _modules_init();
+
 
    if (argc == 2) gui->address = strdup(argv[1]); // if the user executes the client with ip and port in the arguments line
 
@@ -2272,6 +2403,7 @@ main(int argc, char **argv)
 
    free(gui);
 
+   _modules_shutdown();
    clouseau_cfg_save();
    clouseau_cfg_shutdown();
    elm_shutdown();

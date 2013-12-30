@@ -7,7 +7,9 @@
  * These functions will probably need to be renamed/change as well.
  * We'll also remove the private include once things are done. */
 
-#include <Elementary.h>
+#include <Eo.h>
+#include <Eina.h>
+#include <Evas.h>
 
 typedef struct _Clouseau_Bitmap Clouseau_Bitmap;
 typedef struct _Clouseau_Tree_Item Clouseau_Tree_Item;
