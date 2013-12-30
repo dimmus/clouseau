@@ -111,6 +111,7 @@ src/Makefile
 src/lib/Makefile
 src/bin/Makefile
 src/scripts/Makefile
+src/modules/Makefile
 data/Makefile
 data/images/Makefile
 data/units/Makefile

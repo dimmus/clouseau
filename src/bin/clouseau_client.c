@@ -1631,7 +1631,7 @@ _modules_load_from_path(const char *path)
      }
 }
 
-#define MODULES_POSTFIX PACKAGE "/client/modules"
+#define MODULES_POSTFIX PACKAGE "/modules/client"
 
 static void
 _modules_init(void)
