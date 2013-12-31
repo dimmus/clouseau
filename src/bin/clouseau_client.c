@@ -2176,7 +2176,7 @@ _obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
      {
         /* We treat UINT64 as a pointer. */
 
-        uint64_t ptr = NULL;
+        uint64_t ptr = 0;
         eina_value_get(&(eo->value), &ptr);
         snprintf(buf, sizeof(buf), "%s: %p", eo->name, (void *) (uintptr_t) ptr);
      }
