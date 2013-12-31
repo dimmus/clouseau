@@ -2172,6 +2172,14 @@ _obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
         else
            snprintf(buf, sizeof(buf), "%s", eo->name);
      }
+   else if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_UINT64)
+     {
+        /* We treat UINT64 as a pointer. */
+
+        uint64_t ptr = NULL;
+        eina_value_get(&(eo->value), &ptr);
+        snprintf(buf, sizeof(buf), "%s: %p", eo->name, (void *) (uintptr_t) ptr);
+     }
    else
      {
         char *strval = eina_value_to_string(&(eo->value));
