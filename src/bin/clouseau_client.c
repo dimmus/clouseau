@@ -1535,6 +1535,7 @@ _tree_item_show_item(Elm_Object_Item *git, Eina_List *item_list)
           {
              Elm_Object_Item *gitc;
              _tree_item_show_last_expanded_item = NULL;
+             elm_genlist_item_expanded_set(git, EINA_FALSE);
              elm_genlist_item_expanded_set(git, EINA_TRUE);
              gitc = _tree_item_show_last_expanded_item;
 
