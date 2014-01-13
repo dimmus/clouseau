@@ -1331,7 +1331,7 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
                           ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
                        // We force the item to be a tree for the class layers
                        eo_it = elm_genlist_item_append(prop_list, &_class_info_itc, eo, NULL,
-                             iflag, _gl_selected, NULL);
+                             iflag, _gl_selected, data);
                        expand_list = eina_list_append(expand_list, eo_it);
                     }
                }
