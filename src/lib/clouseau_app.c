@@ -46,9 +46,12 @@ libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
    /* if (!evas_object_smart_data_get(o)) return ; */
 
    /* Do this only for smart object */
-   children = evas_object_smart_members_get(o);
-   EINA_LIST_FREE(children, child)
-     libclouseau_item_add(child, treeit);
+   if (eo_isa(o, EVAS_OBJ_SMART_CLASS))
+     {
+        children = evas_object_smart_members_get(o);
+        EINA_LIST_FREE(children, child)
+           libclouseau_item_add(child, treeit);
+     }
 }
 
 static void *
@@ -185,13 +188,16 @@ _clouseau_verify_e_children(Evas_Object *obj, Evas_Object *ptr)
    if (ptr == obj)
      return ptr;
 
-   children = evas_object_smart_members_get(obj);
-   EINA_LIST_FREE(children, child)
+   if (eo_isa(obj, EVAS_OBJ_SMART_CLASS))
      {
-        p = _clouseau_verify_e_children(child, ptr);
-        if (p) break;
+        children = evas_object_smart_members_get(obj);
+        EINA_LIST_FREE(children, child)
+          {
+             p = _clouseau_verify_e_children(child, ptr);
+             if (p) break;
+          }
+        eina_list_free(children);
      }
-   eina_list_free(children);
 
    return p;
 }
