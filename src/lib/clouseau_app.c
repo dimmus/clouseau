@@ -353,6 +353,18 @@ _clouseau_object_information_get(Clouseau_Tree_Item *treeit)
 
    eo_dbg_info = EO_DBG_INFO_LIST_APPEND(NULL, "");
    eo_do(obj, eo_dbg_info_get(eo_dbg_info));
+
+   /* XXX: Edje information that should be here because Evas objects can't
+    * depend on Edje. This should be removed in the future. */
+     {
+        const char *part_name = edje_object_part_object_name_get(obj);
+        if (part_name)
+          {
+             Eo_Dbg_Info *group = EO_DBG_INFO_LIST_APPEND(eo_dbg_info, "Edje_Part");
+             EO_DBG_INFO_APPEND(group, "Part name", EINA_VALUE_TYPE_STRING, part_name);
+          }
+     }
+
    treeit->eo_info = clouseau_eo_to_legacy_convert(eo_dbg_info);
 
    eo_dbg_info_free(eo_dbg_info); /* Free original list */
