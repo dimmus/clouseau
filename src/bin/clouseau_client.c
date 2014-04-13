@@ -1824,9 +1824,9 @@ _save_file_dialog(void *data,
 
    /* Add the Save fileselector button */
    bt_save = elm_fileselector_button_add(bt_bx);
-   elm_fileselector_button_is_save_set(bt_save, EINA_TRUE);
+   elm_fileselector_is_save_set(bt_save, EINA_TRUE);
    elm_object_text_set(bt_save, "Save File");
-   elm_fileselector_button_path_set(bt_save, getenv("HOME"));
+   elm_fileselector_path_set(bt_save, getenv("HOME"));
    evas_object_smart_callback_add(bt_save, "file,chosen",
          _bt_save_file, ck_bx);
 
@@ -1874,7 +1874,7 @@ _show_gui(Gui_Elements *g, Eina_Bool work_offline)
         g->bt_load = elm_fileselector_button_add(g->hbx);
         elm_box_pack_start(g->hbx, g->bt_load);
         elm_object_text_set(g->bt_load, "Load File");
-        elm_fileselector_button_path_set(g->bt_load, getenv("HOME"));
+        elm_fileselector_path_set(g->bt_load, getenv("HOME"));
         evas_object_smart_callback_add(g->bt_load, "file,chosen",
               _bt_load_file, g);
 
