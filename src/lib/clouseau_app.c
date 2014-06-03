@@ -30,7 +30,7 @@ libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
 
    /* FIXME: Hack to work with old smart inheritance.
     * Check if the class *is* (not just implements) Evas_Smart. */
-   if (eo_class_get(o) == EVAS_OBJ_SMART_CLASS)
+   if (eo_class_get(o) == EVAS_OBJECT_SMART_CLASS)
      {
         char buf[1024];
         snprintf(buf, sizeof(buf), "%s (%s)", evas_object_type_get(o), treeit->name);
@@ -46,7 +46,7 @@ libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
    /* if (!evas_object_smart_data_get(o)) return ; */
 
    /* Do this only for smart object */
-   if (eo_isa(o, EVAS_OBJ_SMART_CLASS))
+   if (eo_isa(o, EVAS_OBJECT_SMART_CLASS))
      {
         children = evas_object_smart_members_get(o);
         EINA_LIST_FREE(children, child)
@@ -188,7 +188,7 @@ _clouseau_verify_e_children(Evas_Object *obj, Evas_Object *ptr)
    if (ptr == obj)
      return ptr;
 
-   if (eo_isa(obj, EVAS_OBJ_SMART_CLASS))
+   if (eo_isa(obj, EVAS_OBJECT_SMART_CLASS))
      {
         children = evas_object_smart_members_get(obj);
         EINA_LIST_FREE(children, child)
