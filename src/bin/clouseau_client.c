@@ -2358,6 +2358,7 @@ main(int argc, char **argv)
         evas_object_smart_callback_add(gui->en, "activated", _ok_bt_clicked, (void *)gui);
         elm_box_pack_end(bxx, gui->en);
         evas_object_show(gui->en);
+        elm_object_focus_set(gui->en, EINA_TRUE);
 
         bt_bx = elm_box_add(bxx);
         elm_box_horizontal_set(bt_bx, EINA_TRUE);
