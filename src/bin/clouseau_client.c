@@ -2075,9 +2075,19 @@ _obj_info_compactable_list_to_buffer(Eo_Dbg_Info *root_eo, char* buffer, unsigne
    buffer += snprintf(buffer, buffer_size, "%s:", root_eo->name);
    EINA_LIST_FOREACH(list.list, l, eo)
      {
-        char *strval = eina_value_to_string(&(eo->value));
-        buffer += snprintf(buffer, buffer_size, "   %s: %s", eo->name, strval);
-        free(strval);
+        if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_UINT64)
+          {
+             /* We treat UINT64 as a pointer. */
+             uint64_t ptr = 0;
+             eina_value_get(&(eo->value), &ptr);
+             buffer += snprintf(buffer, buffer_size, "   %s: %llx", eo->name, (unsigned long long) ptr);
+          }
+        else
+          {
+             char *strval = eina_value_to_string(&(eo->value));
+             buffer += snprintf(buffer, buffer_size, "   %s: %s", eo->name, strval);
+             free(strval);
+          }
      }
 }
 
