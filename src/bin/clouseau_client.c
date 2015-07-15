@@ -44,6 +44,8 @@ static int _clouseau_client_log_dom = -1;
 #define DBG(...) EINA_LOG_DOM_DBG(_clouseau_client_log_dom, __VA_ARGS__)
 
 static Evas_Object *prop_list = NULL;
+// Item class for app name list
+static Elm_Genlist_Item_Class *_app_itc = NULL;
 static Elm_Genlist_Item_Class _obj_info_itc;
 // Item class for objects classnames
 static Elm_Genlist_Item_Class _class_info_itc;
@@ -74,7 +76,13 @@ struct _Gui_Elementns
    Evas_Object *hbx;    /* The top menu box */
    Evas_Object *bt_load;
    Evas_Object *bt_save;
-   Evas_Object *dd_list;
+   struct {
+        Evas_Object *dd_list;
+        Evas_Object *obj;
+        Evas_Object *btn;
+        Evas_Object *resize_rect;
+        Eina_Bool is_expand : 1;
+   } hover;
    Evas_Object *gl;
    Evas_Object *prop_list;
    Evas_Object *connect_inwin;
@@ -342,7 +350,7 @@ _set_selected_app(void *data, Evas_Object *pobj,
           {  /* Got TREE_DATA from file, update this immidately */
               gui->sel_app = st;
              char *str = _app_name_get(st->app);
-             elm_object_text_set(pobj, str);
+             elm_object_text_set(gui->hover.btn, str);
              free(str);
              _load_list(gui);
              return;
@@ -352,7 +360,7 @@ _set_selected_app(void *data, Evas_Object *pobj,
           {  /* Reload only of selected some other app */
              gui->sel_app = st;
              char *str = _app_name_get(st->app);
-             elm_object_text_set(pobj, str);
+             elm_object_text_set(gui->hover.btn, str);
              free(str);
 
              elm_progressbar_pulse(gui->pb, EINA_FALSE);
@@ -362,7 +370,7 @@ _set_selected_app(void *data, Evas_Object *pobj,
      }
    else
      {  /* If we got a NULL ptr, reset lists and dd_list text */
-        elm_object_text_set(pobj, SELECT_APP_TEXT);
+        elm_object_text_set(gui->hover.btn, SELECT_APP_TEXT);
         elm_genlist_clear(gui->gl);
         elm_genlist_clear(gui->prop_list);
         gui->sel_app = NULL;
@@ -373,6 +381,8 @@ _set_selected_app(void *data, Evas_Object *pobj,
         elm_object_disabled_set(gui->bt_load, (gui->sel_app == NULL));
         elm_object_disabled_set(gui->bt_save, (gui->sel_app == NULL));
      }
+   elm_genlist_item_selected_set(elm_genlist_selected_item_get(pobj), EINA_FALSE);
+   elm_hover_dismiss(gui->hover.obj);
 }
 
 static int
@@ -384,14 +394,25 @@ _app_ptr_cmp(const void *d1, const void *d2)
    return ((app->ptr) - (unsigned long long) (uintptr_t) d2);
 }
 
+static char *
+_app_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+                    const char *part EINA_UNUSED)
+{
+   App_Data_St *st = data;
+   char *str, *retstr;
+
+   str = _app_name_get(st->app);
+   retstr = strdup(str);
+   free(str);
+   return retstr;
+}
+
 static void
 _add_app_to_dd_list(Evas_Object *dd_list, App_Data_St *st)
 {  /* Add app to Drop Down List */
-   char *str = _app_name_get(st->app);
-   elm_hoversel_item_add(dd_list, str, NULL, ELM_ICON_NONE,
-         _set_selected_app, st);
-
-   free(str);
+   elm_genlist_item_append(dd_list, _app_itc, st,
+                           NULL, ELM_GENLIST_ITEM_NONE,
+                           _set_selected_app, st);
 }
 
 static int
@@ -442,7 +463,7 @@ _add_app(Gui_Elements *g, app_info_st *app)
    st->td = NULL; /* Will get this on TREE_DATA message */
    apps = eina_list_append(apps, st);
 
-   _add_app_to_dd_list(g->dd_list, st);
+   _add_app_to_dd_list(g->hover.dd_list, st);
 
    return st;
 }
@@ -491,7 +512,7 @@ _remove_app(Gui_Elements *g, app_closed_st *app)
 
    /* if NO app selected OR closing app is the selected one, reset display */
    if ((!sel_app) || (app->ptr == sel_app->ptr))
-     _set_selected_app(NULL, g->dd_list, NULL);
+     _set_selected_app(NULL, g->hover.dd_list, NULL);
 
    if (st)
      {  /* Remove from list and free all app info */
@@ -499,12 +520,15 @@ _remove_app(Gui_Elements *g, app_closed_st *app)
         apps = eina_list_remove(apps, st);
         _free_app(st);
 
-        if (elm_hoversel_expanded_get(g->dd_list))
-          elm_hoversel_hover_end(g->dd_list);
+        if (g->hover.is_expand)
+          {
+             elm_hover_dismiss(g->hover.obj);
+             g->hover.is_expand = EINA_FALSE;
+          }
 
-        elm_hoversel_clear(g->dd_list);
+        elm_genlist_clear(g->hover.dd_list);
         EINA_LIST_FOREACH(apps, l , st)
-           _add_app_to_dd_list(g->dd_list, st);
+           _add_app_to_dd_list(g->hover.dd_list, st);
      }
 }
 
@@ -1465,7 +1489,7 @@ _bt_load_file(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
              app->file = strdup(event_info);
              App_Data_St *st = _add_app(g, app);
              st->td = td;  /* This is the same as we got TREE_DATA message */
-             _set_selected_app(st, g->dd_list, NULL);
+             _set_selected_app(st, g->hover.dd_list, NULL);
           }
      }
 }
@@ -1958,11 +1982,92 @@ _jump_to_entry_activated(void *data,
    _jump_to_ptr(g, ptr);
 }
 
+static Eina_Bool
+_calc_list(Gui_Elements *g)
+{
+   int count = elm_genlist_items_count(g->hover.dd_list);
+
+   if (count == 0)
+     return EINA_FALSE;
+   else
+     {
+        Evas_Object *track;
+        Elm_Object_Item *item;
+        Evas_Coord w, h;
+        Eina_List *realized_items;
+
+        realized_items = elm_genlist_realized_items_get(g->hover.dd_list);
+        if (!realized_items) return EINA_FALSE;
+
+        item = realized_items->data;
+        track = elm_object_item_track(item);
+        evas_object_geometry_get(track, NULL, NULL, &w, &h);
+        elm_object_item_untrack(item);
+
+        eina_list_free(realized_items);
+
+        if (count < 6)
+          {
+             elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_OFF,
+                                     ELM_SCROLLER_POLICY_OFF);
+             evas_object_size_hint_min_set(g->hover.resize_rect, w, h * count);
+          }
+        else
+          {
+             elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_ON,
+                                     ELM_SCROLLER_POLICY_ON);
+             evas_object_size_hint_min_set(g->hover.resize_rect, w, h * 5);
+          }
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_show_hover(void *d, Evas_Object *o EINA_UNUSED,
+            void *ei EINA_UNUSED)
+{
+   Gui_Elements *g = d;
+
+   if (!_calc_list(g)) return;
+   evas_object_show(g->hover.dd_list);
+   evas_object_show(g->hover.obj);
+   g->hover.is_expand = EINA_TRUE;
+}
+
+static Evas_Object *
+_app_list_min_set(Gui_Elements *g, Evas_Coord w, Evas_Coord h)
+{
+   Evas_Object *table, *rect;
+
+   table = elm_table_add(g->hover.obj);
+
+   rect = evas_object_rectangle_add(evas_object_evas_get(table));
+   evas_object_size_hint_min_set(rect, w, h);
+   evas_object_color_set(rect, 0, 0, 0, 0);
+   evas_object_size_hint_align_set(rect, EVAS_HINT_FILL,
+                                   EVAS_HINT_FILL);
+   evas_object_size_hint_weight_set(rect, EVAS_HINT_EXPAND,
+                                    EVAS_HINT_EXPAND);
+   elm_table_pack(table, rect, 0, 0, 1, 1);
+   evas_object_size_hint_align_set(g->hover.dd_list, EVAS_HINT_FILL,
+                                   EVAS_HINT_FILL);
+   evas_object_size_hint_weight_set(g->hover.dd_list, EVAS_HINT_EXPAND,
+                                    EVAS_HINT_EXPAND);
+
+   elm_table_pack(table, g->hover.dd_list, 0, 0, 1, 1);
+   evas_object_show(rect);
+
+   g->hover.resize_rect = rect;
+
+   return table;
+}
+
 static void
 _control_buttons_create(Gui_Elements *g, Evas_Object *win)
 {
    Evas_Object *highlight_check;
-   Evas_Object *jump_to_entry, *frame;
+   Evas_Object *jump_to_entry, *frame, *table;
 
    frame = elm_frame_add(gui->bx);
    elm_object_style_set(frame, "pad_medium");
@@ -1985,13 +2090,39 @@ _control_buttons_create(Gui_Elements *g, Evas_Object *win)
    elm_box_pack_end(g->hbx, g->bt_load);
    evas_object_show(g->bt_load);
 
-   g->dd_list = elm_hoversel_add(g->hbx);
-   elm_hoversel_hover_parent_set(g->dd_list, win);
-   elm_object_text_set(g->dd_list, SELECT_APP_TEXT);
+   g->hover.btn = elm_button_add(g->hbx);
+   elm_object_style_set(g->hover.btn, "hoversel_vertical/default");
+   elm_object_text_set(g->hover.btn, SELECT_APP_TEXT);
+   evas_object_size_hint_align_set(g->hover.btn, 0.0, 0.3);
+   elm_box_pack_end(g->hbx, g->hover.btn);
+   evas_object_show(g->hover.btn);
 
-   evas_object_size_hint_align_set(g->dd_list, 0.0, 0.3);
-   elm_box_pack_end(g->hbx, g->dd_list);
-   evas_object_show(g->dd_list);
+   g->hover.obj = elm_hover_add(win);
+   elm_object_style_set(g->hover.obj, "hoversel_vertical/default");
+
+   if (!_app_itc)
+     {
+        _app_itc = elm_genlist_item_class_new();
+        _app_itc->item_style = "default";
+        _app_itc->func.text_get = _app_item_label_get;
+        _app_itc->func.state_get = NULL;
+        _app_itc->func.del = NULL;
+     }
+   g->hover.dd_list = elm_genlist_add(g->hover.obj);
+   elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_OFF,
+                           ELM_SCROLLER_POLICY_OFF);
+   elm_object_style_set(g->hover.dd_list, "popup/no_inset_shadow");
+   evas_object_size_hint_align_set(g->hover.dd_list, EVAS_HINT_FILL,
+                                   EVAS_HINT_FILL);
+   evas_object_size_hint_weight_set(g->hover.dd_list, EVAS_HINT_EXPAND,
+                                    EVAS_HINT_EXPAND);
+   table = _app_list_min_set(g, 0, 0);
+   elm_object_part_content_set(g->hover.obj, "bottom", table);
+   elm_hover_target_set(g->hover.obj, g->hover.btn);
+   elm_hover_parent_set(g->hover.obj, win);
+
+   evas_object_smart_callback_add(g->hover.btn, "clicked",
+                                  _show_hover, g);
 
    highlight_check = elm_check_add(g->hbx);
    elm_object_text_set(highlight_check , "Highlight");
