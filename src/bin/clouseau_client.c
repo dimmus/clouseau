@@ -2006,7 +2006,7 @@ _calc_list(Gui_Elements *g)
 
         eina_list_free(realized_items);
 
-        if (count < 6)
+        if (count < 8)
           {
              elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_OFF,
                                      ELM_SCROLLER_POLICY_OFF);
@@ -2016,7 +2016,7 @@ _calc_list(Gui_Elements *g)
           {
              elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_ON,
                                      ELM_SCROLLER_POLICY_ON);
-             evas_object_size_hint_min_set(g->hover.resize_rect, w, h * 5);
+             evas_object_size_hint_min_set(g->hover.resize_rect, w, h * 8);
           }
      }
 
