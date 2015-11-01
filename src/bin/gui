@@ -1,0 +1,116 @@
+{
+  "JSON_Version":"1",
+  "Settings":
+  {
+    "project":"gui",
+    "start_points":["elm_win1"]
+  },
+  "Widgets":
+  {
+    "elm_win1":
+    {
+      "Desc":
+      {
+        "parent":null,
+        "class":"Elm.Win",
+        "public":true
+      },
+      "Properties":
+      {
+        "Elm.Win.type":["ELM_WIN_BASIC"],
+        "Elm.Widget.part_text":[null, "Window"],
+        "Efl.Gfx.Base.visible":[true],
+        "Elm.Win.autodel":[true],
+        "Efl.Gfx.Base.size":[478, 484]
+      },
+      "Contains":["elm_bg1"]
+    },
+    "elm_bg1":
+    {
+      "Desc":
+      {
+        "parent":"elm_win1",
+        "class":"Elm.Bg"
+      },
+      "Properties":
+      {
+        "Efl.Gfx.Base.visible":[true],
+        "Efl.Gfx.Base.position":[0, 0]
+      },
+      "Contains":
+      {
+        "elm_box1":[null]
+      }
+    },
+    "elm_box1":
+    {
+      "Desc":
+      {
+        "parent":"elm_bg1",
+        "class":"Elm.Box",
+        "public":true
+      },
+      "Properties":
+      {
+        "Efl.Gfx.Base.visible":[true],
+        "Efl.Gfx.Base.size":[643, 598],
+        "Efl.Gfx.Base.position":[-7, -2],
+        "Elm.Box.padding":[0, 0],
+        "Elm.Box.align":[0, 0]
+      },
+      "Contains":["elm_hoversel1", "elm_panes1"]
+    },
+    "elm_hoversel1":
+    {
+      "Desc":
+      {
+        "parent":"elm_box1",
+        "class":"Elm.Hoversel",
+        "public":true
+      },
+      "Properties":
+      {
+        "Elm.Widget.part_text":[null, "Hoversel"],
+        "Efl.Gfx.Base.visible":[true],
+        "Efl.Gfx.Base.size":[1174, 643],
+        "Efl.Gfx.Base.position":[-8, -2],
+        "Elm.Hoversel.horizontal":[false],
+        "Elm.Hoversel.auto_update":[true]
+      }
+    },
+    "elm_panes1":
+    {
+      "Desc":
+      {
+        "parent":"elm_box1",
+        "class":"Elm.Panes"
+      },
+      "Properties":
+      {
+        "Elm.Panes.content_right_size":[0.60],
+        "Efl.Gfx.Base.size":[75, 75],
+        "Efl.Gfx.Base.visible":[true],
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Evas.Object.size_hint_align":[-1, -1]
+      },
+      "Contains":
+      {
+        "elm_genlist1":["left"],
+        "__dummy":["right"]
+      }
+    },
+    "elm_genlist1":
+    {
+      "Desc":
+      {
+        "parent":"elm_panes1",
+        "class":"Elm.Genlist",
+        "public":true
+      },
+      "Properties":
+      {
+        "Efl.Gfx.Base.visible":[true]
+      }
+    }
+  }
+ }
