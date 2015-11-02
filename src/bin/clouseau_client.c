@@ -46,6 +46,15 @@ static uint32_t _cid = 0;
 
 static int my_argc = 0;
 static char **my_argv = NULL;
+static int selected_app = -1;
+
+static void
+_hoversel_selected_app(void *data, Evas_Object *obj, void *event_info)
+{
+        Elm_Object_Item *hoversel_it = event_info;
+        selected_app = (int)(long)elm_object_item_data_get(hoversel_it);
+        printf("selected app %d\n", selected_app);
+}
 
 static void
 _consume()
@@ -98,7 +107,7 @@ _clients_info_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
              char option[100];
              snprintf(option, 90, "CID: %d - PID: %d - Name: %s", cid, pid, buf);
              printf("%s\n", option);
-             elm_hoversel_item_add(pub_widgets->elm_win1->elm_hoversel1, option, "home", ELM_ICON_STANDARD, NULL,
+             elm_hoversel_item_add(pub_widgets->elm_win1->elm_hoversel1, option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
                    (const void *)(long)cid);
           }
         len = strlen(buf) + 1;
