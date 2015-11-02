@@ -8,6 +8,7 @@ typedef struct
    Eo *elm_win1;
    Eo *elm_box1;
    Eo *elm_hoversel1;
+   Eo *elm_panes1;
    Eo *elm_genlist1;
 } Gui_Elm_Win1_Widgets;
 

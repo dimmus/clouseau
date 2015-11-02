@@ -28,6 +28,8 @@ static uint32_t _poll_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _eo_list_opcode = EINA_DEBUG_OPCODE_INVALID;
+static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
+
 static Gui_Widgets *pub_widgets = NULL;
 
 typedef struct
@@ -144,6 +146,19 @@ _objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_elm_objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
+{
+   printf("size=%d\n", size);
+   Eina_List *objs = eo_debug_list_response_decode(buffer, size), *itr;
+   Obj_Info *info;
+   EINA_LIST_FOREACH(objs, itr, info)
+     {
+        printf("%p: %s\n", info->ptr, info->kl_name);
+     }
+   return EINA_TRUE;
+}
+
 static void
 _args_handle(Eina_Bool flag)
 {
@@ -175,7 +190,15 @@ _args_handle(Eina_Bool flag)
              else if (!strcmp(op_str, "evlogoff"))
                 _pending_add(&_evlog_off_opcode, NULL, 0);
              else if (!strcmp(op_str, "eo_list"))
-                _pending_add(&_eo_list_opcode, NULL, 0);
+               {
+                  if (i <= my_argc - 1) buf = strdup(my_argv[i++]);
+                  _pending_add(&_eo_list_opcode, buf, buf ? strlen(buf) + 1 : 0);
+               }
+             else if (!strcmp(op_str, "elm_list"))
+               {
+                  if (i <= my_argc - 1) buf = strdup(my_argv[i++]);
+                  _pending_add(&_elm_list_opcode, buf, buf ? strlen(buf) + 1 : 0);
+               }
           }
      }
    eina_debug_client_free(cl);
@@ -192,6 +215,7 @@ static const Eina_Debug_Opcode ops[] =
      {"evlog/on",             &_evlog_on_opcode,      NULL},
      {"evlog/off",            &_evlog_off_opcode,     NULL},
      {"Eo/list",              &_eo_list_opcode,       &_objects_list_cb},
+     {"Elementary/objects_list",       &_elm_list_opcode,      &_elm_objects_list_cb},
      {NULL, NULL, NULL}
 };
 

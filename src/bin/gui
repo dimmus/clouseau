@@ -83,7 +83,8 @@
       "Desc":
       {
         "parent":"elm_box1",
-        "class":"Elm.Panes"
+        "class":"Elm.Panes",
+        "public":true
       },
       "Properties":
       {
