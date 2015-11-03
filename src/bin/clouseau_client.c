@@ -39,6 +39,12 @@ typedef struct
    int size;
 } _pending_request;
 
+typedef struct
+{
+   Obj_Info *info;
+   Eina_List *children;
+} _Obj_info_node;
+
 static Eina_List *_pending = NULL;
 static Eina_Debug_Session *_session = NULL;
 
@@ -46,34 +52,106 @@ static uint32_t _cid = 0;
 
 static int my_argc = 0;
 static char **my_argv = NULL;
-static int selected_app = -1;
-static Elm_Genlist_Item_Class *_itc = NULL;
-Eina_List *objs = NULL;
+static int _selected_app = -1;
+static Elm_Genlist_Item_Class *_objs_itc = NULL;
+static Eina_List *_objs_info_tree = NULL;
+
+static Eina_Bool
+_objs_expand_request_cb(void *data EINA_UNUSED,
+      Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED,
+      void *event_info)
+{
+   Elm_Object_Item *glit = event_info;
+   elm_genlist_item_expanded_set(glit, EINA_TRUE);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_objs_contract_request_cb(void *data EINA_UNUSED,
+      Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED,
+      void *event_info)
+{
+   Elm_Object_Item *glit = event_info;
+   elm_genlist_item_expanded_set(glit, EINA_FALSE);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_objs_expanded_cb(void *data EINA_UNUSED,
+      Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED,
+      void *event_info)
+{
+   Eina_List *l;
+   Elm_Object_Item *glit = event_info;
+   _Obj_info_node *info_node = elm_object_item_data_get(glit), *it_data;
+   Evas_Object *list = elm_object_item_widget_get(glit);
+   EINA_LIST_FOREACH(info_node->children, l, it_data)
+     {
+        Elm_Object_Item *nitem;
+        Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_NONE;
+
+        if (it_data->children)
+          {
+             type = ELM_GENLIST_ITEM_TREE;
+          }
+
+        nitem = elm_genlist_item_append(list, _objs_itc, it_data, glit,
+                                        type, NULL, NULL);
+        elm_genlist_item_expanded_set(nitem, EINA_FALSE);
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_objs_contracted_cb(void *data EINA_UNUSED,
+      Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED,
+      void *event_info)
+{
+   Elm_Object_Item *glit = event_info;
+   elm_genlist_item_subitems_clear(glit);
+
+   return EINA_TRUE;
+}
 
 static char *
-_item_label_get(void *data, Evas_Object *obj, const char *part)
+_objs_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+      const char *part EINA_UNUSED)
 {
-   Obj_Info *info = data;
-   return strdup(info->kl_name);
+   _Obj_info_node *info_node = data;
+   return (char *)(long)strdup(info_node->info->kl_name);
+}
+
+static void
+_objs_nodes_free(Eina_List *parents)
+{
+  _Obj_info_node *info_node;
+
+   EINA_LIST_FREE(parents, info_node)
+     {
+        free(info_node->info);
+        _objs_nodes_free(info_node->children);
+        free(info_node);
+     }
 }
 
 static void
 _hoversel_selected_app(void *data, Evas_Object *obj, void *event_info)
 {
         Elm_Object_Item *hoversel_it = event_info;
-        selected_app = (int)(long)elm_object_item_data_get(hoversel_it);
-        printf("selected app %d\n", selected_app);
+        _selected_app = (int)(long)elm_object_item_data_get(hoversel_it);
+        printf("selected app %d\n", _selected_app);
 
-        if(objs)
+        if(_objs_info_tree)
           {
-             Obj_Info *data;
-             EINA_LIST_FREE(objs, data)
-                free(data);
-             objs = NULL;
+             _objs_nodes_free(_objs_info_tree);
+             _objs_info_tree = NULL;
              elm_genlist_clear(pub_widgets->elm_win1->elm_genlist1);
           }
 
-        Eina_Debug_Client *cl = eina_debug_client_new(_session, selected_app);
+        Eina_Debug_Client *cl = eina_debug_client_new(_session, _selected_app);
         eina_debug_session_send(cl, _elm_list_opcode, NULL, 0);
         eina_debug_client_free(cl);
 }
@@ -180,19 +258,57 @@ _objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
 static Eina_Bool
 _elm_objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
 {
-   printf("size=%d\n", size);
-   Eina_List *itr;
-   objs = eo_debug_list_response_decode(buffer, size);
+   Eina_List *objs = eo_debug_list_response_decode(buffer, size);
    Obj_Info *info;
-   EINA_LIST_FOREACH(objs, itr, info)
-     {
-        printf("%p: %s\n", info->ptr, info->kl_name);
 
-        elm_genlist_item_append(pub_widgets->elm_win1->elm_genlist1, _itc,
-              (void *)info, NULL,
-              ELM_GENLIST_ITEM_NONE,
-              NULL, NULL);
+   Eina_Hash *objects_hash = NULL;
+   Eina_List *l = NULL;
+   objects_hash = eina_hash_pointer_new(NULL);
+   _Obj_info_node *info_node;
+
+   /* Add all objects to hash table */
+   EINA_LIST_FOREACH(objs, l, info)
+     {
+        info_node = calloc(1, sizeof(_Obj_info_node));
+        info_node->info = info;
+        info_node->children = NULL;
+        eina_hash_add(objects_hash, &(info_node->info->ptr),
+              info_node);
      }
+
+   /* Fill children lists */
+   EINA_LIST_FOREACH(objs, l, info)
+     {
+        _Obj_info_node *info_parent =  eina_hash_find(objects_hash, &(info->parent));
+        _Obj_info_node *info_node =  eina_hash_find(objects_hash, &(info->ptr));
+
+        if(info_parent)
+           info_parent->children = eina_list_append(info_parent->children, info_node);
+        else
+             _objs_info_tree = eina_list_append(_objs_info_tree, info_node);
+     }
+
+   /* Add to Genlist */
+   EINA_LIST_FOREACH(_objs_info_tree, l, info_node)
+     {
+        Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_NONE;
+
+        if (info_node->children)
+          {
+             type = ELM_GENLIST_ITEM_TREE;
+          }
+        Elm_Object_Item  *glg = elm_genlist_item_append(
+              pub_widgets->elm_win1->elm_genlist1, _objs_itc,
+              (void *)info_node, NULL,
+              type,
+              NULL, NULL);
+        if (info_node->children)
+             elm_genlist_item_expanded_set(glg, EINA_FALSE);
+     }
+
+   /* Free allocated memory */
+   eina_hash_free(objects_hash);
+   eina_list_free(objs);
 
    return EINA_TRUE;
 }
@@ -277,18 +393,31 @@ elm_main(int argc, char **argv)
    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
    pub_widgets =  gui_gui_get();
 
-   if (!_itc)
+   //Init objects Genlist
+   Evas_Object *genlist = pub_widgets->elm_win1->elm_genlist1;
+   if (!_objs_itc)
      {
-        _itc = elm_genlist_item_class_new();
-        _itc->item_style = "default";
-        _itc->func.text_get = _item_label_get;
-        _itc->func.content_get = NULL;
-        _itc->func.state_get = NULL;
-        _itc->func.del = NULL;
+        _objs_itc = elm_genlist_item_class_new();
+        _objs_itc->item_style = "default";
+        _objs_itc->func.text_get = _objs_item_label_get;
+        _objs_itc->func.content_get = NULL;
+        _objs_itc->func.state_get = NULL;
+        _objs_itc->func.del = NULL;
      }
-   evas_object_size_hint_weight_set(pub_widgets->elm_win1->elm_genlist1, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   eo_do(genlist,
+         eo_event_callback_add(
+            ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, genlist),
+         eo_event_callback_add(
+            ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, genlist),
+         eo_event_callback_add(
+            ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, genlist),
+         eo_event_callback_add(
+            ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, genlist)
+        );
 
-   evas_object_show(pub_widgets->elm_win1->elm_genlist1);
+   evas_object_size_hint_weight_set(genlist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+
+   evas_object_show(genlist);
    evas_object_show(pub_widgets->elm_win1->elm_win1);
 
    eina_init();
