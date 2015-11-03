@@ -47,11 +47,7 @@ typedef struct
 
 static Eina_List *_pending = NULL;
 static Eina_Debug_Session *_session = NULL;
-
 static uint32_t _cid = 0;
-
-static int my_argc = 0;
-static char **my_argv = NULL;
 static int _selected_app = -1;
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Eina_List *_objs_info_tree = NULL;
@@ -138,11 +134,11 @@ _objs_nodes_free(Eina_List *parents)
 }
 
 static void
-_hoversel_selected_app(void *data, Evas_Object *obj, void *event_info)
+_hoversel_selected_app(void *data EINA_UNUSED,
+      Evas_Object *obj EINA_UNUSED, void *event_info)
 {
         Elm_Object_Item *hoversel_it = event_info;
         _selected_app = (int)(long)elm_object_item_data_get(hoversel_it);
-        printf("selected app %d\n", _selected_app);
 
         if(_objs_info_tree)
           {
@@ -203,11 +199,10 @@ _clients_info_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
         EXTRACT(buf, &pid, sizeof(uint32_t));
         if(pid != getpid())
           {
-             printf("CID: %d - PID: %d - Name: %s\n", cid, pid, buf);
              char option[100];
              snprintf(option, 90, "CID: %d - PID: %d - Name: %s", cid, pid, buf);
-             printf("%s\n", option);
-             elm_hoversel_item_add(pub_widgets->elm_win1->elm_hoversel1, option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
+             elm_hoversel_item_add(pub_widgets->elm_win1->elm_hoversel1,
+                   option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
                    (const void *)(long)cid);
           }
         len = strlen(buf) + 1;
@@ -226,7 +221,6 @@ _clients_info_deleted_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int s
      {
         int cid;
         EXTRACT(buf, &cid, sizeof(uint32_t));
-        printf("CID: %d deleted\n", cid);
 
         const Eina_List *items = elm_hoversel_items_get(pub_widgets->elm_win1->elm_hoversel1);
         const Eina_List *l;
@@ -320,55 +314,19 @@ _ecore_thread_dispatcher(void *data)
 }
 
 Eina_Bool
-_disp_cb(Eina_Debug_Session *session, void *buffer)
+_disp_cb(Eina_Debug_Session *session EINA_UNUSED, void *buffer)
 {
    ecore_main_loop_thread_safe_call_async(_ecore_thread_dispatcher, buffer);
    return EINA_TRUE;
 }
 
 static void
-_args_handle(Eina_Bool flag)
+_post_register_handle(Eina_Bool flag)
 {
-   int i;
    if(!flag) return;
    eina_debug_session_dispatch_override(_session, _disp_cb);
    Eina_Debug_Client *cl = eina_debug_client_new(_session, 0);
    eina_debug_session_send(cl, _cl_stat_reg_opcode, NULL, 0);
-
-   for (i = 1; i < my_argc;)
-     {
-        if (i < my_argc - 1)
-          {
-             const char *op_str = my_argv[i++];
-             uint32_t pid = atoi(my_argv[i++]);
-             char *buf = NULL;
-             eina_debug_session_send(cl, _cid_from_pid_opcode, &pid, sizeof(uint32_t));
-             printf("got %s %d\n", op_str, pid);
-             if ((!strcmp(op_str, "pon")) && (i < (my_argc - 2)))
-               {
-                  uint32_t freq = atoi(my_argv[i++]);
-                  buf = malloc(sizeof(uint32_t));
-                  memcpy(buf, &freq, sizeof(uint32_t));
-                  _pending_add(&_poll_on_opcode, buf, sizeof(uint32_t));
-               }
-             else if (!strcmp(op_str, "poff"))
-                _pending_add(&_poll_off_opcode, NULL, 0);
-             else if (!strcmp(op_str, "evlogon"))
-                _pending_add(&_evlog_on_opcode, NULL, 0);
-             else if (!strcmp(op_str, "evlogoff"))
-                _pending_add(&_evlog_off_opcode, NULL, 0);
-             else if (!strcmp(op_str, "eo_list"))
-               {
-                  if (i <= my_argc - 1) buf = strdup(my_argv[i++]);
-                  _pending_add(&_eo_list_opcode, buf, buf ? strlen(buf) + 1 : 0);
-               }
-             else if (!strcmp(op_str, "elm_list"))
-               {
-                  if (i <= my_argc - 1) buf = strdup(my_argv[i++]);
-                  _pending_add(&_elm_list_opcode, buf, buf ? strlen(buf) + 1 : 0);
-               }
-          }
-     }
    eina_debug_client_free(cl);
 }
 
@@ -429,10 +387,8 @@ elm_main(int argc, char **argv)
         fprintf(stderr, "ERROR: Cannot connect to debug daemon.\n");
         goto error;
      }
-   my_argc = argc;
-   my_argv = argv;
 
-   eina_debug_opcodes_register(_session, ops, _args_handle);
+   eina_debug_opcodes_register(_session, ops, _post_register_handle);
 
    elm_run();
 
