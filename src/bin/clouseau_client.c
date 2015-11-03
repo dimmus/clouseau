@@ -393,6 +393,8 @@ elm_main(int argc, char **argv)
    elm_run();
 
 error:
+   if(_objs_info_tree)
+      _objs_nodes_free(_objs_info_tree);
    eina_debug_session_free(_session);
    eina_shutdown();
 
