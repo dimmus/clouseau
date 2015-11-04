@@ -224,16 +224,6 @@ _consume()
    free(req);
 }
 
-static void
-_pending_add(uint32_t *opcode, void *buffer, int size)
-{
-   _pending_request *req = malloc(sizeof(*req));
-   req->opcode = opcode;
-   req->buffer = buffer;
-   req->size = size;
-   _pending = eina_list_append(_pending, req);
-}
-
 static Eina_Bool
 _cid_get_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size EINA_UNUSED)
 {
@@ -328,7 +318,7 @@ _elm_objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
    EINA_LIST_FOREACH(objs, l, info)
      {
         _Obj_info_node *info_parent =  eina_hash_find(objects_hash, &(info->parent));
-        _Obj_info_node *info_node =  eina_hash_find(objects_hash, &(info->ptr));
+        info_node =  eina_hash_find(objects_hash, &(info->ptr));
 
         if(info_parent)
            info_parent->children = eina_list_append(info_parent->children, info_node);
@@ -401,7 +391,7 @@ static const Eina_Debug_Opcode ops[] =
 };
 
 EAPI_MAIN int
-elm_main(int argc, char **argv)
+elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 {
    eina_init();
    eolian_init();
