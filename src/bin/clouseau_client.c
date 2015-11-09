@@ -9,6 +9,7 @@
 #endif
 #include <Elementary.h>
 #include <Evas.h>
+#include <Eolian.h>
 #include "gui.h"
 
 # ifdef HAVE_CONFIG_H
@@ -29,6 +30,7 @@ static uint32_t _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _eo_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
+static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Widgets *pub_widgets = NULL;
 
@@ -53,6 +55,39 @@ static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Eina_List *_objs_info_tree = NULL;
 
 static Eina_Bool
+_debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
+      void *buffer EINA_UNUSED, int size EINA_UNUSED)
+{
+   char *buf = buffer;
+   Eina_List *class_infos = eolian_debug_list_response_decode(buf, size);
+
+   Eina_List *l;
+   Eolian_Debug_Class *info = NULL;
+   printf("**printing eolian class info**\n\n");
+   EINA_LIST_FOREACH(class_infos, l, info)
+     {
+        printf("class name = %s\n", info->class_name);
+        Eolian_Debug_Function *info_func;
+        Eina_List *l2;
+        EINA_LIST_FOREACH(info->functions, l2, info_func)
+          {
+             printf("function name = %s\n", info_func->function_name);
+             int i = 0;
+             for(;i < info_func->argnum; i++)//free params
+               {
+                  printf(info_func->params[i].type->print_format,
+                        info_func->params[i].value.value);
+                  printf("\n");
+               }
+          }
+     }
+
+   eolian_debug_list_free(class_infos);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
 _objs_expand_request_cb(void *data EINA_UNUSED,
       Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED,
       void *event_info)
@@ -72,6 +107,25 @@ _objs_contract_request_cb(void *data EINA_UNUSED,
    elm_genlist_item_expanded_set(glit, EINA_FALSE);
 
    return EINA_TRUE;
+}
+
+static void
+_objs_sel_cb(void *data, Evas_Object *obj, void *event_info)
+{
+   Elm_Object_Item *glit = event_info;
+   _Obj_info_node *info_node = elm_object_item_data_get(glit);
+
+   uint64_t ptr = info_node->info->ptr;
+   char *buffer = calloc(1, sizeof(uint64_t));
+
+   memcpy(buffer, &ptr,  sizeof(uint64_t));
+   unsigned int size = sizeof(uint64_t);
+
+   printf("sending eolian get request for Eo object[%p]\n",
+          ptr);
+   Eina_Debug_Client *cl = eina_debug_client_new(_session, 0);
+   eina_debug_session_send(cl, _obj_info_opcode, buffer, size);
+   eina_debug_client_free(cl);
 }
 
 static Eina_Bool
@@ -94,7 +148,7 @@ _objs_expanded_cb(void *data EINA_UNUSED,
           }
 
         nitem = elm_genlist_item_append(list, _objs_itc, it_data, glit,
-                                        type, NULL, NULL);
+                                        type, _objs_sel_cb, NULL);
         elm_genlist_item_expanded_set(nitem, EINA_FALSE);
      }
 
@@ -295,7 +349,7 @@ _elm_objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
               pub_widgets->elm_win1->elm_genlist1, _objs_itc,
               (void *)info_node, NULL,
               type,
-              NULL, NULL);
+              _objs_sel_cb, NULL);
         if (info_node->children)
              elm_genlist_item_expanded_set(glg, EINA_FALSE);
      }
@@ -342,12 +396,16 @@ static const Eina_Debug_Opcode ops[] =
      {"evlog/off",            &_evlog_off_opcode,     NULL},
      {"Eo/list",              &_eo_list_opcode,       &_objects_list_cb},
      {"Elementary/objects_list",       &_elm_list_opcode,      &_elm_objects_list_cb},
+     {"Eolian/object/info_get", &_obj_info_opcode, &_debug_obj_info_cb},
      {NULL, NULL, NULL}
 };
 
 EAPI_MAIN int
 elm_main(int argc, char **argv)
 {
+   eina_init();
+   eolian_init();
+   eolian_directory_scan(EOLIAN_EO_DIR);
    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
    pub_widgets =  gui_gui_get();
 
@@ -378,7 +436,6 @@ elm_main(int argc, char **argv)
    evas_object_show(genlist);
    evas_object_show(pub_widgets->elm_win1->elm_win1);
 
-   eina_init();
 
    _session = eina_debug_session_new();
 
@@ -397,7 +454,7 @@ error:
       _objs_nodes_free(_objs_info_tree);
    eina_debug_session_free(_session);
    eina_shutdown();
-
+eolian_shutdown();
    return 0;
 }
 ELM_MAIN()
