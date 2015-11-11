@@ -12,6 +12,8 @@
 #include <Eolian.h>
 #include "gui.h"
 
+#include <Eolian_Debug.h>
+
 # ifdef HAVE_CONFIG_H
 #  include "config.h"
 # endif
@@ -24,6 +26,7 @@
 
 static uint32_t _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _cid_from_pid_opcode = EINA_DEBUG_OPCODE_INVALID;
+static uint32_t _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _poll_on_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _poll_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
@@ -56,34 +59,30 @@ static Eina_List *_objs_info_tree = NULL;
 
 static Eina_Bool
 _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
-      void *buffer EINA_UNUSED, int size EINA_UNUSED)
+      void *buffer, int size)
 {
-   char *buf = buffer;
-   Eina_List *class_infos = eolian_debug_list_response_decode(buf, size);
+   Eolian_Debug_Object_Information *info = eolian_debug_object_information_decode(buffer, size);
 
-   Eina_List *l;
-   Eolian_Debug_Class *info = NULL;
-   printf("**printing eolian class info**\n\n");
-   EINA_LIST_FOREACH(class_infos, l, info)
+   Eolian_Debug_Class *kl;
+   Eina_List *kl_itr, *func_itr, *param_itr;
+   EINA_LIST_FOREACH(info->classes, kl_itr, kl)
      {
-        printf("class name = %s\n", info->class_name);
-        Eolian_Debug_Function *info_func;
-        Eina_List *l2;
-        EINA_LIST_FOREACH(info->functions, l2, info_func)
+        Eolian_Debug_Function *func;
+        printf("Class %s:\n", kl->name);
+        EINA_LIST_FOREACH(kl->functions, func_itr, func)
           {
-             printf("function name = %s\n", info_func->function_name);
-             int i = 0;
-             for(;i < info_func->argnum; i++)//free params
+             Eolian_Debug_Parameter *param;
+             printf("  Function %s:\n", func->name);
+             EINA_LIST_FOREACH(func->params, param_itr, param)
                {
-                  printf(info_func->params[i].type->print_format,
-                        info_func->params[i].value.value);
-                  printf("\n");
+                  if (param->type == EOLIAN_DEBUG_STRING)
+                     printf("    %s\n", (char *)param->value.value);
+                  else
+                     printf("    %lX\n", param->value.value);
                }
           }
      }
-
-   eolian_debug_list_free(class_infos);
-
+   eolian_debug_object_information_free(info);
    return EINA_TRUE;
 }
 
@@ -110,21 +109,16 @@ _objs_contract_request_cb(void *data EINA_UNUSED,
 }
 
 static void
-_objs_sel_cb(void *data, Evas_Object *obj, void *event_info)
+_objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    _Obj_info_node *info_node = elm_object_item_data_get(glit);
 
-   uint64_t ptr = info_node->info->ptr;
-   char *buffer = calloc(1, sizeof(uint64_t));
+   uint64_t ptr = (uint64_t)info_node->info->ptr;
 
-   memcpy(buffer, &ptr,  sizeof(uint64_t));
-   unsigned int size = sizeof(uint64_t);
-
-   printf("sending eolian get request for Eo object[%p]\n",
-          ptr);
-   Eina_Debug_Client *cl = eina_debug_client_new(_session, 0);
-   eina_debug_session_send(cl, _obj_info_opcode, buffer, size);
+   printf("Sending Eolian get request for Eo object[%p]\n", info_node->info->ptr);
+   Eina_Debug_Client *cl = eina_debug_client_new(_session, _selected_app);
+   eina_debug_session_send(cl, _obj_info_opcode, &ptr, sizeof(uint64_t));
    eina_debug_client_free(cl);
 }
 
@@ -202,6 +196,7 @@ _hoversel_selected_app(void *data EINA_UNUSED,
           }
 
         Eina_Debug_Client *cl = eina_debug_client_new(_session, _selected_app);
+        eina_debug_session_send(cl, _module_init_opcode, "eolian", 7);
         eina_debug_session_send(cl, _elm_list_opcode, NULL, 0);
         eina_debug_client_free(cl);
 }
@@ -380,6 +375,7 @@ static const Eina_Debug_Opcode ops[] =
      {"daemon/client_added", NULL, _clients_info_cb},
      {"daemon/client_deleted", NULL, _clients_info_deleted_cb},
      {"daemon/cid_from_pid",  &_cid_from_pid_opcode,  &_cid_get_cb},
+     {"Module/Init",          &_module_init_opcode,   NULL},
      {"poll/on",              &_poll_on_opcode,       NULL},
      {"poll/off",             &_poll_off_opcode,      NULL},
      {"evlog/on",             &_evlog_on_opcode,      NULL},
