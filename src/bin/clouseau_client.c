@@ -185,20 +185,20 @@ static void
 _hoversel_selected_app(void *data EINA_UNUSED,
       Evas_Object *obj EINA_UNUSED, void *event_info)
 {
-        Elm_Object_Item *hoversel_it = event_info;
-        _selected_app = (int)(long)elm_object_item_data_get(hoversel_it);
+   Elm_Object_Item *hoversel_it = event_info;
+   _selected_app = (int)(long)elm_object_item_data_get(hoversel_it);
 
-        if(_objs_info_tree)
-          {
-             _objs_nodes_free(_objs_info_tree);
-             _objs_info_tree = NULL;
-             elm_genlist_clear(pub_widgets->elm_win1->elm_genlist1);
-          }
+   if(_objs_info_tree)
+     {
+        _objs_nodes_free(_objs_info_tree);
+        _objs_info_tree = NULL;
+        elm_genlist_clear(pub_widgets->elm_win1->elm_genlist1);
+     }
 
-        Eina_Debug_Client *cl = eina_debug_client_new(_session, _selected_app);
-        eina_debug_session_send(cl, _module_init_opcode, "eolian", 7);
-        eina_debug_session_send(cl, _elm_list_opcode, NULL, 0);
-        eina_debug_client_free(cl);
+   Eina_Debug_Client *cl = eina_debug_client_new(_session, _selected_app);
+   eina_debug_session_send(cl, _module_init_opcode, "eolian", 7);
+   eina_debug_session_send(cl, _elm_list_opcode, NULL, 0);
+   eina_debug_client_free(cl);
 }
 
 static void
