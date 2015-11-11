@@ -57,6 +57,8 @@ static int _selected_app = -1;
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Eina_List *_objs_info_tree = NULL;
 
+static Eina_Debug_Client *_current_client = NULL;
+
 static Eina_Bool
 _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
       void *buffer, int size)
@@ -117,9 +119,7 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
    uint64_t ptr = (uint64_t)info_node->info->ptr;
 
    printf("Sending Eolian get request for Eo object[%p]\n", info_node->info->ptr);
-   Eina_Debug_Client *cl = eina_debug_client_new(_session, _selected_app);
-   eina_debug_session_send(cl, _obj_info_opcode, &ptr, sizeof(uint64_t));
-   eina_debug_client_free(cl);
+   eina_debug_session_send(_current_client, _obj_info_opcode, &ptr, sizeof(uint64_t));
 }
 
 static Eina_Bool
@@ -195,10 +195,10 @@ _hoversel_selected_app(void *data EINA_UNUSED,
         elm_genlist_clear(pub_widgets->elm_win1->elm_genlist1);
      }
 
-   Eina_Debug_Client *cl = eina_debug_client_new(_session, _selected_app);
-   eina_debug_session_send(cl, _module_init_opcode, "eolian", 7);
-   eina_debug_session_send(cl, _elm_list_opcode, NULL, 0);
-   eina_debug_client_free(cl);
+   if (_current_client) eina_debug_client_free(_current_client);
+   _current_client = eina_debug_client_new(_session, _selected_app);
+   eina_debug_session_send(_current_client, _module_init_opcode, "eolian", 7);
+   eina_debug_session_send(_current_client, _elm_list_opcode, NULL, 0);
 }
 
 static void
