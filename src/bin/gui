@@ -19,11 +19,12 @@
       {
         "Elm.Win.type":["ELM_WIN_BASIC"],
         "Elm.Widget.part_text":[null, "Window"],
-        "Efl.Gfx.Base.visible":[true],
         "Elm.Win.autodel":[true],
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true],
         "Efl.Gfx.Base.size":[478, 484]
       },
-      "Contains":["elm_bg1"]
+      "Contains":["elm_bg1", "elm_box1"]
     },
     "elm_bg1":
     {
@@ -34,24 +35,22 @@
       },
       "Properties":
       {
+        "Evas.Object.size_hint_weight":[1, 1],
         "Efl.Gfx.Base.visible":[true],
         "Efl.Gfx.Base.position":[0, 0]
-      },
-      "Contains":
-      {
-        "elm_box1":[null]
       }
     },
     "elm_box1":
     {
       "Desc":
       {
-        "parent":"elm_bg1",
+        "parent":"elm_win1",
         "class":"Elm.Box",
         "public":true
       },
       "Properties":
       {
+        "Evas.Object.size_hint_weight":[1, 1],
         "Efl.Gfx.Base.visible":[true],
         "Efl.Gfx.Base.size":[643, 598],
         "Efl.Gfx.Base.position":[-7, -2],
@@ -71,6 +70,8 @@
       "Properties":
       {
         "Elm.Widget.part_text":[null, "Hoversel"],
+        "Evas.Object.size_hint_weight":[1, 0],
+        "Evas.Object.size_hint_align":[0.5, 0],
         "Efl.Gfx.Base.visible":[true],
         "Efl.Gfx.Base.size":[1174, 643],
         "Efl.Gfx.Base.position":[-8, -2],
@@ -89,6 +90,7 @@
       "Properties":
       {
         "Elm.Panes.content_right_size":[0.60],
+        "Evas.Object.size_hint_weight":[1, 1],
         "Efl.Gfx.Base.size":[75, 75],
         "Efl.Gfx.Base.visible":[true],
         "Evas.Object.size_hint_weight":[1, 1],
@@ -110,6 +112,7 @@
       },
       "Properties":
       {
+        "Evas.Object.size_hint_weight":[1, 1],
         "Efl.Gfx.Base.visible":[true]
       }
     }
