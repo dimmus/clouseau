@@ -25,7 +25,6 @@
 }
 
 static uint32_t _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _cid_from_pid_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _poll_on_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _poll_off_opcode = EINA_DEBUG_OPCODE_INVALID;
@@ -52,12 +51,41 @@ typedef struct
 
 static Eina_List *_pending = NULL;
 static Eina_Debug_Session *_session = NULL;
-static uint32_t _cid = 0;
 static int _selected_app = -1;
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Eina_List *_objs_info_tree = NULL;
 
 static Eina_Debug_Client *_current_client = NULL;
+
+static void
+_consume(uint32_t opcode)
+{
+   if (!_pending) return;
+   _pending_request *req;
+   Eina_List *itr;
+   EINA_LIST_FOREACH(_pending, itr, req)
+     {
+        if (*(req->opcode) != EINA_DEBUG_OPCODE_INVALID &&
+           (opcode == EINA_DEBUG_OPCODE_INVALID || *(req->opcode) == opcode))
+          {
+             eina_debug_session_send(_current_client, *(req->opcode), req->buffer, req->size);
+             _pending = eina_list_remove_list(_pending, itr);
+             free(req->buffer);
+             free(req);
+             return;
+          }
+     }
+}
+
+static void
+_pending_add(uint32_t *opcode, void *buffer, int size)
+{
+   _pending_request *req = calloc(1, sizeof(*req));
+   req->opcode = opcode;
+   req->buffer = buffer;
+   req->size = size;
+   _pending = eina_list_append(_pending, req);
+}
 
 static Eina_Bool
 _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
@@ -197,34 +225,9 @@ _hoversel_selected_app(void *data EINA_UNUSED,
 
    if (_current_client) eina_debug_client_free(_current_client);
    _current_client = eina_debug_client_new(_session, _selected_app);
+   eina_debug_session_send(_current_client, _module_init_opcode, "elementary", 11);
    eina_debug_session_send(_current_client, _module_init_opcode, "eolian", 7);
-   eina_debug_session_send(_current_client, _elm_list_opcode, NULL, 0);
-}
-
-static void
-_consume()
-{
-   if (!_pending)
-     {
-        return;
-     }
-   _pending_request *req = eina_list_data_get(_pending);
-   _pending = eina_list_remove(_pending, req);
-
-   Eina_Debug_Client *cl = eina_debug_client_new(_session, _cid);
-   eina_debug_session_send(cl, *(req->opcode), req->buffer, req->size);
-   eina_debug_client_free(cl);
-
-   free(req->buffer);
-   free(req);
-}
-
-static Eina_Bool
-_cid_get_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size EINA_UNUSED)
-{
-   _cid = *(uint32_t *)buffer;
-   _consume();
-   return EINA_TRUE;
+   _pending_add(&_elm_list_opcode, NULL, 0);
 }
 
 static Eina_Bool
@@ -248,7 +251,6 @@ _clients_info_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
         buf += len;
         size -= (2 * sizeof(uint32_t) + len);
      }
-   _consume();
    return EINA_TRUE;
 }
 
@@ -272,7 +274,6 @@ _clients_info_deleted_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int s
                 break;
              }
      }
-   _consume();
    return EINA_TRUE;
 }
 
@@ -359,6 +360,16 @@ _disp_cb(Eina_Debug_Session *session EINA_UNUSED, void *buffer)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_module_initted(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
+{
+   if (size > 0)
+     {
+        if (!strcmp(buffer, "elementary")) _consume(_elm_list_opcode);
+     }
+   return EINA_TRUE;
+}
+
 static void
 _post_register_handle(Eina_Bool flag)
 {
@@ -374,8 +385,7 @@ static const Eina_Debug_Opcode ops[] =
      {"daemon/client_status_register", &_cl_stat_reg_opcode,  _clients_info_cb},
      {"daemon/client_added", NULL, _clients_info_cb},
      {"daemon/client_deleted", NULL, _clients_info_deleted_cb},
-     {"daemon/cid_from_pid",  &_cid_from_pid_opcode,  &_cid_get_cb},
-     {"Module/Init",          &_module_init_opcode,   NULL},
+     {"Module/Init",          &_module_init_opcode,   &_module_initted},
      {"poll/on",              &_poll_on_opcode,       NULL},
      {"poll/off",             &_poll_off_opcode,      NULL},
      {"evlog/on",             &_evlog_on_opcode,      NULL},
@@ -407,21 +417,11 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _objs_itc->func.del = NULL;
      }
    eo_do(genlist,
-         eo_event_callback_add(
-            ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, genlist),
-         eo_event_callback_add(
-            ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, genlist),
-         eo_event_callback_add(
-            ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, genlist),
-         eo_event_callback_add(
-            ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, genlist)
+         eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, NULL)
         );
-
-   evas_object_size_hint_weight_set(genlist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-
-   evas_object_show(genlist);
-   evas_object_show(pub_widgets->elm_win1->elm_win1);
-
 
    _session = eina_debug_session_new();
 
@@ -436,11 +436,10 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    elm_run();
 
 error:
-   if(_objs_info_tree)
-      _objs_nodes_free(_objs_info_tree);
+   _objs_nodes_free(_objs_info_tree);
    eina_debug_session_free(_session);
    eina_shutdown();
-eolian_shutdown();
+   eolian_shutdown();
    return 0;
 }
 ELM_MAIN()
