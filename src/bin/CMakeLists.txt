@@ -34,3 +34,4 @@ target_link_libraries(clouseau_client
    ${EDEBUG_LIBRARIES}
    )
 
+install(TARGETS clouseau_client DESTINATION bin)
