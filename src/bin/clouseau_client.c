@@ -48,7 +48,8 @@ typedef enum
 {
    CLOUSEAU_OBJ_CLASS = 0,
    CLOUSEAU_OBJ_FUNC,
-   CLOUSEAU_OBJ_PARAM
+   CLOUSEAU_OBJ_PARAM,
+   CLOUSEAU_OBJ_RET
 } Clouseau_Obj_Info_Type;
 
 typedef struct
@@ -96,7 +97,6 @@ _pending_add(uint32_t *opcode, void *buffer, int size)
    _pending = eina_list_append(_pending, req);
 }
 
-
 static Eina_Bool
 _obj_info_expand_request_cb(void *data EINA_UNUSED,
       Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED,
@@ -126,35 +126,44 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, Eo *obj,
    Elm_Object_Item *glit = event_info;
    _Obj_info_node *node = elm_object_item_data_get(glit);
    Eina_List *itr;
-
    if(node->type == CLOUSEAU_OBJ_CLASS)
      {
         Eolian_Debug_Class *kl = node->data;
         Eolian_Debug_Function *func;
         EINA_LIST_FOREACH(kl->functions, itr, func)
           {
-             node = calloc(1, sizeof(*node));
-             node->type = CLOUSEAU_OBJ_FUNC;
-             node->data = func;
+             _Obj_info_node *node_itr = calloc(1, sizeof(*node_itr));
+             node_itr->type = CLOUSEAU_OBJ_FUNC;
+             node_itr->data = func;
 
              Elm_Object_Item  *glg = elm_genlist_item_append(
-                   obj, _obj_info_itc, node, glit,
+                   obj, _obj_info_itc, node_itr, glit,
                    ELM_GENLIST_ITEM_TREE, NULL, NULL);
              elm_genlist_item_expanded_set(glg, EINA_FALSE);
           }
      }
    else if(node->type == CLOUSEAU_OBJ_FUNC)
      {
-        Eolian_Debug_Function *func = node->data;
+        Eolian_Debug_Function *func =  (Eolian_Debug_Function *)(node->data);
         Eolian_Debug_Parameter *param;
         EINA_LIST_FOREACH(func->params, itr, param)
           {
-             node = calloc(1, sizeof(*node));
-             node->type = CLOUSEAU_OBJ_PARAM;
-             node->data = param;
+             _Obj_info_node *node_itr = calloc(1, sizeof(*node_itr));
+             node_itr->type = CLOUSEAU_OBJ_PARAM;
+             node_itr->data = param;
 
              elm_genlist_item_append(
-                   obj, _obj_info_itc, node, glit,
+                   obj, _obj_info_itc, node_itr, glit,
+                   ELM_GENLIST_ITEM_NONE, NULL, NULL);
+          }
+        if(func->params == NULL)
+          {
+             _Obj_info_node *node_itr = calloc(1, sizeof(*node_itr));
+             node_itr->type = CLOUSEAU_OBJ_RET;
+             node_itr->data = &func->ret;
+
+             elm_genlist_item_append(
+                   obj, _obj_info_itc, node_itr, glit,
                    ELM_GENLIST_ITEM_NONE, NULL, NULL);
           }
      }
@@ -180,33 +189,60 @@ static void _obj_info_item_del(void *data, Evas_Object *obj EINA_UNUSED)
 }
 
 #define _MAX_LABEL 50
+static char *_obj_info_eo_param_str_get(_Obj_info_node *node)
+{
+   char name[_MAX_LABEL]; name[0] = '\0';
+   Eolian_Debug_Parameter *param = node->data;
+   const Eolian_Function_Parameter *type = param->etype;
+   const Eolian_Type *eo_type = eolian_parameter_type_get(type);
+   param = node->data;
+   char *print_format;
+   if (param->value.type == EOLIAN_DEBUG_STRING)
+      print_format = "%s %s = %s";
+   else
+      print_format = "%s %s = %lX";
+   snprintf(name, _MAX_LABEL,
+         print_format,
+         eolian_type_full_name_get(eo_type), eolian_parameter_name_get(type),
+         param->value.value.value);
+
+   return strdup(name);
+}
+
+static char *_obj_info_eo_ret_str_get(_Obj_info_node *node)
+{
+   char name[_MAX_LABEL]; name[0] = '\0';
+   Eolian_Debug_Return *param = node->data;
+   param = node->data;
+   char *print_format;
+   if (param->value.type == EOLIAN_DEBUG_STRING)
+      print_format = "%s";
+   else
+      print_format = "%lX";
+   snprintf(name, _MAX_LABEL,
+         print_format,
+         param->value.value.value);
+
+   return strdup(name);
+}
+#undef _MAX_LABEL
+
 static char *_obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
    _Obj_info_node *node = data;
    switch(node->type)
      {
-      case CLOUSEAU_OBJ_CLASS:
-         return strdup(((Eolian_Debug_Class *)node->data)->name);
-      case CLOUSEAU_OBJ_FUNC:
-         return strdup(((Eolian_Debug_Function *)node->data)->name);
-      case CLOUSEAU_OBJ_PARAM:
-           {
-              Eolian_Debug_Parameter *param = node->data;
-              if (param->type == EOLIAN_DEBUG_STRING) return strdup((const char *)param->value.value);
-              else
-                {
-                   char name[_MAX_LABEL];
-                   char *print_format = "%lX";
-                   snprintf(name, _MAX_LABEL - 1, print_format, param->value.value);
-                   return strdup(name);
-                }
-           }
+      case CLOUSEAU_OBJ_CLASS :
+         return strdup(eolian_class_name_get(((Eolian_Debug_Class *)(node->data))->ekl));
+      case CLOUSEAU_OBJ_FUNC :
+         return strdup(eolian_function_name_get(((Eolian_Debug_Function *)(node->data))->efunc));
+      case CLOUSEAU_OBJ_PARAM : return _obj_info_eo_param_str_get(node);
+      case CLOUSEAU_OBJ_RET: return _obj_info_eo_ret_str_get(node);
       default:
-         return NULL;
+            return NULL;
      }
 }
-#undef _MAX_LABEL
 
 static Eina_Bool
 _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
