@@ -32,6 +32,7 @@ gui_elm_win1_create(Eo *__main_parent)
    Eo *elm_box1;
    Eo *elm_hoversel1;
    Eo *elm_panes1;
+   Eo *elm_genlist2;
    Eo *elm_genlist1;
 
 
@@ -75,12 +76,16 @@ gui_elm_win1_create(Eo *__main_parent)
    eo_do(elm_panes1, evas_obj_size_hint_align_set(-1.000000, -1.000000));
    eo_do(elm_box1, elm_obj_box_pack_end(elm_hoversel1));
    eo_do(elm_box1, elm_obj_box_pack_end(elm_panes1));
+   elm_genlist2 = eo_add(ELM_GENLIST_CLASS, elm_panes1);
+   pub_widgets->elm_genlist2 = elm_genlist2;
+   eo_do(elm_genlist2, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(elm_genlist2, efl_gfx_visible_set(EINA_TRUE));
    elm_genlist1 = eo_add(ELM_GENLIST_CLASS, elm_panes1);
    pub_widgets->elm_genlist1 = elm_genlist1;
    eo_do(elm_genlist1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
    eo_do(elm_genlist1, efl_gfx_visible_set(EINA_TRUE));
    eo_do(elm_panes1, elm_obj_container_content_set("left", elm_genlist1));
-   eo_do(elm_panes1, elm_obj_container_content_set("right", NULL));
+   eo_do(elm_panes1, elm_obj_container_content_set("right", elm_genlist2));
    eo_do(elm_win1, efl_gfx_visible_set(EINA_TRUE));
    eo_do(elm_win1, eo_event_callback_add(EO_BASE_EVENT_DEL, _pubs_free_cb, pub_widgets));
 
