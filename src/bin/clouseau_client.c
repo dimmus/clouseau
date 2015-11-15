@@ -121,52 +121,42 @@ _obj_info_contract_request_cb(void *data EINA_UNUSED,
 }
 
 static Eina_Bool
-_obj_info_expanded_cb(void *data EINA_UNUSED,
-      Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED,
-      void *event_info)
+_obj_info_expanded_cb(void *data, Eo *obj,
+      const Eo_Event_Description *desc EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
-   _Obj_info_node *node = elm_object_item_data_get(glit);
-   Evas_Object *list = elm_object_item_widget_get(glit);
-   Eolian_Debug_Class *kl;
-   Eina_List *func_itr, *param_itr;
-   Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_TREE;
-   Eolian_Debug_Function *func;
+   _Obj_info_node *node = data;
+   Eina_List *itr;
 
    if(node->type == CLOUSEAU_OBJ_CLASS)
      {
-        kl = (Eolian_Debug_Class *)(node->data);
-
-        EINA_LIST_FOREACH(kl->functions, func_itr, func)
+        Eolian_Debug_Class *kl = node->data;
+        Eolian_Debug_Function *func;
+        EINA_LIST_FOREACH(kl->functions, itr, func)
           {
              node = calloc(1, sizeof(*node));
              node->type = CLOUSEAU_OBJ_FUNC;
              node->data = func;
 
              Elm_Object_Item  *glg = elm_genlist_item_append(
-                   list, _obj_info_itc,
-                   (void *)node, glit,
-                   type,
-                   NULL, NULL);
-            elm_genlist_item_expanded_set(glg, EINA_FALSE);
+                   obj, _obj_info_itc, node, glit,
+                   ELM_GENLIST_ITEM_TREE, NULL, NULL);
+             elm_genlist_item_expanded_set(glg, EINA_FALSE);
           }
      }
    else if(node->type == CLOUSEAU_OBJ_FUNC)
      {
-        func =  (Eolian_Debug_Function *)(node->data);
-        type = ELM_GENLIST_ITEM_NONE;
+        Eolian_Debug_Function *func = node->data;
         Eolian_Debug_Parameter *param;
-        EINA_LIST_FOREACH(func->params, param_itr, param)
+        EINA_LIST_FOREACH(func->params, itr, param)
           {
              node = calloc(1, sizeof(*node));
              node->type = CLOUSEAU_OBJ_PARAM;
              node->data = param;
 
              elm_genlist_item_append(
-                   list, _obj_info_itc,
-                   (void *)node, glit,
-                   type,
-                   NULL, NULL);
+                   obj, _obj_info_itc, node, glit,
+                   ELM_GENLIST_ITEM_NONE, NULL, NULL);
           }
      }
 
