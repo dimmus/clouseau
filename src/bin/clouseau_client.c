@@ -64,7 +64,7 @@ static int _selected_app = -1;
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Elm_Genlist_Item_Class *_obj_info_itc = NULL;
 static Eina_List *_objs_list_tree = NULL;
-static Eolian_Debug_Object_Information *obj_info = NULL;
+static Eolian_Debug_Object_Information *_obj_info = NULL;
 static Eina_Debug_Client *_current_client = NULL;
 
 static void
@@ -213,17 +213,17 @@ static Eina_Bool
 _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
       void *buffer, int size)
 {
-   if(obj_info)
+   if(_obj_info)
      {
         elm_genlist_clear(pub_widgets->elm_win1->elm_genlist2);
-        eolian_debug_object_information_free(obj_info);
-        obj_info = NULL;
+        eolian_debug_object_information_free(_obj_info);
+        _obj_info = NULL;
      }
-   obj_info = eolian_debug_object_information_decode(buffer, size);
+   _obj_info = eolian_debug_object_information_decode(buffer, size);
 
    Eolian_Debug_Class *kl;
    Eina_List *kl_itr;
-   EINA_LIST_FOREACH(obj_info->classes, kl_itr, kl)
+   EINA_LIST_FOREACH(_obj_info->classes, kl_itr, kl)
      {
         Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_TREE;
         _Obj_info_node *node = NULL;
@@ -579,7 +579,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    elm_run();
 
 error:
-   eolian_debug_object_information_free(obj_info);
+   eolian_debug_object_information_free(_obj_info);
    _objs_nodes_free(_objs_list_tree);
    eina_debug_session_free(_session);
    eina_shutdown();
