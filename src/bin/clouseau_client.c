@@ -199,25 +199,27 @@ static char *_obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
    _Obj_info_node *node = data;
-   char name[_MAX_LABEL]; name[0] = '\0';
-   Eolian_Debug_Parameter *param;
-   char *print_format;
    switch(node->type)
      {
-      case CLOUSEAU_OBJ_CLASS : strncpy(name,
-                                      ((Eolian_Debug_Class *)(node->data))->name, _MAX_LABEL);                                      break;
-      case CLOUSEAU_OBJ_FUNC : strncpy(name,
-                                     ((Eolian_Debug_Function *)(node->data))->name, _MAX_LABEL);
-                               break;
-      case CLOUSEAU_OBJ_PARAM :   param = node->data;
-                                  if (param->type == EOLIAN_DEBUG_STRING)
-                                     print_format = "%s";
-                                  else
-                                     print_format = "%lX";
-                                  snprintf(name, _MAX_LABEL,
-                                        print_format, param->value.value);
+      case CLOUSEAU_OBJ_CLASS:
+         return strdup(((Eolian_Debug_Class *)node->data)->name);
+      case CLOUSEAU_OBJ_FUNC:
+         return strdup(((Eolian_Debug_Function *)node->data)->name);
+      case CLOUSEAU_OBJ_PARAM:
+           {
+              Eolian_Debug_Parameter *param = node->data;
+              if (param->type == EOLIAN_DEBUG_STRING) return strdup((const char *)param->value.value);
+              else
+                {
+                   char name[_MAX_LABEL];
+                   char *print_format = "%lX";
+                   snprintf(name, _MAX_LABEL - 1, print_format, param->value.value);
+                   return strdup(name);
+                }
+           }
+      default:
+         return NULL;
      }
-   return (char *)(long)strdup(name);
 }
 #undef _MAX_LABEL
 
