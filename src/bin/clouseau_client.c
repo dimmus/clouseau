@@ -14,10 +14,6 @@
 
 #include <Eolian_Debug.h>
 
-# ifdef HAVE_CONFIG_H
-#  include "config.h"
-# endif
-
 #define EXTRACT(_buf, pval, sz) \
 { \
    memcpy(pval, _buf, sz); \
