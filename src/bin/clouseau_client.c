@@ -28,6 +28,7 @@ static uint32_t _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
+static uint32_t _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Widgets *pub_widgets = NULL;
 
@@ -310,6 +311,7 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
    printf("Sending Eolian get request for Eo object[%p]\n", info_node->info->ptr);
    elm_genlist_clear(pub_widgets->elm_win1->elm_genlist2);
    eina_debug_session_send(_current_client, _obj_info_opcode, &ptr, sizeof(uint64_t));
+   eina_debug_session_send(_current_client, _obj_highlight_opcode, &ptr, sizeof(uint64_t));
 }
 
 static Eina_Bool
@@ -384,6 +386,7 @@ _hoversel_selected_app(void *data,
    _current_client = eina_debug_client_new(_session, _selected_app);
    eina_debug_session_send(_current_client, _module_init_opcode, "elementary", 11);
    eina_debug_session_send(_current_client, _module_init_opcode, "eolian", 7);
+   eina_debug_session_send(_current_client, _module_init_opcode, "evas", 5);
    _pending_add(&_elm_list_opcode, NULL, 0);
 }
 
@@ -531,6 +534,7 @@ static const Eina_Debug_Opcode ops[] =
      {"evlog/off",            &_evlog_off_opcode,     NULL},
      {"Elementary/objects_list",       &_elm_list_opcode,      &_elm_objects_list_cb},
      {"Eolian/object/info_get", &_obj_info_opcode, &_debug_obj_info_cb},
+     {"Evas/object/highlight", &_obj_highlight_opcode, NULL},
      {NULL, NULL, NULL}
 };
 
