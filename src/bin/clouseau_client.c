@@ -308,6 +308,7 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
    uint64_t ptr = (uint64_t)info_node->info->ptr;
 
    printf("Sending Eolian get request for Eo object[%p]\n", info_node->info->ptr);
+   elm_genlist_clear(pub_widgets->elm_win1->elm_genlist2);
    eina_debug_session_send(_current_client, _obj_info_opcode, &ptr, sizeof(uint64_t));
 }
 
@@ -376,6 +377,7 @@ _hoversel_selected_app(void *data,
         _objs_nodes_free(_objs_list_tree);
         _objs_list_tree = NULL;
         elm_genlist_clear(pub_widgets->elm_win1->elm_genlist1);
+        elm_genlist_clear(pub_widgets->elm_win1->elm_genlist2);
      }
 
    if (_current_client) eina_debug_client_free(_current_client);
