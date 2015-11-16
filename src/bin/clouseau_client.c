@@ -346,7 +346,9 @@ _objs_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
    _Obj_list_node *info_node = data;
-   return strdup(info_node->info->kl_name);
+   char buf[128];
+   sprintf(buf, "%s %p", info_node->info->kl_name, info_node->info->ptr);
+   return strdup(buf);
 }
 
 static void
@@ -395,7 +397,7 @@ _clients_info_added_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int siz
         if(pid != getpid())
           {
              char option[100];
-             snprintf(option, 90, "CID: %d - PID: %d - Name: %s", cid, pid, buf);
+             snprintf(option, 90, "%s [%d]", buf, pid);
              elm_hoversel_item_add(pub_widgets->elm_win1->elm_hoversel1,
                    option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
                    (void *)(long)cid);

@@ -58,7 +58,6 @@ gui_elm_win1_create(Eo *__main_parent)
    eo_do(elm_win1, elm_obj_win_resize_object_add(elm_box1));
    elm_hoversel1 = eo_add(ELM_HOVERSEL_CLASS, elm_box1);
    pub_widgets->elm_hoversel1 = elm_hoversel1;
-   eo_do(elm_hoversel1, elm_obj_widget_part_text_set(NULL, "Hoversel"));
    eo_do(elm_hoversel1, evas_obj_size_hint_weight_set(1.000000, 0.000000));
    eo_do(elm_hoversel1, evas_obj_size_hint_align_set(0.500000, 0.000000));
    eo_do(elm_hoversel1, efl_gfx_visible_set(EINA_TRUE));
@@ -66,6 +65,7 @@ gui_elm_win1_create(Eo *__main_parent)
    eo_do(elm_hoversel1, efl_gfx_position_set(-8, -2));
    eo_do(elm_hoversel1, elm_obj_hoversel_horizontal_set(EINA_FALSE));
    eo_do(elm_hoversel1, elm_obj_hoversel_auto_update_set(EINA_TRUE));
+   eo_do(elm_hoversel1, elm_obj_widget_part_text_set(NULL, "Select App"));
    elm_panes1 = eo_add(ELM_PANES_CLASS, elm_box1);
    pub_widgets->elm_panes1 = elm_panes1;
    eo_do(elm_panes1, elm_obj_panes_content_right_size_set(0.600000));

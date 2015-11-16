@@ -69,14 +69,14 @@
       },
       "Properties":
       {
-        "Elm.Widget.part_text":[null, "Hoversel"],
         "Evas.Object.size_hint_weight":[1, 0],
         "Evas.Object.size_hint_align":[0.50, 0],
         "Efl.Gfx.Base.visible":[true],
         "Efl.Gfx.Base.size":[1174, 643],
         "Efl.Gfx.Base.position":[-8, -2],
         "Elm.Hoversel.horizontal":[false],
-        "Elm.Hoversel.auto_update":[true]
+        "Elm.Hoversel.auto_update":[true],
+        "Elm.Widget.part_text":[null, "Select App"]
       }
     },
     "elm_panes1":
