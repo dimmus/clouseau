@@ -356,6 +356,7 @@ _objs_nodes_free(Eina_List *parents)
 
    EINA_LIST_FREE(parents, info_node)
      {
+        if (info_node->info) free(info_node->info->kl_name);
         free(info_node->info);
         _objs_nodes_free(info_node->children);
         free(info_node);
