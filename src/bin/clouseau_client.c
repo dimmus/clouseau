@@ -34,7 +34,7 @@ static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
 
-static Gui_Elm_Win1_Widgets *_main_widgets = NULL;
+static Gui_Main_Win_Widgets *_main_widgets = NULL;
 static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
 
 typedef struct
@@ -274,7 +274,7 @@ _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
 {
    if(_obj_info)
      {
-        elm_genlist_clear(_main_widgets->elm_genlist2);
+        elm_genlist_clear(_main_widgets->object_infos_list);
         eolian_debug_object_information_free(_obj_info);
         _obj_info = NULL;
      }
@@ -291,7 +291,7 @@ _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
         node->data = kl;
 
         Elm_Object_Item  *glg = elm_genlist_item_append(
-              _main_widgets->elm_genlist2, _obj_info_itc,
+              _main_widgets->object_infos_list, _obj_info_itc,
               (void *)node, NULL,
               type,
               NULL, NULL);
@@ -332,7 +332,7 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
    uint64_t ptr = (uint64_t)info_node->info->ptr;
 
    printf("Sending Eolian get request for Eo object[%p]\n", info_node->info->ptr);
-   elm_genlist_clear(_main_widgets->elm_genlist2);
+   elm_genlist_clear(_main_widgets->object_infos_list);
    eina_debug_session_send(_current_client, _obj_info_opcode, &ptr, sizeof(uint64_t));
    eina_debug_session_send(_current_client, _obj_highlight_opcode, &ptr, sizeof(uint64_t));
 }
@@ -401,8 +401,8 @@ _hoversel_selected_app(void *data,
      {
         _objs_nodes_free(_objs_list_tree);
         _objs_list_tree = NULL;
-        elm_genlist_clear(_main_widgets->elm_genlist1);
-        elm_genlist_clear(_main_widgets->elm_genlist2);
+        elm_genlist_clear(_main_widgets->objects_list);
+        elm_genlist_clear(_main_widgets->object_infos_list);
      }
 
    if (_current_client) eina_debug_client_free(_current_client);
@@ -426,7 +426,7 @@ _clients_info_added_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int siz
           {
              char option[100];
              snprintf(option, 90, "%s [%d]", buf, pid);
-             elm_hoversel_item_add(_main_widgets->elm_hoversel1,
+             elm_hoversel_item_add(_main_widgets->apps_selector,
                    option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
                    (void *)(long)cid);
           }
@@ -446,7 +446,7 @@ _clients_info_deleted_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int s
         int cid;
         EXTRACT(buf, &cid, sizeof(uint32_t));
 
-        const Eina_List *items = elm_hoversel_items_get(_main_widgets->elm_hoversel1);
+        const Eina_List *items = elm_hoversel_items_get(_main_widgets->apps_selector);
         const Eina_List *l;
         Elm_Object_Item *hoversel_it;
 
@@ -498,7 +498,7 @@ _elm_objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
    EINA_LIST_FOREACH(_objs_list_tree, l, info_node)
      {
         Elm_Object_Item  *glg = elm_genlist_item_append(
-              _main_widgets->elm_genlist1, _objs_itc,
+              _main_widgets->objects_list, _objs_itc,
               (void *)info_node, NULL,
               info_node->children ? ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE,
               _objs_sel_cb, NULL);
@@ -639,7 +639,7 @@ static const Eina_Debug_Opcode ops[] =
 };
 
 void
-gui_elm_win1_create_done(Gui_Elm_Win1_Widgets *wdgs)
+gui_main_win_create_done(Gui_Main_Win_Widgets *wdgs)
 {
    _main_widgets = wdgs;
 
@@ -653,7 +653,7 @@ gui_elm_win1_create_done(Gui_Elm_Win1_Widgets *wdgs)
         _objs_itc->func.state_get = NULL;
         _objs_itc->func.del = NULL;
      }
-   eo_do(_main_widgets->elm_genlist1,
+   eo_do(_main_widgets->objects_list,
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL),
@@ -670,7 +670,7 @@ gui_elm_win1_create_done(Gui_Elm_Win1_Widgets *wdgs)
         _obj_info_itc->func.state_get = NULL;
         _obj_info_itc->func.del =  _obj_info_item_del;
      }
-   eo_do(_main_widgets->elm_genlist2,
+   eo_do(_main_widgets->object_infos_list,
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL),

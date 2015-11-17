@@ -14,7 +14,7 @@
   },
   "Widgets":
   {
-    "elm_win1":
+    "main_win":
     {
       "Desc":
       {
@@ -37,7 +37,7 @@
     {
       "Desc":
       {
-        "parent":"elm_win1",
+        "parent":"main_win",
         "class":"Elm.Bg"
       },
       "Properties":
@@ -51,9 +51,8 @@
     {
       "Desc":
       {
-        "parent":"elm_win1",
-        "class":"Elm.Box",
-        "public":true
+        "parent":"main_win",
+        "class":"Elm.Box"
       },
       "Properties":
       {
@@ -64,9 +63,9 @@
         "Elm.Box.padding":[0, 0],
         "Elm.Box.align":[0, 0]
       },
-      "Contains":["elm_hoversel1", "elm_panes1"]
+      "Contains":["apps_selector", "elm_panes1"]
     },
-    "elm_hoversel1":
+    "apps_selector":
     {
       "Desc":
       {
@@ -91,8 +90,7 @@
       "Desc":
       {
         "parent":"elm_box1",
-        "class":"Elm.Panes",
-        "public":true
+        "class":"Elm.Panes"
       },
       "Properties":
       {
@@ -105,11 +103,11 @@
       },
       "Contains":
       {
-        "elm_genlist1":["left"],
-        "elm_genlist2":["right"]
+        "objects_list":["left"],
+        "object_infos_list":["right"]
       }
     },
-    "elm_genlist2":
+    "object_infos_list":
     {
       "Desc":
       {
@@ -123,7 +121,7 @@
         "Efl.Gfx.Base.visible":[true]
       }
     },
-    "elm_genlist1":
+    "objects_list":
     {
       "Desc":
       {
@@ -234,7 +232,7 @@
       },
       "Callbacks":
       {
-        "clicked":["Create", "elm_win1", null],
+        "clicked":["Create", "main_win", null],
         "clicked":["Invoke", "profile_close", null]
       }
     },

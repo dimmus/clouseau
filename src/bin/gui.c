@@ -15,7 +15,7 @@
 
 static Gui_Widgets g_pub_widgets;
 
-extern void gui_elm_win1_create_done(Gui_Elm_Win1_Widgets *wdgs);
+extern void gui_main_win_create_done(Gui_Main_Win_Widgets *wdgs);
 
 extern Eina_Bool
 _profile_win_close_cb(void *data, Eo *obj, const Eo_Event_Description *desc, void *event_info);
@@ -27,72 +27,70 @@ _pubs_free_cb(void *data, Eo *obj EINA_UNUSED, const Eo_Event_Description *desc 
    return EINA_TRUE;
 }
 
-Gui_Elm_Win1_Widgets *
-gui_elm_win1_create(Eo *__main_parent)
+Gui_Main_Win_Widgets *
+gui_main_win_create(Eo *__main_parent)
 {
-   Gui_Elm_Win1_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
+   Gui_Main_Win_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
 
-   Eo *elm_win1;
+   Eo *main_win;
    Eo *elm_bg1;
    Eo *elm_box1;
-   Eo *elm_hoversel1;
+   Eo *apps_selector;
    Eo *elm_panes1;
-   Eo *elm_genlist2;
-   Eo *elm_genlist1;
+   Eo *object_infos_list;
+   Eo *objects_list;
 
 
-   elm_win1 = eo_add(ELM_WIN_CLASS, __main_parent, elm_obj_win_type_set(ELM_WIN_BASIC));
-   pub_widgets->elm_win1 = elm_win1;
-   eo_do(elm_win1, elm_obj_widget_part_text_set(NULL, "Window"));
-   eo_do(elm_win1, elm_obj_win_autodel_set(EINA_TRUE));
-   eo_do(elm_win1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
-   eo_do(elm_win1, efl_gfx_size_set(478, 484));
-   elm_bg1 = eo_add(ELM_BG_CLASS, elm_win1);
+   main_win = eo_add(ELM_WIN_CLASS, __main_parent, elm_obj_win_type_set(ELM_WIN_BASIC));
+   pub_widgets->main_win = main_win;
+   eo_do(main_win, elm_obj_widget_part_text_set(NULL, "Window"));
+   eo_do(main_win, elm_obj_win_autodel_set(EINA_TRUE));
+   eo_do(main_win, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(main_win, efl_gfx_size_set(478, 484));
+   elm_bg1 = eo_add(ELM_BG_CLASS, main_win);
    eo_do(elm_bg1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
    eo_do(elm_bg1, efl_gfx_visible_set(EINA_TRUE));
    eo_do(elm_bg1, efl_gfx_position_set(0, 0));
-   elm_box1 = eo_add(ELM_BOX_CLASS, elm_win1);
-   pub_widgets->elm_box1 = elm_box1;
+   elm_box1 = eo_add(ELM_BOX_CLASS, main_win);
    eo_do(elm_box1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
    eo_do(elm_box1, efl_gfx_visible_set(EINA_TRUE));
    eo_do(elm_box1, efl_gfx_size_set(643, 598));
    eo_do(elm_box1, efl_gfx_position_set(-7, -2));
    eo_do(elm_box1, elm_obj_box_padding_set(0, 0));
    eo_do(elm_box1, elm_obj_box_align_set(0.000000, 0.000000));
-   eo_do(elm_win1, elm_obj_win_resize_object_add(elm_bg1));
-   eo_do(elm_win1, elm_obj_win_resize_object_add(elm_box1));
-   elm_hoversel1 = eo_add(ELM_HOVERSEL_CLASS, elm_box1);
-   pub_widgets->elm_hoversel1 = elm_hoversel1;
-   eo_do(elm_hoversel1, evas_obj_size_hint_weight_set(1.000000, 0.000000));
-   eo_do(elm_hoversel1, evas_obj_size_hint_align_set(0.500000, 0.000000));
-   eo_do(elm_hoversel1, efl_gfx_visible_set(EINA_TRUE));
-   eo_do(elm_hoversel1, efl_gfx_size_set(1174, 643));
-   eo_do(elm_hoversel1, efl_gfx_position_set(-8, -2));
-   eo_do(elm_hoversel1, elm_obj_hoversel_horizontal_set(EINA_FALSE));
-   eo_do(elm_hoversel1, elm_obj_hoversel_auto_update_set(EINA_TRUE));
-   eo_do(elm_hoversel1, elm_obj_widget_part_text_set(NULL, "Select App"));
+   eo_do(main_win, elm_obj_win_resize_object_add(elm_bg1));
+   eo_do(main_win, elm_obj_win_resize_object_add(elm_box1));
+   apps_selector = eo_add(ELM_HOVERSEL_CLASS, elm_box1);
+   pub_widgets->apps_selector = apps_selector;
+   eo_do(apps_selector, evas_obj_size_hint_weight_set(1.000000, 0.000000));
+   eo_do(apps_selector, evas_obj_size_hint_align_set(0.500000, 0.000000));
+   eo_do(apps_selector, efl_gfx_visible_set(EINA_TRUE));
+   eo_do(apps_selector, efl_gfx_size_set(1174, 643));
+   eo_do(apps_selector, efl_gfx_position_set(-8, -2));
+   eo_do(apps_selector, elm_obj_hoversel_horizontal_set(EINA_FALSE));
+   eo_do(apps_selector, elm_obj_hoversel_auto_update_set(EINA_TRUE));
+   eo_do(apps_selector, elm_obj_widget_part_text_set(NULL, "Select App"));
    elm_panes1 = eo_add(ELM_PANES_CLASS, elm_box1);
-   pub_widgets->elm_panes1 = elm_panes1;
    eo_do(elm_panes1, elm_obj_panes_content_right_size_set(0.600000));
    eo_do(elm_panes1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
    eo_do(elm_panes1, efl_gfx_size_set(75, 75));
    eo_do(elm_panes1, efl_gfx_visible_set(EINA_TRUE));
    eo_do(elm_panes1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
    eo_do(elm_panes1, evas_obj_size_hint_align_set(-1.000000, -1.000000));
-   eo_do(elm_box1, elm_obj_box_pack_end(elm_hoversel1));
+   eo_do(elm_box1, elm_obj_box_pack_end(apps_selector));
    eo_do(elm_box1, elm_obj_box_pack_end(elm_panes1));
-   elm_genlist2 = eo_add(ELM_GENLIST_CLASS, elm_panes1);
-   pub_widgets->elm_genlist2 = elm_genlist2;
-   eo_do(elm_genlist2, evas_obj_size_hint_weight_set(1.000000, 1.000000));
-   eo_do(elm_genlist2, efl_gfx_visible_set(EINA_TRUE));
-   elm_genlist1 = eo_add(ELM_GENLIST_CLASS, elm_panes1);
-   pub_widgets->elm_genlist1 = elm_genlist1;
-   eo_do(elm_genlist1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
-   eo_do(elm_genlist1, efl_gfx_visible_set(EINA_TRUE));
-   eo_do(elm_panes1, elm_obj_container_content_set("left", elm_genlist1));
-   eo_do(elm_panes1, elm_obj_container_content_set("right", elm_genlist2));
-   eo_do(elm_win1, efl_gfx_visible_set(EINA_TRUE));
-   eo_do(elm_win1, eo_event_callback_add(EO_BASE_EVENT_DEL, _pubs_free_cb, pub_widgets));
+   object_infos_list = eo_add(ELM_GENLIST_CLASS, elm_panes1);
+   pub_widgets->object_infos_list = object_infos_list;
+   eo_do(object_infos_list, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(object_infos_list, efl_gfx_visible_set(EINA_TRUE));
+   objects_list = eo_add(ELM_GENLIST_CLASS, elm_panes1);
+   pub_widgets->objects_list = objects_list;
+   eo_do(objects_list, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(objects_list, efl_gfx_visible_set(EINA_TRUE));
+   eo_do(elm_panes1, elm_obj_container_content_set("left", objects_list));
+   eo_do(elm_panes1, elm_obj_container_content_set("right", object_infos_list));
+   eo_do(main_win, efl_gfx_visible_set(EINA_TRUE));
+   eo_do(main_win, eo_event_callback_add(EO_BASE_EVENT_DEL, _pubs_free_cb, pub_widgets));
 
    return pub_widgets;
 }
@@ -100,8 +98,8 @@ gui_elm_win1_create(Eo *__main_parent)
 static Eina_Bool
 profile_ok_button_clicked(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   Gui_Elm_Win1_Widgets *wdgs = gui_elm_win1_create(NULL);
-   gui_elm_win1_create_done(wdgs);
+   Gui_Main_Win_Widgets *wdgs = gui_main_win_create(NULL);
+   gui_main_win_create_done(wdgs);
    _profile_win_close_cb(data, obj, desc, event_info);
    return EINA_TRUE;
 }
