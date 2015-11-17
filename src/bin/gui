@@ -3,7 +3,14 @@
   "Settings":
   {
     "project":"gui",
-    "start_points":["elm_win1"]
+    "start_points":["profiles_win"]
+  },
+  "Resources":
+  {
+    "Eo_Callbacks":
+    {
+      "profile_close":"_profile_win_close_cb"
+    }
   },
   "Widgets":
   {
@@ -128,6 +135,138 @@
       {
         "Evas.Object.size_hint_weight":[1, 1],
         "Efl.Gfx.Base.visible":[true]
+      }
+    },
+    "profiles_win":
+    {
+      "Desc":
+      {
+        "parent":null,
+        "class":"Elm.Win",
+        "public":true
+      },
+      "Properties":
+      {
+        "Elm.Win.name":["Win"],
+        "Elm.Win.type":["ELM_WIN_BASIC"],
+        "Elm.Win.autodel":[true],
+        "Elm.Widget.part_text":[null, "Window"],
+        "Efl.Gfx.Base.visible":[true],
+        "Efl.Gfx.Base.size":[347, 362],
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Evas.Object.freeze_events":[false],
+        "Evas.Object.repeat_events":[false],
+        "Elm.Win.title":["Profiles"]
+      },
+      "Contains":["elm_bg2", "elm_box2"]
+    },
+    "elm_menu1":
+    {
+      "Desc":
+      {
+        "parent":"profiles_win",
+        "class":"Elm.Menu"
+      }
+    },
+    "elm_bg2":
+    {
+      "Desc":
+      {
+        "parent":"profiles_win",
+        "class":"Elm.Bg"
+      },
+      "Properties":
+      {
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true]
+      }
+    },
+    "elm_box2":
+    {
+      "Desc":
+      {
+        "parent":"profiles_win",
+        "class":"Elm.Box"
+      },
+      "Properties":
+      {
+        "Elm.Box.padding":[7, 0],
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.size":[200, 200],
+        "Efl.Gfx.Base.visible":[true]
+      },
+      "Contains":["profiles_list", "elm_box3"]
+    },
+    "elm_box3":
+    {
+      "Desc":
+      {
+        "parent":"elm_box2",
+        "class":"Elm.Box"
+      },
+      "Properties":
+      {
+        "Elm.Box.padding":[7, 0],
+        "Evas.Object.size_hint_align":[-1, -1],
+        "Efl.Gfx.Base.visible":[true],
+        "Elm.Box.horizontal":[true],
+        "Efl.Gfx.Base.size":[200, 139],
+        "Efl.Gfx.Base.position":[289, 742],
+        "Evas.Object.size_hint_weight":[1, 0.20]
+      },
+      "Contains":["profile_ok_button", "profile_cancel_button"]
+    },
+    "profile_ok_button":
+    {
+      "Desc":
+      {
+        "parent":"elm_box3",
+        "class":"Elm.Button",
+        "public":true
+      },
+      "Properties":
+      {
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true],
+        "Efl.Gfx.Base.size":[73, 30],
+        "Elm.Widget.part_text":[null, "Ok"],
+        "Elm.Widget.disabled":[true]
+      },
+      "Callbacks":
+      {
+        "clicked":["Create", "elm_win1", null],
+        "clicked":["Invoke", "profile_close", null]
+      }
+    },
+    "profile_cancel_button":
+    {
+      "Desc":
+      {
+        "parent":"elm_box3",
+        "class":"Elm.Button",
+        "public":true
+      },
+      "Properties":
+      {
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true],
+        "Efl.Gfx.Base.size":[73, 30],
+        "Elm.Widget.part_text":[null, "Cancel"]
+      }
+    },
+    "profiles_list":
+    {
+      "Desc":
+      {
+        "parent":"elm_box2",
+        "class":"Elm.Genlist",
+        "public":true
+      },
+      "Properties":
+      {
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true],
+        "Evas.Object.size_hint_align":[-1, -1]
       }
     }
   }

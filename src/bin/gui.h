@@ -14,11 +14,22 @@ typedef struct
 } Gui_Elm_Win1_Widgets;
 
 
+typedef struct
+{
+   Eo *profiles_win;
+   Eo *profile_ok_button;
+   Eo *profile_cancel_button;
+   Eo *profiles_list;
+} Gui_Profiles_Win_Widgets;
+
+
 typedef struct {
-     Gui_Elm_Win1_Widgets *elm_win1;
+     Gui_Profiles_Win_Widgets *profiles_win;
 } Gui_Widgets;
 
 Gui_Elm_Win1_Widgets *gui_elm_win1_create(Eo *parent);
+
+Gui_Profiles_Win_Widgets *gui_profiles_win_create(Eo *parent);
 
 Gui_Widgets *gui_gui_get();
 #endif

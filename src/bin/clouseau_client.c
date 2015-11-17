@@ -34,7 +34,8 @@ static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
 
-static Gui_Widgets *pub_widgets = NULL;
+static Gui_Elm_Win1_Widgets *_main_widgets = NULL;
+static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
 
 typedef struct
 {
@@ -81,12 +82,14 @@ static Eina_Debug_Session *_session = NULL;
 static int _selected_app = -1;
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Elm_Genlist_Item_Class *_obj_info_itc = NULL;
+static Elm_Genlist_Item_Class *_profiles_itc = NULL;
 static Eina_List *_objs_list_tree = NULL;
 static Eolian_Debug_Object_Information *_obj_info = NULL;
 static Eina_Debug_Client *_current_client = NULL;
 
 static Eet_Data_Descriptor *_profile_edd = NULL;
 static Eina_List *_profiles = NULL;
+static Clouseau_Profile *_selected_profile = NULL;
 
 static void
 _consume(uint32_t opcode)
@@ -271,7 +274,7 @@ _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
 {
    if(_obj_info)
      {
-        elm_genlist_clear(pub_widgets->elm_win1->elm_genlist2);
+        elm_genlist_clear(_main_widgets->elm_genlist2);
         eolian_debug_object_information_free(_obj_info);
         _obj_info = NULL;
      }
@@ -288,7 +291,7 @@ _debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
         node->data = kl;
 
         Elm_Object_Item  *glg = elm_genlist_item_append(
-              pub_widgets->elm_win1->elm_genlist2, _obj_info_itc,
+              _main_widgets->elm_genlist2, _obj_info_itc,
               (void *)node, NULL,
               type,
               NULL, NULL);
@@ -329,7 +332,7 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
    uint64_t ptr = (uint64_t)info_node->info->ptr;
 
    printf("Sending Eolian get request for Eo object[%p]\n", info_node->info->ptr);
-   elm_genlist_clear(pub_widgets->elm_win1->elm_genlist2);
+   elm_genlist_clear(_main_widgets->elm_genlist2);
    eina_debug_session_send(_current_client, _obj_info_opcode, &ptr, sizeof(uint64_t));
    eina_debug_session_send(_current_client, _obj_highlight_opcode, &ptr, sizeof(uint64_t));
 }
@@ -398,8 +401,8 @@ _hoversel_selected_app(void *data,
      {
         _objs_nodes_free(_objs_list_tree);
         _objs_list_tree = NULL;
-        elm_genlist_clear(pub_widgets->elm_win1->elm_genlist1);
-        elm_genlist_clear(pub_widgets->elm_win1->elm_genlist2);
+        elm_genlist_clear(_main_widgets->elm_genlist1);
+        elm_genlist_clear(_main_widgets->elm_genlist2);
      }
 
    if (_current_client) eina_debug_client_free(_current_client);
@@ -423,7 +426,7 @@ _clients_info_added_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int siz
           {
              char option[100];
              snprintf(option, 90, "%s [%d]", buf, pid);
-             elm_hoversel_item_add(pub_widgets->elm_win1->elm_hoversel1,
+             elm_hoversel_item_add(_main_widgets->elm_hoversel1,
                    option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
                    (void *)(long)cid);
           }
@@ -443,7 +446,7 @@ _clients_info_deleted_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int s
         int cid;
         EXTRACT(buf, &cid, sizeof(uint32_t));
 
-        const Eina_List *items = elm_hoversel_items_get(pub_widgets->elm_win1->elm_hoversel1);
+        const Eina_List *items = elm_hoversel_items_get(_main_widgets->elm_hoversel1);
         const Eina_List *l;
         Elm_Object_Item *hoversel_it;
 
@@ -495,7 +498,7 @@ _elm_objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
    EINA_LIST_FOREACH(_objs_list_tree, l, info_node)
      {
         Elm_Object_Item  *glg = elm_genlist_item_append(
-              pub_widgets->elm_win1->elm_genlist1, _objs_itc,
+              _main_widgets->elm_genlist1, _objs_itc,
               (void *)info_node, NULL,
               info_node->children ? ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE,
               _objs_sel_cb, NULL);
@@ -635,23 +638,10 @@ static const Eina_Debug_Opcode ops[] =
      {NULL, NULL, NULL}
 };
 
-EAPI_MAIN int
-elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
+void
+gui_elm_win1_create_done(Gui_Elm_Win1_Widgets *wdgs)
 {
-   eina_init();
-   eolian_init();
-   eolian_directory_scan(EOLIAN_EO_DIR);
-   elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
-   pub_widgets =  gui_gui_get();
-
-   _config_load();
-   if (!_profile_find("Local connection"))
-     {
-        Clouseau_Profile *p = calloc(1, sizeof(*p));
-        p->name = eina_stringshare_add("Local connection");
-        p->type = CLOUSEAU_PROFILE_LOCAL;
-        _profile_save(p, "local");
-     }
+   _main_widgets = wdgs;
 
    //Init objects Genlist
    if (!_objs_itc)
@@ -663,7 +653,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _objs_itc->func.state_get = NULL;
         _objs_itc->func.del = NULL;
      }
-   eo_do(pub_widgets->elm_win1->elm_genlist1,
+   eo_do(_main_widgets->elm_genlist1,
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL),
@@ -680,7 +670,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _obj_info_itc->func.state_get = NULL;
         _obj_info_itc->func.del =  _obj_info_item_del;
      }
-   eo_do(pub_widgets->elm_win1->elm_genlist2,
+   eo_do(_main_widgets->elm_genlist2,
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL),
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL),
@@ -689,17 +679,79 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 
    _session = eina_debug_session_new();
 
-   if (!eina_debug_local_connect(_session))
+   switch (_selected_profile->type)
      {
-        fprintf(stderr, "ERROR: Cannot connect to debug daemon.\n");
-        goto error;
+      case CLOUSEAU_PROFILE_LOCAL:
+         if (!eina_debug_local_connect(_session))
+           {
+              fprintf(stderr, "ERROR: Cannot connect to debug daemon.\n");
+              elm_exit();
+           }
+         break;
+      default:
+           {
+              printf("Profile type %d not supported\n", _selected_profile->type);
+              elm_exit();
+           }
      }
 
    eina_debug_opcodes_register(_session, ops, _post_register_handle);
+}
 
+static char *_profile_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+      const char *part EINA_UNUSED)
+{
+   Clouseau_Profile *p = data;
+   return strdup(p->name);
+}
+
+static void
+_profile_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+{
+   Elm_Object_Item *glit = event_info;
+   _selected_profile = elm_object_item_data_get(glit);
+   elm_object_disabled_set(_profiles_wdgs->profile_ok_button, EINA_FALSE);
+}
+
+Eina_Bool
+_profile_win_close_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   eo_del(_profiles_wdgs->profiles_win);
+   _profiles_wdgs = NULL;
+   return EINA_TRUE;
+}
+
+EAPI_MAIN int
+elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
+{
+   eina_init();
+   eolian_init();
+   eolian_directory_scan(EOLIAN_EO_DIR);
+   elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
+   _profiles_wdgs = gui_gui_get()->profiles_win;
+
+   _config_load();
+   if (!_profile_find("Local connection"))
+     {
+        Clouseau_Profile *p = calloc(1, sizeof(*p));
+        p->name = eina_stringshare_add("Local connection");
+        p->type = CLOUSEAU_PROFILE_LOCAL;
+        _profile_save(p, "local");
+     }
+
+   if (!_profiles_itc)
+     {
+        _profiles_itc = elm_genlist_item_class_new();
+        _profiles_itc->item_style = "default";
+        _profiles_itc->func.text_get = _profile_item_label_get;
+     }
+   Eina_List *itr;
+   Clouseau_Profile *p;
+   EINA_LIST_FOREACH(_profiles, itr, p)
+      elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
+            NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
    elm_run();
 
-error:
    eolian_debug_object_information_free(_obj_info);
    _objs_nodes_free(_objs_list_tree);
    eina_debug_session_free(_session);
