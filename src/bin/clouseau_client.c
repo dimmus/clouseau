@@ -597,6 +597,28 @@ _config_load()
      }
 }
 
+static Clouseau_Profile *
+_profile_find(const char *name)
+{
+   Eina_List *itr;
+   Clouseau_Profile *p;
+   EINA_LIST_FOREACH(_profiles, itr, p)
+      if (p->name == name || !strcmp(p->name, name)) return p;
+   return NULL;
+}
+
+static void
+_profile_save(const Clouseau_Profile *p, const char *filename)
+{
+   char path[1024];
+   if (!p) return;
+   sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), filename);
+   Eet_File *file = eet_open(path, EET_FILE_MODE_WRITE);
+   _profile_eet_load();
+   eet_data_write(file, _profile_edd, _PROFILE_EET_ENTRY, p, EINA_TRUE);
+   eet_close(file);
+}
+
 static const Eina_Debug_Opcode ops[] =
 {
      {"daemon/client_status_register", &_cl_stat_reg_opcode, NULL},
@@ -623,6 +645,13 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    pub_widgets =  gui_gui_get();
 
    _config_load();
+   if (!_profile_find("Local connection"))
+     {
+        Clouseau_Profile *p = calloc(1, sizeof(*p));
+        p->name = eina_stringshare_add("Local connection");
+        p->type = CLOUSEAU_PROFILE_LOCAL;
+        _profile_save(p, "local");
+     }
 
    //Init objects Genlist
    if (!_objs_itc)
