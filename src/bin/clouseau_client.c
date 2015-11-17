@@ -212,10 +212,46 @@ static void _obj_info_item_del(void *data, Evas_Object *obj EINA_UNUSED)
    free(node);
 }
 
+void _eolian_type_to_string (const Eolian_Type *param_eolian_type, char *c_type)
+{
+   c_type[0] = '\0';
+   if ((eolian_type_type_get(param_eolian_type) == EOLIAN_TYPE_REGULAR)//if its one of the base type or alias
+         && !eolian_type_base_type_get(param_eolian_type))
+     {
+        sprintf(c_type, "%s", eolian_type_name_get(param_eolian_type));
+     }
+   else
+     {
+        const Eolian_Type *base = eolian_type_base_type_get(param_eolian_type);
+        if ((eolian_type_type_get(base) == EOLIAN_TYPE_REGULAR) ||
+              (eolian_type_type_get(base) == EOLIAN_TYPE_CLASS))
+          {
+             sprintf(c_type, "%s *", eolian_type_full_name_get(base));
+          }
+        else if (eolian_type_type_get(base) == EOLIAN_TYPE_VOID)
+          {
+             sprintf(c_type, "void *");
+          }
+        else if (eolian_type_type_get(base) == EOLIAN_TYPE_ENUM)
+          {
+             sprintf(c_type, "%s",  eolian_type_full_name_get(param_eolian_type));
+          }
+        else if (eolian_type_type_get(base) == EOLIAN_TYPE_ALIAS)
+          {
+             sprintf(c_type, "%s", eolian_type_full_name_get(base));
+          }
+        else
+          {
+             sprintf(c_type, "%s *", eolian_type_is_const(base) ? "const " : "");
+          }
+     }
+}
+
 #define _MAX_LABEL 50
 static char *_obj_info_eo_param_str_get(_Obj_info_node *node)
 {
    char name[_MAX_LABEL]; name[0] = '\0';
+   char c_type[_MAX_LABEL];
    Eolian_Debug_Parameter *param = node->data;
    const Eolian_Function_Parameter *type = param->etype;
    const Eolian_Type *eo_type = eolian_parameter_type_get(type);
@@ -225,9 +261,10 @@ static char *_obj_info_eo_param_str_get(_Obj_info_node *node)
       print_format = "%s %s = %s";
    else
       print_format = "%s %s = %lX";
+   _eolian_type_to_string(eo_type, c_type);
    snprintf(name, _MAX_LABEL,
          print_format,
-         eolian_type_full_name_get(eo_type), eolian_parameter_name_get(type),
+         c_type, eolian_parameter_name_get(type),
          param->value.value.value);
 
    return strdup(name);
@@ -236,15 +273,18 @@ static char *_obj_info_eo_param_str_get(_Obj_info_node *node)
 static char *_obj_info_eo_ret_str_get(_Obj_info_node *node)
 {
    char name[_MAX_LABEL]; name[0] = '\0';
+   char c_type[_MAX_LABEL];
    Eolian_Debug_Return *param = node->data;
    param = node->data;
    char *print_format;
    if (param->value.type == EOLIAN_DEBUG_STRING)
-      print_format = "%s";
+      print_format = "%s = %s";
    else
-      print_format = "%lX";
+      print_format = "%s = %lX";
+   _eolian_type_to_string(param->etype, c_type);
    snprintf(name, _MAX_LABEL,
          print_format,
+         c_type,
          param->value.value.value);
 
    return strdup(name);
