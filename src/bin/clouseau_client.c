@@ -7,9 +7,11 @@
 #ifndef ELM_INTERNAL_API_ARGESFSDFEFC
 #define ELM_INTERNAL_API_ARGESFSDFEFC
 #endif
+#include <Efreet.h>
 #include <Elementary.h>
 #include <Evas.h>
 #include <Eolian.h>
+#include <Ecore_File.h>
 #include "gui.h"
 
 #include <Eolian_Debug.h>
@@ -19,6 +21,8 @@
    memcpy(pval, _buf, sz); \
    _buf += sz; \
 }
+
+#define _PROFILE_EET_ENTRY "config"
 
 static uint32_t _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
@@ -59,6 +63,19 @@ typedef struct
    void *data;
 } _Obj_info_node;
 
+typedef enum
+{
+   CLOUSEAU_PROFILE_LOCAL,
+   CLOUSEAU_PROFILE_SDB
+} Clouseau_Profile_Type;
+
+typedef struct
+{
+   const char *name;
+   const char *script;
+   Clouseau_Profile_Type type;
+} Clouseau_Profile;
+
 static Eina_List *_pending = NULL;
 static Eina_Debug_Session *_session = NULL;
 static int _selected_app = -1;
@@ -67,6 +84,9 @@ static Elm_Genlist_Item_Class *_obj_info_itc = NULL;
 static Eina_List *_objs_list_tree = NULL;
 static Eolian_Debug_Object_Information *_obj_info = NULL;
 static Eina_Debug_Client *_current_client = NULL;
+
+static Eet_Data_Descriptor *_profile_edd = NULL;
+static Eina_List *_profiles = NULL;
 
 static void
 _consume(uint32_t opcode)
@@ -522,6 +542,61 @@ _post_register_handle(Eina_Bool flag)
    eina_debug_client_free(cl);
 }
 
+static Eina_Bool
+_mkdir(const char *dir)
+{
+   if (!ecore_file_exists(dir))
+     {
+        Eina_Bool success = ecore_file_mkdir(dir);
+        if (!success)
+          {
+             printf("Cannot create a config folder \"%s\"\n", dir);
+             return EINA_FALSE;
+          }
+     }
+   return EINA_TRUE;
+}
+
+static void
+_profile_eet_load()
+{
+   if (_profile_edd) return;
+   Eet_Data_Descriptor_Class eddc;
+
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Clouseau_Profile);
+   _profile_edd = eet_data_descriptor_stream_new(&eddc);
+
+#define CFG_ADD_BASIC(member, eet_type)\
+   EET_DATA_DESCRIPTOR_ADD_BASIC\
+   (_profile_edd, Clouseau_Profile, # member, member, eet_type)
+
+   CFG_ADD_BASIC(name, EET_T_STRING);
+   CFG_ADD_BASIC(script, EET_T_STRING);
+   CFG_ADD_BASIC(type, EET_T_INT);
+
+#undef CFG_ADD_BASIC
+}
+
+static void
+_config_load()
+{
+   char path[1024], *filename;
+   sprintf(path, "%s/clouseau", efreet_config_home_get());
+   if (!_mkdir(path)) return;
+   sprintf(path, "%s/clouseau/profiles", efreet_config_home_get());
+   if (!_mkdir(path)) return;
+   Eina_List *files = ecore_file_ls(path), *itr;
+   if (files) _profile_eet_load();
+   EINA_LIST_FOREACH(files, itr, filename)
+     {
+        sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), filename);
+        Eet_File *file = eet_open(path, EET_FILE_MODE_READ);
+        Clouseau_Profile *p = eet_data_read(file, _profile_edd, _PROFILE_EET_ENTRY);
+        eet_close(file);
+        _profiles = eina_list_append(_profiles, p);
+     }
+}
+
 static const Eina_Debug_Opcode ops[] =
 {
      {"daemon/client_status_register", &_cl_stat_reg_opcode, NULL},
@@ -546,6 +621,8 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    eolian_directory_scan(EOLIAN_EO_DIR);
    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
    pub_widgets =  gui_gui_get();
+
+   _config_load();
 
    //Init objects Genlist
    if (!_objs_itc)
