@@ -3,7 +3,7 @@
   "Settings":
   {
     "project":"gui",
-    "start_points":["profiles_win"]
+    "start_points":["main_win"]
   },
   "Resources":
   {
@@ -232,7 +232,6 @@
       },
       "Callbacks":
       {
-        "clicked":["Create", "main_win", null],
         "clicked":["Invoke", "profile_close", null]
       }
     },

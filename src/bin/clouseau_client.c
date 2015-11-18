@@ -647,45 +647,9 @@ static const Eina_Debug_Opcode ops[] =
      {NULL, NULL, NULL}
 };
 
-void
-gui_main_win_create_done(Gui_Main_Win_Widgets *wdgs)
+static void
+_profile_load()
 {
-   _main_widgets = wdgs;
-
-   //Init objects Genlist
-   if (!_objs_itc)
-     {
-        _objs_itc = elm_genlist_item_class_new();
-        _objs_itc->item_style = "default";
-        _objs_itc->func.text_get = _objs_item_label_get;
-        _objs_itc->func.content_get = NULL;
-        _objs_itc->func.state_get = NULL;
-        _objs_itc->func.del = NULL;
-     }
-   eo_do(_main_widgets->objects_list,
-         eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL),
-         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL),
-         eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL),
-         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, NULL)
-        );
-
-   //Init object info Genlist
-   if (!_obj_info_itc)
-     {
-        _obj_info_itc = elm_genlist_item_class_new();
-        _obj_info_itc->item_style = "default";
-        _obj_info_itc->func.text_get = _obj_info_item_label_get;
-        _obj_info_itc->func.content_get = NULL;
-        _obj_info_itc->func.state_get = NULL;
-        _obj_info_itc->func.del =  _obj_info_item_del;
-     }
-   eo_do(_main_widgets->object_infos_list,
-         eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL),
-         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL),
-         eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL),
-         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACTED, _obj_info_contracted_cb, NULL)
-        );
-
    _session = eina_debug_session_new();
 
    switch (_selected_profile->type)
@@ -727,6 +691,7 @@ _profile_win_close_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Eo_Even
 {
    eo_del(_profiles_wdgs->profiles_win);
    _profiles_wdgs = NULL;
+   _profile_load();
    return EINA_TRUE;
 }
 
@@ -735,9 +700,6 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 {
    eina_init();
    eolian_init();
-   eolian_directory_scan(EOLIAN_EO_DIR);
-   elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
-   _profiles_wdgs = gui_gui_get()->profiles_win;
 
    _config_load();
    if (!_profile_find("Local connection"))
@@ -754,11 +716,56 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _profiles_itc->item_style = "default";
         _profiles_itc->func.text_get = _profile_item_label_get;
      }
-   Eina_List *itr;
-   Clouseau_Profile *p;
-   EINA_LIST_FOREACH(_profiles, itr, p)
-      elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
-            NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
+
+   eolian_directory_scan(EOLIAN_EO_DIR);
+   elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
+   _main_widgets = gui_gui_get()->main_win;
+
+   //Init objects Genlist
+   if (!_objs_itc)
+     {
+        _objs_itc = elm_genlist_item_class_new();
+        _objs_itc->item_style = "default";
+        _objs_itc->func.text_get = _objs_item_label_get;
+        _objs_itc->func.content_get = NULL;
+        _objs_itc->func.state_get = NULL;
+        _objs_itc->func.del = NULL;
+     }
+   eo_do(_main_widgets->objects_list,
+         eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, NULL)
+        );
+
+   //Init object info Genlist
+   if (!_obj_info_itc)
+     {
+        _obj_info_itc = elm_genlist_item_class_new();
+        _obj_info_itc->item_style = "default";
+        _obj_info_itc->func.text_get = _obj_info_item_label_get;
+        _obj_info_itc->func.content_get = NULL;
+        _obj_info_itc->func.state_get = NULL;
+        _obj_info_itc->func.del =  _obj_info_item_del;
+     }
+   eo_do(_main_widgets->object_infos_list,
+         eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL),
+         eo_event_callback_add(ELM_GENLIST_EVENT_CONTRACTED, _obj_info_contracted_cb, NULL)
+        );
+
+   if (1) /* if a profile is not given as parameter, we show the profiles window */
+     {
+        _profiles_wdgs = gui_profiles_win_create(_main_widgets->main_win);
+        elm_win_modal_set(_profiles_wdgs->profiles_win, EINA_TRUE);
+        Eina_List *itr;
+        Clouseau_Profile *p;
+        EINA_LIST_FOREACH(_profiles, itr, p)
+           elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
+                 NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
+     }
+
    elm_run();
 
    eolian_debug_object_information_free(_obj_info);

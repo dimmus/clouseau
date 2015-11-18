@@ -15,8 +15,6 @@
 
 static Gui_Widgets g_pub_widgets;
 
-extern void gui_main_win_create_done(Gui_Main_Win_Widgets *wdgs);
-
 extern Eina_Bool
 _profile_win_close_cb(void *data, Eo *obj, const Eo_Event_Description *desc, void *event_info);
 
@@ -98,8 +96,6 @@ gui_main_win_create(Eo *__main_parent)
 static Eina_Bool
 profile_ok_button_clicked(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   Gui_Main_Win_Widgets *wdgs = gui_main_win_create(NULL);
-   gui_main_win_create_done(wdgs);
    _profile_win_close_cb(data, obj, desc, event_info);
    return EINA_TRUE;
 }
@@ -182,7 +178,7 @@ Gui_Widgets *gui_gui_get()
    static Eina_Bool initialized = EINA_FALSE;
    if (!initialized)
      {
-        g_pub_widgets.profiles_win = gui_profiles_win_create(NULL);
+        g_pub_widgets.main_win = gui_main_win_create(NULL);
         initialized = EINA_TRUE;
      }
    return &g_pub_widgets;

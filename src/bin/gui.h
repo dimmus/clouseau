@@ -22,7 +22,7 @@ typedef struct
 
 
 typedef struct {
-     Gui_Profiles_Win_Widgets *profiles_win;
+     Gui_Main_Win_Widgets *main_win;
 } Gui_Widgets;
 
 Gui_Main_Win_Widgets *gui_main_win_create(Eo *parent);
