@@ -181,13 +181,15 @@ _obj_info_contracted_cb(void *data EINA_UNUSED,
    return EINA_TRUE;
 }
 
-static void _obj_info_item_del(void *data, Evas_Object *obj EINA_UNUSED)
+static void
+_obj_info_item_del(void *data, Evas_Object *obj EINA_UNUSED)
 {
    _Obj_info_node *node = data;
    free(node);
 }
 
-void _eolian_type_to_string (const Eolian_Type *param_eolian_type, char *c_type)
+static void
+_eolian_type_to_string (const Eolian_Type *param_eolian_type, char *c_type)
 {
    c_type[0] = '\0';
    if ((eolian_type_type_get(param_eolian_type) == EOLIAN_TYPE_REGULAR)//if its one of the base type or alias
@@ -223,7 +225,8 @@ void _eolian_type_to_string (const Eolian_Type *param_eolian_type, char *c_type)
 }
 
 #define _MAX_LABEL 2000
-static char *_obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+static char *
+_obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
    _Obj_info_node *node = data;
