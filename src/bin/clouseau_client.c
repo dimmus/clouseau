@@ -259,7 +259,7 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
 
    if(node->type == CLOUSEAU_OBJ_CLASS)
      {
-        return strdup(eolian_class_name_get(((Eolian_Debug_Class *)(node->data))->ekl));
+        return strdup(eolian_class_full_name_get(((Eolian_Debug_Class *)(node->data))->ekl));
      }
    else if(node->type == CLOUSEAU_OBJ_FUNC)
      {
