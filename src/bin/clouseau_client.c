@@ -160,10 +160,9 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, Eo *obj,
              node_itr->type = CLOUSEAU_OBJ_FUNC;
              node_itr->data = func;
 
-             Elm_Object_Item  *glg = elm_genlist_item_append(
+             elm_genlist_item_append(
                    obj, _obj_info_itc, node_itr, glit,
-                   ELM_GENLIST_ITEM_TREE, NULL, NULL);
-             elm_genlist_item_expanded_set(glg, EINA_FALSE);
+                   ELM_GENLIST_ITEM_NONE, NULL, NULL);
           }
      }
 
