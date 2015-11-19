@@ -24,6 +24,10 @@
 
 #define _PROFILE_EET_ENTRY "config"
 
+static Evas_Object *
+_obj_info_tootip(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
+      Evas_Object *tt, void *item   EINA_UNUSED);
+
 static uint32_t _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _poll_on_opcode = EINA_DEBUG_OPCODE_INVALID;
@@ -160,9 +164,10 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, Eo *obj,
              node_itr->type = CLOUSEAU_OBJ_FUNC;
              node_itr->data = func;
 
-             elm_genlist_item_append(
+            Elm_Genlist_Item *glist =  elm_genlist_item_append(
                    obj, _obj_info_itc, node_itr, glit,
                    ELM_GENLIST_ITEM_NONE, NULL, NULL);
+            elm_genlist_item_tooltip_content_cb_set(glist, _obj_info_tootip, node_itr, NULL);
           }
      }
 
@@ -251,6 +256,70 @@ _eolian_value_to_string(Eolian_Debug_Value *value, char *buffer, int max)
 }
 
 #define _MAX_LABEL 2000
+static void
+_obj_info_params_to_string(_Obj_info_node *node, char *buffer, Eina_Bool full)
+{
+   Eina_List *itr;
+   int buffer_size = 0;
+   buffer_size += snprintf(buffer + buffer_size,
+         _MAX_LABEL - buffer_size,  "%s:  ",
+         eolian_function_name_get(((Eolian_Debug_Function *)(node->data))->efunc));
+   buffer[0] = toupper(buffer[0]);
+
+   Eolian_Debug_Function *func =  (Eolian_Debug_Function *)(node->data);
+   Eolian_Debug_Parameter *param;
+   EINA_LIST_FOREACH(func->params, itr, param)
+     {
+        if(full)
+          {
+             char c_type[_MAX_LABEL];
+             _eolian_type_to_string(eolian_parameter_type_get(param->etype), c_type);
+             buffer_size += snprintf(buffer + buffer_size,
+                   _MAX_LABEL - buffer_size, "%s ", c_type);
+          }
+        buffer_size += snprintf(buffer + buffer_size,
+              _MAX_LABEL - buffer_size, "%s: ", eolian_parameter_name_get(param->etype));
+        buffer_size += _eolian_value_to_string(&(param->value),
+              buffer + buffer_size,  _MAX_LABEL - buffer_size);
+        if(full)
+           buffer_size += snprintf(buffer + buffer_size,
+                 _MAX_LABEL - buffer_size, "(%lX) ", param->value.value.value);
+
+     }
+   if(func->params == NULL)
+     {
+        if(full)
+          {
+             char c_type[_MAX_LABEL];
+             _eolian_type_to_string(func->ret.etype, c_type);
+             buffer_size += snprintf(buffer + buffer_size,
+                   _MAX_LABEL - buffer_size, "%s ", c_type);
+          }
+        buffer_size += snprintf(buffer + buffer_size,
+              _MAX_LABEL - buffer_size, "%s: ", "");
+        buffer_size += _eolian_value_to_string(&(func->ret.value),
+              buffer + buffer_size,  _MAX_LABEL - buffer_size);
+        if(full)
+           buffer_size += snprintf(buffer + buffer_size,
+                 _MAX_LABEL - buffer_size, "(%lX) ", func->ret.value.value.value);
+     }
+}
+
+static Evas_Object *
+_obj_info_tootip(void *data   EINA_UNUSED,
+              Evas_Object *obj EINA_UNUSED,
+              Evas_Object *tt,
+              void *item   EINA_UNUSED)
+{
+   Evas_Object *l = elm_label_add(tt);
+   char buffer[_MAX_LABEL];
+   _obj_info_params_to_string(data, buffer, EINA_TRUE);
+   elm_object_text_set(l, buffer);
+   elm_label_line_wrap_set(l, ELM_WRAP_NONE);
+
+   return l;
+}
+
 static char *
 _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
@@ -263,31 +332,8 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
      }
    else if(node->type == CLOUSEAU_OBJ_FUNC)
      {
-        Eina_List *itr;
         char buffer[_MAX_LABEL];
-        int buffer_size = 0;
-        buffer_size += snprintf(buffer + buffer_size,
-              _MAX_LABEL - buffer_size,  "%s:  ",
-              eolian_function_name_get(((Eolian_Debug_Function *)(node->data))->efunc));
-        buffer[0] = toupper(buffer[0]);
-
-        Eolian_Debug_Function *func =  (Eolian_Debug_Function *)(node->data);
-        Eolian_Debug_Parameter *param;
-        EINA_LIST_FOREACH(func->params, itr, param)
-          {
-             buffer_size += snprintf(buffer + buffer_size,
-                   _MAX_LABEL - buffer_size, "%s: ", eolian_parameter_name_get(param->etype));
-             buffer_size += _eolian_value_to_string(&(param->value),
-                   buffer + buffer_size,  _MAX_LABEL - buffer_size);
-
-          }
-        if(func->params == NULL)
-          {
-             buffer_size += snprintf(buffer + buffer_size,
-                   _MAX_LABEL - buffer_size, "%s: ", "");
-             buffer_size += _eolian_value_to_string(&(func->ret.value),
-                   buffer + buffer_size,  _MAX_LABEL - buffer_size);
-          }
+        _obj_info_params_to_string(node, buffer, EINA_FALSE);
         return strdup(buffer);
      }
    return NULL;
