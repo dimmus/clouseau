@@ -266,7 +266,7 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
              else
                 print_format = ":%lX ";
 
-             buffer_size -= snprintf(buffer + buffer_size,
+             snprintf(buffer + buffer_size,
                    _MAX_LABEL - buffer_size, print_format,
                    func->ret.value.value.value);
           }
