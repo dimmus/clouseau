@@ -188,7 +188,7 @@ _obj_info_item_del(void *data, Evas_Object *obj EINA_UNUSED)
 }
 
 static void
-_eolian_type_to_string (const Eolian_Type *param_eolian_type, char *c_type)
+_eolian_type_to_string(const Eolian_Type *param_eolian_type, char *c_type)
 {
    c_type[0] = '\0';
    if ((eolian_type_type_get(param_eolian_type) == EOLIAN_TYPE_REGULAR)//if its one of the base type or alias
@@ -223,6 +223,33 @@ _eolian_type_to_string (const Eolian_Type *param_eolian_type, char *c_type)
      }
 }
 
+static int
+_eolian_value_to_string(Eolian_Debug_Value *value, char *buffer, int max)
+{
+   switch(value->type)
+     {
+      case EOLIAN_DEBUG_STRING: return snprintf(buffer, max, "%s ",
+                                      (char *)value->value.value);
+      case EOLIAN_DEBUG_POINTER: return snprintf(buffer, max, "%p ",
+                                       (void *)value->value.value);
+      case EOLIAN_DEBUG_CHAR: return snprintf(buffer, max, "%c ",
+                                    (char)value->value.value);
+      case EOLIAN_DEBUG_INT: return snprintf(buffer, max, "%d ",
+                                   (int)value->value.value);
+      case EOLIAN_DEBUG_SHORT: return snprintf(buffer, max, "%u ",
+                                     (unsigned int)value->value.value);
+      case EOLIAN_DEBUG_DOUBLE: return snprintf(buffer, max, "%f ",
+                                      (double)value->value.value);
+      case EOLIAN_DEBUG_BOOLEAN: return snprintf(buffer, max, "%s ",
+                                       (value->value.value ? "true" : "false"));
+      case EOLIAN_DEBUG_LONG: return snprintf(buffer, max, "%ld ",
+                                       (long)value->value.value);
+      case EOLIAN_DEBUG_UINT: return snprintf(buffer, max, "%u ",
+                                       (unsigned int)value->value.value);
+      default: return snprintf(buffer, max, "%lX ", value->value.value);
+     }
+}
+
 #define _MAX_LABEL 2000
 static char *
 _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
@@ -237,7 +264,6 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
    else if(node->type == CLOUSEAU_OBJ_FUNC)
      {
         Eina_List *itr;
-        char *print_format;
         char buffer[_MAX_LABEL];
         int buffer_size = 0;
         buffer_size += snprintf(buffer + buffer_size,
@@ -249,26 +275,18 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
         Eolian_Debug_Parameter *param;
         EINA_LIST_FOREACH(func->params, itr, param)
           {
-             if (param->value.type == EOLIAN_DEBUG_STRING)
-                print_format = "%s:%s ";
-             else
-                print_format = "%s:%lX ";
-
              buffer_size += snprintf(buffer + buffer_size,
-                   _MAX_LABEL - buffer_size, print_format, eolian_parameter_name_get(param->etype),
-                   param->value.value.value);
+                   _MAX_LABEL - buffer_size, "%s: ", eolian_parameter_name_get(param->etype));
+             buffer_size += _eolian_value_to_string(&(param->value),
+                   buffer + buffer_size,  _MAX_LABEL - buffer_size);
 
           }
         if(func->params == NULL)
           {
-             if (func->ret.value.type == EOLIAN_DEBUG_STRING)
-                print_format = ":%s ";
-             else
-                print_format = ":%lX ";
-
-             snprintf(buffer + buffer_size,
-                   _MAX_LABEL - buffer_size, print_format,
-                   func->ret.value.value.value);
+             buffer_size += snprintf(buffer + buffer_size,
+                   _MAX_LABEL - buffer_size, "%s: ", "");
+             buffer_size += _eolian_value_to_string(&(func->ret.value),
+                   buffer + buffer_size,  _MAX_LABEL - buffer_size);
           }
         return strdup(buffer);
      }
