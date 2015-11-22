@@ -16,6 +16,8 @@
 
 #include <Eolian_Debug.h>
 
+#define SHOW_SCREENSHOT     "/images/show-screenshot.png"
+
 #define EXTRACT(_buf, pval, sz) \
 { \
    memcpy(pval, _buf, sz); \
@@ -450,6 +452,45 @@ _objs_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
 }
 
 static void
+_set_button(Evas_Object *w, Evas_Object *bt,
+      char *ic_name, char *tip, Eina_Bool en)
+{  /* Update button icon and tooltip */
+   char buf[1024];
+   Evas_Object *ic = elm_icon_add(w);
+   snprintf(buf, sizeof(buf), "%s%s", PACKAGE_DATA_DIR, ic_name);
+   elm_image_file_set(ic, buf, NULL);
+   elm_object_part_content_set(bt, "icon", ic);
+   elm_object_tooltip_text_set(bt, tip);
+   elm_object_disabled_set(bt, en);
+}
+
+static void
+_show_app_window(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
+{
+   _Obj_list_node *info_node = data;
+
+   printf("show screenshot of obj %s %p\n", info_node->info->kl_name, info_node->info->ptr);
+}
+
+static Evas_Object *
+_objs_item_content_get(void *data, Evas_Object *obj, const char *part)
+{
+   Evas_Object *bt = NULL;
+
+   if(!strcmp(part, "elm.swallow.end"))
+   {
+         bt = elm_button_add(obj);
+         _set_button(obj, bt,
+               SHOW_SCREENSHOT,
+               "Show App Screenshot", EINA_FALSE);
+
+         evas_object_smart_callback_add(bt, "clicked",
+               _show_app_window, data);
+   }
+    return bt;
+}
+
+static void
 _objs_nodes_free(Eina_List *parents)
 {
   _Obj_list_node *info_node;
@@ -790,7 +831,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _objs_itc = elm_genlist_item_class_new();
         _objs_itc->item_style = "default";
         _objs_itc->func.text_get = _objs_item_label_get;
-        _objs_itc->func.content_get = NULL;
+        _objs_itc->func.content_get = _objs_item_content_get;
         _objs_itc->func.state_get = NULL;
         _objs_itc->func.del = NULL;
      }
