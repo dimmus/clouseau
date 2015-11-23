@@ -15,6 +15,7 @@
 #include "gui.h"
 
 #include <Eolian_Debug.h>
+#include <Evas_Debug.h>
 
 #define SHOW_SCREENSHOT     "/images/show-screenshot.png"
 
@@ -39,6 +40,7 @@ static uint32_t _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
+static uint32_t _obj_bmp_opcode = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
 static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
@@ -465,11 +467,207 @@ _set_button(Evas_Object *w, Evas_Object *bt,
 }
 
 static void
+_open_app_window(bmp_info_st *st)
+{
+#define SHOT_HEADER " - Screenshot"
+#define SBAR_PAD_X 4
+#define SBAR_PAD_Y 2
+
+   Evas_Object *tb, *bg, *lb_size, *hbx, *glayer;
+
+   char s_bar[128];
+   char *win_name = "screenshot";
+   st->zoom_val = 1.0; /* Init zoom value */
+ //  st->bt = bt;
+   st->win = elm_win_add(NULL, "win", ELM_WIN_BASIC);
+//   sprintf(win_name, "%s%s", treeit->name, SHOT_HEADER);
+   elm_win_title_set(st->win, win_name);
+//   free(win_name);
+
+   bg = elm_bg_add(st->win);
+   elm_win_resize_object_add(st->win, bg);
+   evas_object_size_hint_weight_set(bg, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_show(bg);
+
+   Evas_Object *bx = elm_box_add(st->win);
+   evas_object_size_hint_weight_set(bx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_size_hint_align_set(bx, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_show(bx);
+
+   /* Table to holds bg and scr on top of it */
+   tb = elm_table_add(bx);
+   elm_box_pack_end(bx, tb);
+   evas_object_size_hint_weight_set(tb, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_size_hint_align_set(tb, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_show(tb);
+
+   /* Set background to scr in table cell */
+   bg = elm_bg_add(tb);
+   snprintf(s_bar, sizeof(s_bar), "%s/images/background.png",
+         PACKAGE_DATA_DIR);
+   elm_bg_file_set(bg, s_bar, NULL);
+   elm_bg_option_set(bg, ELM_BG_OPTION_TILE);
+   evas_object_size_hint_weight_set(bg, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_size_hint_align_set(bg, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_show(bg);
+   elm_table_pack(tb, bg, 0, 0, 1, 1);
+
+   /* Then add the scroller in same cell */
+   st->scr = elm_scroller_add(tb);
+   elm_table_pack(tb, st->scr, 0, 0, 1, 1);
+   evas_object_size_hint_weight_set(st->scr,
+         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+
+   evas_object_size_hint_align_set(st->scr, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_show(st->scr);
+
+   st->o = evas_object_image_filled_add(
+         evas_object_evas_get(bx));
+
+   evas_object_size_hint_min_set(st->o, st->w, st->h);
+   elm_object_content_set(st->scr, st->o);
+ //  elm_object_cursor_set(st->o, ELM_CURSOR_TARGET);
+
+ //  elm_object_disabled_set(bt, EINA_TRUE);
+   evas_object_image_colorspace_set(st->o, EVAS_COLORSPACE_ARGB8888);
+   evas_object_image_alpha_set(st->o, EINA_FALSE);
+   evas_object_image_size_set(st->o, st->w, st->h);
+   evas_object_image_data_copy_set(st->o, st->bmp);
+   evas_object_image_data_update_add(st->o, 0, 0, st->w, st->h);
+   evas_object_show(st->o);
+//   evas_object_smart_callback_add(st->win,
+//         "delete,request", _app_win_del, st);
+
+   /* Build status bar */
+   hbx = elm_box_add(bx);
+   elm_box_horizontal_set(hbx, EINA_TRUE);
+   evas_object_show(hbx);
+   elm_box_padding_set(hbx, SBAR_PAD_X, SBAR_PAD_Y);
+   evas_object_size_hint_align_set(hbx, 0.0, EVAS_HINT_FILL);
+   elm_box_pack_end(bx, hbx);
+   lb_size = elm_label_add(hbx);
+   sprintf(s_bar, "%llux%llu", st->w, st->h);
+   elm_object_text_set(lb_size, s_bar);
+   evas_object_show(lb_size);
+   elm_box_pack_end(hbx, lb_size);
+
+   st->lb_mouse = elm_label_add(hbx);
+   elm_object_text_set(st->lb_mouse, s_bar);
+   evas_object_show(st->lb_mouse);
+   elm_box_pack_end(hbx, st->lb_mouse);
+
+   st->lb_rgba = elm_label_add(hbx);
+   elm_object_text_set(st->lb_rgba, s_bar);
+   evas_object_show(st->lb_rgba);
+   elm_box_pack_end(hbx, st->lb_rgba);
+
+/*   evas_object_event_callback_add(st->o, EVAS_CALLBACK_MOUSE_MOVE,
+         _mouse_move, st);
+
+   evas_object_event_callback_add(st->o, EVAS_CALLBACK_MOUSE_OUT,
+         _mouse_out, st);
+
+   evas_object_event_callback_add(st->o, EVAS_CALLBACK_MOUSE_DOWN,
+         clouseau_lines_cb, st);*/
+
+   evas_object_resize(st->scr, st->w, st->h);
+   elm_win_resize_object_add(st->win, bx);
+   evas_object_resize(st->win, st->w, st->h);
+
+   elm_win_autodel_set(st->win, EINA_TRUE);
+   evas_object_show(st->win);
+
+   /* Attach a gesture layer object to support ZOOM gesture */
+/*   glayer = elm_gesture_layer_add(st->scr);
+   elm_gesture_layer_attach(glayer, st->scr);*/
+
+   /* Reset zoom and remove lines on double click */
+ /*  elm_gesture_layer_cb_set(glayer, ELM_GESTURE_N_DOUBLE_TAPS,
+         ELM_GESTURE_STATE_END, reset_view, st);
+
+   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
+         ELM_GESTURE_STATE_START, zoom_start, st);
+   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
+         ELM_GESTURE_STATE_MOVE, zoom_move, st);
+   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
+         ELM_GESTURE_STATE_END, zoom_end, st);
+   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
+         ELM_GESTURE_STATE_ABORT, zoom_end, st);*/
+}
+
+static Eina_Bool
+_debug_obj_bmp_cb(Eina_Debug_Client *src EINA_UNUSED,
+      void *buffer, int size)
+{
+   printf("recieved bmp size %d\n", size);
+
+   bmp_info_st *st = clouseau_data_packet_info_get(buffer, size);
+if(!st)
+  {
+     printf("error\n");
+     return EINA_FALSE;
+  }
+   st->zoom_val = 1.0; /* Init zoom value */
+int app = _selected_app;
+_open_app_window(st);
+ /*  App_Data_St *app = (App_Data_St *)
+      eina_list_search_unsorted(apps, _app_ptr_cmp,
+            (void *) (uintptr_t) st->app);*/
+
+   /* Check for relevant bmp req in the bmp_req list */
+//   Bmp_Node *nd = _get_Bmp_Node(st, app->app);
+
+   if (!st->bmp)
+     {  /* We consider a case out request will be answered with empty bmp
+           this may happen if we have a sub-window of app
+           (like checks in elementary test)
+           if the user closed it just as we send our BMP_REQ
+           this Evas is no longer valid and we get NULL ptr for BMP.
+           This code ignores this case. */
+       printf("Screenshot not available\n");
+        return EINA_FALSE;
+     }
+
+   if (app)
+     {  /* Remove app bmp data if exists, then update */
+    /*    elm_progressbar_pulse(gui->pb, EINA_FALSE);
+        evas_object_hide(gui->pb);
+
+        app_info_st *info = app->app;
+        info->view = _remove_bmp(info->view,
+              (void *) (uintptr_t) (st->object));
+        info->view = eina_list_append(info->view, st);*/
+
+        /* Now we need to update refresh button, make it open-window */
+ /*       _set_button(gui->win, nd->bt,
+              SHOW_SCREENSHOT,
+              "Show App Screenshot", EINA_FALSE);
+
+        bmp_req = eina_list_remove(bmp_req, nd);*/
+   //     free(nd);
+     }
+   else
+     {  /* Dispose bmp info if app no longer in the list of apps */
+        /* or the bmp_info is no longer relevant */
+        if (st->bmp)
+          free(st->bmp);
+
+        free(st);
+     }
+
+   return EINA_TRUE;
+}
+
+static void
 _show_app_window(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    _Obj_list_node *info_node = data;
 
    printf("show screenshot of obj %s %p\n", info_node->info->kl_name, info_node->info->ptr);
+
+   uint64_t ptr = (uint64_t)info_node->info->ptr;
+
+   eina_debug_session_send(_current_client, _obj_bmp_opcode, &ptr, sizeof(uint64_t));
 }
 
 static Evas_Object *
@@ -748,6 +946,7 @@ static const Eina_Debug_Opcode ops[] =
      {"Elementary/objects_list",       &_elm_list_opcode,      &_elm_objects_list_cb},
      {"Eolian/object/info_get", &_obj_info_opcode, &_debug_obj_info_cb},
      {"Evas/object/highlight", &_obj_highlight_opcode, NULL},
+     {"Evas/object/bmp", &_obj_bmp_opcode, &_debug_obj_bmp_cb},
      {NULL, NULL, NULL}
 };
 
