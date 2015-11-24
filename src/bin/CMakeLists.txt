@@ -19,8 +19,6 @@ include_directories(
    ${ECORE_INCLUDE_DIRS}
    ${EVAS_INCLUDE_DIRS}
    ${EDEBUG_INCLUDE_DIRS}
-   ${EVAS_DEBUG_INCLUDE_DIRS}
-   ${EOLIAN_DEBUG_INCLUDE_DIRS}
    )
 
 set(EOLIAN_INCLUDE_FLAG -I \"${EOLIAN_EO_DIR}/eo-1\" -I${CMAKE_CURRENT_SOURCE_DIR})
@@ -39,8 +37,6 @@ target_link_libraries(clouseau_client
    ${ECORE_LIBRARIES}
    ${EVAS_LIBRARIES}
    ${EDEBUG_LIBRARIES}
-   eolian_debug
-   evas_debug
    ecore_file
    )
 
