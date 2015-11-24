@@ -72,15 +72,18 @@ typedef struct
 
 typedef enum
 {
-   CLOUSEAU_PROFILE_LOCAL,
-   CLOUSEAU_PROFILE_SDB
+   CLOUSEAU_PROFILE_LOCAL = 1,
+   CLOUSEAU_PROFILE_SHELL_REMOTE
 } Clouseau_Profile_Type;
 
 typedef struct
 {
+   const char *file_name;
    const char *name;
+   const char *command;
    const char *script;
    Clouseau_Profile_Type type;
+   Elm_Object_Item *item;
 } Clouseau_Profile;
 
 static Eina_List *_pending = NULL;
@@ -708,6 +711,7 @@ _config_load()
         sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), filename);
         Eet_File *file = eet_open(path, EET_FILE_MODE_READ);
         Clouseau_Profile *p = eet_data_read(file, _profile_edd, _PROFILE_EET_ENTRY);
+        p->file_name = eina_stringshare_add(filename);
         eet_close(file);
         _profiles = eina_list_append(_profiles, p);
      }
@@ -724,15 +728,16 @@ _profile_find(const char *name)
 }
 
 static void
-_profile_save(const Clouseau_Profile *p, const char *filename)
+_profile_save(const Clouseau_Profile *p)
 {
    char path[1024];
    if (!p) return;
-   sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), filename);
+   sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), p->file_name);
    Eet_File *file = eet_open(path, EET_FILE_MODE_WRITE);
    _profile_eet_load();
    eet_data_write(file, _profile_edd, _PROFILE_EET_ENTRY, p, EINA_TRUE);
    eet_close(file);
+   _profiles = eina_list_append(_profiles, p);
 }
 
 static const Eina_Debug_Opcode ops[] =
@@ -750,6 +755,15 @@ static const Eina_Debug_Opcode ops[] =
      {"Evas/object/highlight", &_obj_highlight_opcode, NULL},
      {NULL, NULL, NULL}
 };
+
+static void
+_profile_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+{
+   Elm_Object_Item *glit = event_info;
+   _selected_profile = glit ? elm_object_item_data_get(glit) : NULL;
+   elm_object_disabled_set(_profiles_wdgs->profile_ok_button, !_selected_profile);
+   elm_object_disabled_set(_profiles_wdgs->profile_delete_button, !_selected_profile);
+}
 
 static void
 _profile_load()
@@ -775,19 +789,76 @@ _profile_load()
    eina_debug_opcodes_register(_session, ops, _post_register_handle);
 }
 
+static void _profile_type_selected_cb(void *data, Evas_Object *obj, void *event_info)
+{
+   Gui_New_Profile_Win_Widgets *wdgs = NULL;
+   eo_do(obj, wdgs = eo_key_data_get("_wdgs"));
+   elm_object_text_set(obj, elm_object_item_text_get(event_info));
+   Clouseau_Profile_Type type = (Clouseau_Profile_Type) data;
+   if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
+     {
+        elm_object_disabled_set(wdgs->new_profile_command, EINA_FALSE);
+        elm_object_disabled_set(wdgs->new_profile_script, EINA_FALSE);
+     }
+   else
+     {
+        elm_object_text_set(wdgs->new_profile_command, NULL);
+        elm_object_text_set(wdgs->new_profile_script, NULL);
+        elm_object_disabled_set(wdgs->new_profile_command, EINA_TRUE);
+        elm_object_disabled_set(wdgs->new_profile_script, EINA_TRUE);
+     }
+   eo_do(wdgs->new_profile_type_selector, eo_key_data_set("_current_type", data));
+}
+
+Eina_Bool
+_new_profile_save_cb(void *data, Eo *save_bt, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Gui_New_Profile_Win_Widgets *wdgs = NULL;
+   Clouseau_Profile *p = NULL;
+   eo_do(save_bt, wdgs = eo_key_data_get("_wdgs"));
+   data = NULL;
+   eo_do(wdgs->new_profile_type_selector, data = eo_key_data_get("_current_type"));
+   if (!data) return EINA_TRUE; /* No type selected yet -> nothing done */
+   Clouseau_Profile_Type type = (Clouseau_Profile_Type) data;
+   const char *name = elm_object_text_get(wdgs->new_profile_name);
+   const char *cmd = elm_object_text_get(wdgs->new_profile_command);
+   const char *script = elm_object_text_get(wdgs->new_profile_script);
+   if (!name || !*name) return EINA_TRUE;
+   if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
+     {
+        if (!cmd || !*cmd || !script || !*script) return EINA_TRUE;
+     }
+   p = calloc(1, sizeof(*p));
+   p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
+   p->name = eina_stringshare_add(name);
+   p->type = type;
+   p->command = eina_stringshare_add(cmd);
+   p->script = eina_stringshare_add(script);
+   _profile_save(p);
+   eo_del(wdgs->new_profile_win);
+   p->item = elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
+         NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
+   return EINA_TRUE;
+}
+
+void
+gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs)
+   {
+      eo_do(wdgs->new_profile_type_selector,
+            eo_key_data_set("_wdgs", wdgs),
+            elm_obj_hoversel_hover_parent_set(wdgs->new_profile_win),
+            elm_obj_hoversel_item_add("Local connection", NULL, ELM_ICON_NONE, _profile_type_selected_cb, (void *)CLOUSEAU_PROFILE_LOCAL),
+            elm_obj_hoversel_item_add("Shell remote", NULL, ELM_ICON_NONE, _profile_type_selected_cb, (void *)CLOUSEAU_PROFILE_SHELL_REMOTE));
+
+      eo_do(wdgs->new_profile_save_button, eo_key_data_set("_wdgs", wdgs));
+      eo_do(wdgs->new_profile_cancel_button, eo_key_data_set("_wdgs", wdgs));
+}
+
 static char *_profile_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
    Clouseau_Profile *p = data;
    return strdup(p->name);
-}
-
-static void
-_profile_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   Elm_Object_Item *glit = event_info;
-   _selected_profile = elm_object_item_data_get(glit);
-   elm_object_disabled_set(_profiles_wdgs->profile_ok_button, EINA_FALSE);
 }
 
 Eina_Bool
@@ -796,6 +867,32 @@ _profile_win_close_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Eo_Even
    eo_del(_profiles_wdgs->profiles_win);
    _profiles_wdgs = NULL;
    _profile_load();
+   return EINA_TRUE;
+}
+
+static void
+_profile_item_del(void *data, Evas_Object *obj EINA_UNUSED)
+{
+   Clouseau_Profile *p = data;
+   p->item = NULL;
+}
+
+Eina_Bool
+_profile_del_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   if (_selected_profile)
+     {
+        char path[1024];
+        sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), _selected_profile->file_name);
+        remove(path);
+        elm_object_item_del(_selected_profile->item);
+        _profiles = eina_list_remove(_profiles, _selected_profile);
+        eina_stringshare_del(_selected_profile->file_name);
+        eina_stringshare_del(_selected_profile->name);
+        free(_selected_profile);
+        _selected_profile = NULL;
+     }
+   _profile_sel_cb(NULL, NULL, NULL);
    return EINA_TRUE;
 }
 
@@ -809,9 +906,10 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    if (!_profile_find("Local connection"))
      {
         Clouseau_Profile *p = calloc(1, sizeof(*p));
+        p->file_name = "local";
         p->name = eina_stringshare_add("Local connection");
         p->type = CLOUSEAU_PROFILE_LOCAL;
-        _profile_save(p, "local");
+        _profile_save(p);
      }
 
    if (!_profiles_itc)
@@ -819,6 +917,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _profiles_itc = elm_genlist_item_class_new();
         _profiles_itc->item_style = "default";
         _profiles_itc->func.text_get = _profile_item_label_get;
+        _profiles_itc->func.del = _profile_item_del;
      }
 
    eolian_directory_scan(EOLIAN_EO_DIR);
@@ -850,7 +949,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _obj_info_itc->func.text_get = _obj_info_item_label_get;
         _obj_info_itc->func.content_get = NULL;
         _obj_info_itc->func.state_get = NULL;
-        _obj_info_itc->func.del =  _obj_info_item_del;
+        _obj_info_itc->func.del = _obj_info_item_del;
      }
    eo_do(_main_widgets->object_infos_list,
          eo_event_callback_add(ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL),
@@ -866,7 +965,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         Eina_List *itr;
         Clouseau_Profile *p;
         EINA_LIST_FOREACH(_profiles, itr, p)
-           elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
+           p->item = elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
                  NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
      }
 
