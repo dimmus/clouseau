@@ -17,6 +17,12 @@ static Gui_Widgets g_pub_widgets;
 
 extern void gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs);
 
+#ifdef GUI_IMAGES_PATH
+  const char *SCREENSHOT_ICON = GUI_IMAGES_PATH"/show-screenshot.png";
+#else
+   #error "Please define GUI_IMAGES_PATH"
+#endif
+
 extern Eina_Bool
 _profile_win_close_cb(void *data, Eo *obj, const Eo_Event_Description *desc, void *event_info);
 extern Eina_Bool
@@ -25,6 +31,8 @@ extern Eina_Bool
 _new_profile_cancel_cb(void *data, Eo *obj, const Eo_Event_Description *desc, void *event_info);
 extern Eina_Bool
 _profile_del_cb(void *data, Eo *obj, const Eo_Event_Description *desc, void *event_info);
+extern Eina_Bool
+screenshot_req_cb(void *data, Eo *obj, const Eo_Event_Description *desc, void *event_info);
 
 static Eina_Bool
 _pubs_free_cb(void *data, Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
@@ -353,6 +361,39 @@ gui_new_profile_win_create(Eo *__main_parent)
    eo_do(elm_box5, elm_obj_box_pack_end(elm_box4));
    eo_do(new_profile_win, efl_gfx_visible_set(EINA_TRUE));
    eo_do(new_profile_win, eo_event_callback_add(EO_BASE_EVENT_DEL, _pubs_free_cb, pub_widgets));
+
+   return pub_widgets;
+}
+
+static Eina_Bool
+screenshot_button_clicked(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   screenshot_req_cb(data, obj, desc, event_info);
+   return EINA_TRUE;
+}
+
+Gui_Screenshot_Button_Widgets *
+gui_screenshot_button_create(Eo *__main_parent)
+{
+   Gui_Screenshot_Button_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
+
+   Eo *screenshot_button;
+   Eo *elm_icon1;
+
+
+   screenshot_button = eo_add(ELM_BUTTON_CLASS, __main_parent);
+   pub_widgets->screenshot_button = screenshot_button;
+   eo_do(screenshot_button, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(screenshot_button, efl_gfx_visible_set(EINA_TRUE));
+   eo_do(screenshot_button, efl_gfx_size_set(73, 30));
+   eo_do(screenshot_button, eo_event_callback_add(EVAS_CLICKABLE_INTERFACE_EVENT_CLICKED, screenshot_button_clicked, NULL));
+   elm_icon1 = eo_add(ELM_ICON_CLASS, screenshot_button);
+   eo_do(elm_icon1, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(elm_icon1, efl_gfx_visible_set(EINA_TRUE));
+   eo_do(elm_icon1, efl_gfx_size_set(40, 40));
+   eo_do(elm_icon1, efl_file_set(SCREENSHOT_ICON, NULL));
+   eo_do(screenshot_button, elm_obj_container_content_set("icon", elm_icon1));
+   eo_do(screenshot_button, eo_event_callback_add(EO_BASE_EVENT_DEL, _pubs_free_cb, pub_widgets));
 
    return pub_widgets;
 }

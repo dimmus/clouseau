@@ -454,43 +454,27 @@ _objs_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
    return strdup(buf);
 }
 
-static void
-_set_button(Evas_Object *w, Evas_Object *bt,
-      char *ic_name, char *tip, Eina_Bool en)
-{  /* Update button icon and tooltip */
-   char buf[1024];
-   Evas_Object *ic = elm_icon_add(w);
-   snprintf(buf, sizeof(buf), "%s%s", PACKAGE_DATA_DIR, ic_name);
-   elm_image_file_set(ic, buf, NULL);
-   elm_object_part_content_set(bt, "icon", ic);
-   elm_object_tooltip_text_set(bt, tip);
-   elm_object_disabled_set(bt, en);
-}
-
-static void
-_show_app_window(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
+Eina_Bool
+screenshot_req_cb(void *data EINA_UNUSED, Eo *obj, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   _Obj_list_node *info_node = data;
+   _Obj_list_node *info_node = NULL;
+   eo_do(obj, info_node = eo_key_data_get("__info_node"));
 
    printf("show screenshot of obj %s %p\n", info_node->info->kl_name, info_node->info->ptr);
+   return EINA_TRUE;
 }
 
 static Evas_Object *
 _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
 {
-   Evas_Object *bt = NULL;
-
    if(!strcmp(part, "elm.swallow.end"))
    {
-         bt = elm_button_add(obj);
-         _set_button(obj, bt,
-               SHOW_SCREENSHOT,
-               "Show App Screenshot", EINA_FALSE);
-
-         evas_object_smart_callback_add(bt, "clicked",
-               _show_app_window, data);
+      Gui_Screenshot_Button_Widgets *wdgs = gui_screenshot_button_create(obj);
+      elm_object_tooltip_text_set(wdgs->screenshot_button, "Show App Screenshot");
+      eo_do(wdgs->screenshot_button, eo_key_data_set("__info_node", data));
+      return wdgs->screenshot_button;
    }
-    return bt;
+   return NULL;
 }
 
 static void
