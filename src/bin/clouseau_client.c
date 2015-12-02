@@ -674,6 +674,7 @@ _profile_eet_load()
    (_profile_edd, Clouseau_Profile, # member, member, eet_type)
 
    CFG_ADD_BASIC(name, EET_T_STRING);
+   CFG_ADD_BASIC(command, EET_T_STRING);
    CFG_ADD_BASIC(script, EET_T_STRING);
    CFG_ADD_BASIC(type, EET_T_INT);
 
@@ -760,6 +761,13 @@ _profile_load()
          if (!eina_debug_local_connect(_session))
            {
               fprintf(stderr, "ERROR: Cannot connect to debug daemon.\n");
+              elm_exit();
+           }
+         break;
+      case CLOUSEAU_PROFILE_SHELL_REMOTE:
+         if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, _selected_profile->script))
+           {
+              fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
               elm_exit();
            }
          break;
