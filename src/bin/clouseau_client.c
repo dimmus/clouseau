@@ -765,6 +765,7 @@ _profile_load()
            }
          break;
       case CLOUSEAU_PROFILE_SHELL_REMOTE:
+         eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_BASE_16);
          if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, _selected_profile->script))
            {
               fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
