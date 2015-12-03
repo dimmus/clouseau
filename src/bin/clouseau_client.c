@@ -15,6 +15,7 @@
 #include "gui.h"
 
 #include <Eolian_Debug.h>
+#include <Evas_Debug.h>
 
 #define SHOW_SCREENSHOT     "/images/show-screenshot.png"
 
@@ -39,6 +40,7 @@ static uint32_t _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
+static uint32_t _obj_screenshot_opcode = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
 static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
@@ -454,6 +456,38 @@ _objs_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
    return strdup(buf);
 }
 
+static void
+_open_app_window(bmp_info_st *st)
+{
+   Gui_Screenshot_Win_Widgets *s_widgets = gui_screenshot_win_create(NULL);
+
+   Evas_Object *o;
+   eo_do(s_widgets->img, o =  elm_obj_image_object_get());
+   evas_object_image_colorspace_set(o, EVAS_COLORSPACE_ARGB8888);
+   evas_object_image_alpha_set(o, EINA_FALSE);
+   evas_object_image_size_set(o, st->w, st->h);
+   evas_object_image_data_copy_set(o, st->bmp);
+   eo_do(s_widgets->screenshot_win, elm_obj_win_resize_object_add(o));
+   evas_object_show(o);
+}
+
+static Eina_Bool
+_debug_screenshot_cb(Eina_Debug_Client *src EINA_UNUSED,
+      void *buffer, int size)
+{
+   printf("recieved bmp size %d\n", size);
+   bmp_info_st *st = clouseau_screenshot_decode(buffer, size);
+   if(!st)
+     {
+        printf("Error: bad screenshot data\n");
+        return EINA_FALSE;
+     }
+   _open_app_window(st);
+   free(st->bmp);
+   free(st);
+   return EINA_TRUE;
+}
+
 Eina_Bool
 screenshot_req_cb(void *data EINA_UNUSED, Eo *obj, const Eo_Event_Description *desc EINA_UNUSED, void *event_info EINA_UNUSED)
 {
@@ -461,6 +495,9 @@ screenshot_req_cb(void *data EINA_UNUSED, Eo *obj, const Eo_Event_Description *d
    eo_do(obj, info_node = eo_key_data_get("__info_node"));
 
    printf("show screenshot of obj %s %p\n", info_node->info->kl_name, info_node->info->ptr);
+   uint64_t ptr = (uint64_t)info_node->info->ptr;
+   eina_debug_session_send(_current_client, _obj_screenshot_opcode, &ptr, sizeof(uint64_t));
+
    return EINA_TRUE;
 }
 
@@ -738,6 +775,7 @@ static const Eina_Debug_Opcode ops[] =
      {"Elementary/objects_list",       &_elm_list_opcode,      &_elm_objects_list_cb},
      {"Eolian/object/info_get", &_obj_info_opcode, &_debug_obj_info_cb},
      {"Evas/object/highlight", &_obj_highlight_opcode, NULL},
+     {"Evas/object/screenshot", &_obj_screenshot_opcode, &_debug_screenshot_cb},
      {NULL, NULL, NULL}
 };
 

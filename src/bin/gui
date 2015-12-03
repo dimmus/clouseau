@@ -590,6 +590,55 @@
         "Efl.Gfx.Base.size":[40, 40],
         "Efl.File.file":["SCREENSHOT_ICON", null]
       }
+    },
+    "screenshot_win":
+    {
+      "Desc":
+      {
+        "parent":null,
+        "class":"Elm.Win",
+        "public":true
+      },
+      "Properties":
+      {
+        "Elm.Win.name":["Win"],
+        "Elm.Win.type":["ELM_WIN_BASIC"],
+        "Elm.Win.autodel":[true],
+        "Efl.Gfx.Base.size":[300, 300],
+        "Elm.Widget.part_text":[null, "Window"],
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true],
+        "Elm.Win.title":["Screenshot"]
+      },
+      "Contains":["elm_bg3", "img"]
+    },
+    "elm_bg3":
+    {
+      "Desc":
+      {
+        "parent":"screenshot_win",
+        "class":"Elm.Bg"
+      },
+      "Properties":
+      {
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true]
+      }
+    },
+    "img":
+    {
+      "Desc":
+      {
+        "parent":"screenshot_win",
+        "class":"Elm.Image",
+        "public":true
+      },
+      "Properties":
+      {
+        "Evas.Object.size_hint_weight":[1, 1],
+        "Efl.Gfx.Base.visible":[true],
+        "Efl.Gfx.Base.size":[40, 40]
+      }
     }
   }
  }

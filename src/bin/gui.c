@@ -398,6 +398,40 @@ gui_screenshot_button_create(Eo *__main_parent)
    return pub_widgets;
 }
 
+Gui_Screenshot_Win_Widgets *
+gui_screenshot_win_create(Eo *__main_parent)
+{
+   Gui_Screenshot_Win_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
+
+   Eo *screenshot_win;
+   Eo *elm_bg3;
+   Eo *img;
+
+
+   screenshot_win = eo_add(ELM_WIN_CLASS, __main_parent, elm_obj_win_name_set("Win"),
+elm_obj_win_type_set(ELM_WIN_BASIC));
+   pub_widgets->screenshot_win = screenshot_win;
+   eo_do(screenshot_win, elm_obj_win_autodel_set(EINA_TRUE));
+   eo_do(screenshot_win, efl_gfx_size_set(300, 300));
+   eo_do(screenshot_win, elm_obj_widget_part_text_set(NULL, "Window"));
+   eo_do(screenshot_win, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(screenshot_win, elm_obj_win_title_set("Screenshot"));
+   elm_bg3 = eo_add(ELM_BG_CLASS, screenshot_win);
+   eo_do(elm_bg3, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(elm_bg3, efl_gfx_visible_set(EINA_TRUE));
+   img = eo_add(ELM_IMAGE_CLASS, screenshot_win);
+   pub_widgets->img = img;
+   eo_do(img, evas_obj_size_hint_weight_set(1.000000, 1.000000));
+   eo_do(img, efl_gfx_visible_set(EINA_TRUE));
+   eo_do(img, efl_gfx_size_set(40, 40));
+   eo_do(screenshot_win, elm_obj_win_resize_object_add(elm_bg3));
+   eo_do(screenshot_win, elm_obj_win_resize_object_add(img));
+   eo_do(screenshot_win, efl_gfx_visible_set(EINA_TRUE));
+   eo_do(screenshot_win, eo_event_callback_add(EO_BASE_EVENT_DEL, _pubs_free_cb, pub_widgets));
+
+   return pub_widgets;
+}
+
 Gui_Widgets *gui_gui_get()
 {
    static Eina_Bool initialized = EINA_FALSE;
