@@ -788,6 +788,29 @@ _profile_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *even
    elm_object_disabled_set(_profiles_wdgs->profile_delete_button, !_selected_profile);
 }
 
+static Eina_List *
+_parse_script(const char *script)
+{
+   Eina_List *lines = NULL;
+   while (script && *script)
+     {
+        char *tmp = strchr(script, '\n');
+        Eina_Stringshare *line;
+        if (tmp)
+          {
+             line = eina_stringshare_add_length(script, tmp - script);
+             script = tmp + 1;
+          }
+        else
+          {
+             line = eina_stringshare_add(script);
+             script = NULL;
+          }
+        lines = eina_list_append(lines, line);
+     }
+   return lines;
+}
+
 static void
 _profile_load()
 {
@@ -804,7 +827,8 @@ _profile_load()
          break;
       case CLOUSEAU_PROFILE_SHELL_REMOTE:
          eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_BASE_16);
-         if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, _selected_profile->script))
+         Eina_List *script_lines = _parse_script(_selected_profile->script);
+         if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, script_lines))
            {
               fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
               elm_exit();
@@ -857,7 +881,7 @@ _new_profile_save_cb(void *data, Eo *save_bt, const Eo_Event_Description *desc E
    if (!name || !*name) return EINA_TRUE;
    if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
      {
-        if (!cmd || !*cmd || !script || !*script) return EINA_TRUE;
+        if (!cmd || !*cmd) return EINA_TRUE;
      }
    p = calloc(1, sizeof(*p));
    p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
