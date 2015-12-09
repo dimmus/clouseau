@@ -839,7 +839,7 @@ _new_profile_save_cb(void *data, Eo *save_bt, const Eo_Event_Description *desc E
    Clouseau_Profile_Type type = (Clouseau_Profile_Type) data;
    const char *name = elm_object_text_get(wdgs->new_profile_name);
    const char *cmd = elm_object_text_get(wdgs->new_profile_command);
-   const char *script = elm_object_text_get(wdgs->new_profile_script);
+   const char *script = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->new_profile_script));
    if (!name || !*name) return EINA_TRUE;
    if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
      {
