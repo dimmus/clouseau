@@ -94,7 +94,6 @@ static Elm_Genlist_Item_Class *_obj_info_itc = NULL;
 static Elm_Genlist_Item_Class *_profiles_itc = NULL;
 static Eina_List *_objs_list_tree = NULL;
 static Eolian_Debug_Object_Information *_obj_info = NULL;
-static Eina_Debug_Client *_current_client = NULL;
 
 static Eet_Data_Descriptor *_profile_edd = NULL;
 static Eina_List *_profiles = NULL;
@@ -111,7 +110,7 @@ _consume(uint32_t opcode)
         if (*(req->opcode) != EINA_DEBUG_OPCODE_INVALID &&
            (opcode == EINA_DEBUG_OPCODE_INVALID || *(req->opcode) == opcode))
           {
-             eina_debug_session_send(_current_client, *(req->opcode), req->buffer, req->size);
+             eina_debug_session_send(_session, _selected_app, *(req->opcode), req->buffer, req->size);
              _pending = eina_list_remove_list(_pending, itr);
              free(req->buffer);
              free(req);
@@ -346,7 +345,7 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
 #undef _MAX_LABEL
 
 static Eina_Bool
-_debug_obj_info_cb(Eina_Debug_Client *src EINA_UNUSED,
+_debug_obj_info_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED,
       void *buffer, int size)
 {
    if(_obj_info)
@@ -410,8 +409,8 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
 
    printf("Sending Eolian get request for Eo object[%p]\n", info_node->info->ptr);
    elm_genlist_clear(_main_widgets->object_infos_list);
-   eina_debug_session_send(_current_client, _obj_info_opcode, &ptr, sizeof(uint64_t));
-   eina_debug_session_send(_current_client, _obj_highlight_opcode, &ptr, sizeof(uint64_t));
+   eina_debug_session_send(_session, _selected_app, _obj_info_opcode, &ptr, sizeof(uint64_t));
+   eina_debug_session_send(_session, _selected_app, _obj_highlight_opcode, &ptr, sizeof(uint64_t));
 }
 
 static Eina_Bool
@@ -505,16 +504,14 @@ _hoversel_selected_app(void *data,
         elm_genlist_clear(_main_widgets->object_infos_list);
      }
 
-   if (_current_client) eina_debug_client_free(_current_client);
-   _current_client = eina_debug_client_new(_session, _selected_app);
-   eina_debug_session_send(_current_client, _module_init_opcode, "elementary", 11);
-   eina_debug_session_send(_current_client, _module_init_opcode, "eolian", 7);
-   eina_debug_session_send(_current_client, _module_init_opcode, "evas", 5);
+   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "elementary", 11);
+   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eolian", 7);
+   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "evas", 5);
    _pending_add(&_elm_list_opcode, NULL, 0);
 }
 
 static Eina_Bool
-_clients_info_added_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
+_clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
    while(size)
@@ -538,7 +535,7 @@ _clients_info_added_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int siz
 }
 
 static Eina_Bool
-_clients_info_deleted_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
+_clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
    if(size >= (int)sizeof(uint32_t))
@@ -563,7 +560,7 @@ _clients_info_deleted_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int s
 }
 
 static Eina_Bool
-_elm_objects_list_cb(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
+_elm_objects_list_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
 {
    Eina_List *objs = eo_debug_list_response_decode(buffer, size);
    Obj_Info *info;
@@ -626,7 +623,7 @@ _disp_cb(Eina_Debug_Session *session EINA_UNUSED, void *buffer)
 }
 
 static Eina_Bool
-_module_initted(Eina_Debug_Client *src EINA_UNUSED, void *buffer, int size)
+_module_initted(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
 {
    if (size > 0)
      {
@@ -640,9 +637,7 @@ _post_register_handle(Eina_Bool flag)
 {
    if(!flag) return;
    eina_debug_session_dispatch_override(_session, _disp_cb);
-   Eina_Debug_Client *cl = eina_debug_client_new(_session, 0);
-   eina_debug_session_send(cl, _cl_stat_reg_opcode, NULL, 0);
-   eina_debug_client_free(cl);
+   eina_debug_session_send(_session, 0, _cl_stat_reg_opcode, NULL, 0);
 }
 
 static Eina_Bool
