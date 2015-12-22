@@ -15,6 +15,7 @@
 #include "gui.h"
 
 #include <Eolian_Debug.h>
+#include <Eo_Debug.h>
 
 #define SHOW_SCREENSHOT     "/images/show-screenshot.png"
 
@@ -36,7 +37,7 @@ static uint32_t _poll_on_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _poll_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _elm_list_opcode = EINA_DEBUG_OPCODE_INVALID;
+static uint32_t _eo_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
 static uint32_t _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
 
@@ -504,10 +505,10 @@ _hoversel_selected_app(void *data,
         elm_genlist_clear(_main_widgets->object_infos_list);
      }
 
-   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "elementary", 11);
+   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eo", 11);
    eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eolian", 7);
    eina_debug_session_send(_session, _selected_app, _module_init_opcode, "evas", 5);
-   _pending_add(&_elm_list_opcode, NULL, 0);
+   _pending_add(&_eo_list_opcode, NULL, 0);
 }
 
 static Eina_Bool
@@ -560,7 +561,7 @@ _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src E
 }
 
 static Eina_Bool
-_elm_objects_list_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
+_eo_objects_list_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
 {
    Eina_List *objs = eo_debug_list_response_decode(buffer, size);
    Obj_Info *info;
@@ -627,7 +628,7 @@ _module_initted(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSE
 {
    if (size > 0)
      {
-        if (!strcmp(buffer, "elementary")) _consume(_elm_list_opcode);
+        if (!strcmp(buffer, "eo")) _consume(_eo_list_opcode);
      }
    return EINA_TRUE;
 }
@@ -730,7 +731,7 @@ static const Eina_Debug_Opcode ops[] =
      {"poll/off",             &_poll_off_opcode,      NULL},
      {"evlog/on",             &_evlog_on_opcode,      NULL},
      {"evlog/off",            &_evlog_off_opcode,     NULL},
-     {"Elementary/objects_list",       &_elm_list_opcode,      &_elm_objects_list_cb},
+     {"Eo/objects_list",       &_eo_list_opcode,      &_eo_objects_list_cb},
      {"Eolian/object/info_get", &_obj_info_opcode, &_debug_obj_info_cb},
      {"Evas/object/highlight", &_obj_highlight_opcode, NULL},
      {NULL, NULL, NULL}
