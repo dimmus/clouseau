@@ -33,10 +33,6 @@ _obj_info_tootip(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
 
 static int _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
 static int _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
-static int _poll_on_opcode = EINA_DEBUG_OPCODE_INVALID;
-static int _poll_off_opcode = EINA_DEBUG_OPCODE_INVALID;
-static int _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
-static int _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
 static int _eo_list_opcode = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
@@ -723,17 +719,13 @@ _profile_save(const Clouseau_Profile *p)
 
 static const Eina_Debug_Opcode ops[] =
 {
-     {"daemon/client_status_register", &_cl_stat_reg_opcode, NULL},
-     {"daemon/client_added", NULL, _clients_info_added_cb},
-     {"daemon/client_deleted", NULL, _clients_info_deleted_cb},
-     {"Module/Init",          &_module_init_opcode,   &_module_initted},
-     {"poll/on",              &_poll_on_opcode,       NULL},
-     {"poll/off",             &_poll_off_opcode,      NULL},
-     {"evlog/on",             &_evlog_on_opcode,      NULL},
-     {"evlog/off",            &_evlog_off_opcode,     NULL},
-     {"Eo/objects_list",       &_eo_list_opcode,      &_eo_objects_list_cb},
-     {"Eolian/object/info_get", &_obj_info_opcode, &_debug_obj_info_cb},
-     {"Evas/object/highlight", &_obj_highlight_opcode, NULL},
+     {"daemon/observer/client/register", &_cl_stat_reg_opcode, NULL},
+     {"daemon/observer/client_added", NULL, _clients_info_added_cb},
+     {"daemon/observer/client_deleted", NULL, _clients_info_deleted_cb},
+     {"module/init",            &_module_init_opcode,    &_module_initted},
+     {"eo/objects_list",        &_eo_list_opcode,        &_eo_objects_list_cb},
+     {"eolian/object/info_get", &_obj_info_opcode,       &_debug_obj_info_cb},
+     {"evas/object/highlight",  &_obj_highlight_opcode,  NULL},
      {NULL, NULL, NULL}
 };
 
@@ -784,7 +776,7 @@ _profile_load()
            }
          break;
       case CLOUSEAU_PROFILE_SHELL_REMOTE:
-         eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_BASE_16);
+         eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
          Eina_List *script_lines = _parse_script(_selected_profile->script);
          if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, script_lines))
            {
