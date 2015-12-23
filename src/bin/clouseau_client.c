@@ -31,22 +31,22 @@ static Evas_Object *
 _obj_info_tootip(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
       Evas_Object *tt, void *item   EINA_UNUSED);
 
-static uint32_t _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _poll_on_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _poll_off_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _eo_list_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
-static uint32_t _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _poll_on_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _poll_off_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _evlog_on_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _evlog_off_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _eo_list_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
 static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
 
 typedef struct
 {
-   uint32_t *opcode; /* address to the opcode */
+   int *opcode; /* address to the opcode */
    void *buffer;
    int size;
 } _pending_request;
@@ -101,7 +101,7 @@ static Eina_List *_profiles = NULL;
 static Clouseau_Profile *_selected_profile = NULL;
 
 static void
-_consume(uint32_t opcode)
+_consume(int opcode)
 {
    if (!_pending) return;
    _pending_request *req;
@@ -121,7 +121,7 @@ _consume(uint32_t opcode)
 }
 
 static void
-_pending_add(uint32_t *opcode, void *buffer, int size)
+_pending_add(int *opcode, void *buffer, int size)
 {
    _pending_request *req = calloc(1, sizeof(*req));
    req->opcode = opcode;
@@ -346,7 +346,7 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
 #undef _MAX_LABEL
 
 static Eina_Bool
-_debug_obj_info_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED,
+_debug_obj_info_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
       void *buffer, int size)
 {
    if(_obj_info)
@@ -512,14 +512,14 @@ _hoversel_selected_app(void *data,
 }
 
 static Eina_Bool
-_clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
+_clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
    while(size)
      {
         int cid, pid, len;
-        EXTRACT(buf, &cid, sizeof(uint32_t));
-        EXTRACT(buf, &pid, sizeof(uint32_t));
+        EXTRACT(buf, &cid, sizeof(int));
+        EXTRACT(buf, &pid, sizeof(int));
         if(pid != getpid())
           {
              char option[100];
@@ -530,19 +530,19 @@ _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EIN
           }
         len = strlen(buf) + 1;
         buf += len;
-        size -= (2 * sizeof(uint32_t) + len);
+        size -= (2 * sizeof(int) + len);
      }
    return EINA_TRUE;
 }
 
 static Eina_Bool
-_clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
+_clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
-   if(size >= (int)sizeof(uint32_t))
+   if(size >= (int)sizeof(int))
      {
         int cid;
-        EXTRACT(buf, &cid, sizeof(uint32_t));
+        EXTRACT(buf, &cid, sizeof(int));
 
         const Eina_List *items = elm_hoversel_items_get(_main_widgets->apps_selector);
         const Eina_List *l;
@@ -561,7 +561,7 @@ _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src E
 }
 
 static Eina_Bool
-_eo_objects_list_cb(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
+_eo_objects_list_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    Eina_List *objs = eo_debug_list_response_decode(buffer, size);
    Obj_Info *info;
@@ -624,7 +624,7 @@ _disp_cb(Eina_Debug_Session *session EINA_UNUSED, void *buffer)
 }
 
 static Eina_Bool
-_module_initted(Eina_Debug_Session *session EINA_UNUSED, uint32_t src EINA_UNUSED, void *buffer, int size)
+_module_initted(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    if (size > 0)
      {
