@@ -720,8 +720,8 @@ _profile_save(const Clouseau_Profile *p)
 static const Eina_Debug_Opcode ops[] =
 {
      {"daemon/observer/client/register", &_cl_stat_reg_opcode, NULL},
-     {"daemon/observer/client_added", NULL, _clients_info_added_cb},
-     {"daemon/observer/client_deleted", NULL, _clients_info_deleted_cb},
+     {"daemon/observer/slave_added", NULL, _clients_info_added_cb},
+     {"daemon/observer/slave_deleted", NULL, _clients_info_deleted_cb},
      {"module/init",            &_module_init_opcode,    &_module_initted},
      {"eo/objects_list",        &_eo_list_opcode,        &_eo_objects_list_cb},
      {"eolian/object/info_get", &_obj_info_opcode,       &_debug_obj_info_cb},
@@ -769,7 +769,7 @@ _profile_load()
    switch (_selected_profile->type)
      {
       case CLOUSEAU_PROFILE_LOCAL:
-         if (!eina_debug_local_connect(_session))
+         if (!eina_debug_local_connect(_session, EINA_DEBUG_SESSION_MASTER))
            {
               fprintf(stderr, "ERROR: Cannot connect to debug daemon.\n");
               elm_exit();
