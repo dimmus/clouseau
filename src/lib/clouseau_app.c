@@ -352,7 +352,7 @@ _clouseau_object_information_get(Clouseau_Tree_Item *treeit)
      return NULL;
 
    eo_dbg_info = EO_DBG_INFO_LIST_APPEND(NULL, "");
-   eo_do(obj, eo_dbg_info_get(eo_dbg_info));
+   eo_dbg_info_get(obj, eo_dbg_info);
 
    /* XXX: Edje information that should be here because Evas objects can't
     * depend on Edje. This should be removed in the future. */
