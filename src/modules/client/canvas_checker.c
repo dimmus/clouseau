@@ -45,7 +45,7 @@ static uint64_t
 _treeit_clipee_is(Clouseau_Tree_Item *treeit)
 {
    Eina_List *l;
-   Eo_Dbg_Info *eo_root, *eo;
+   Efl_Dbg_Info *eo_root, *eo;
    Eina_Value_List eo_list;
    clouseau_tree_item_from_legacy_convert(treeit);
    eo_root = treeit->new_eo_info;

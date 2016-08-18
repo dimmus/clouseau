@@ -1039,7 +1039,7 @@ static Eina_Bool
 _tree_it_is_elm(Clouseau_Tree_Item *treeit)
 {
    Eina_List *l;
-   Eo_Dbg_Info *eo_root, *eo;
+   Efl_Dbg_Info *eo_root, *eo;
    Eina_Value_List eo_list;
    clouseau_tree_item_from_legacy_convert(treeit);
    eo_root = treeit->new_eo_info;
@@ -1340,7 +1340,7 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
 
              /* Populate the property list. */
                {
-                  Eo_Dbg_Info *eo_root, *eo;
+                  Efl_Dbg_Info *eo_root, *eo;
                   Eina_Value_List eo_list;
                   /* FIXME: Do it before and save it like that. Probably at the
                    * eet conversion stage. */
@@ -2197,12 +2197,12 @@ _main_list_create(Evas_Object *panes)
 }
 
 static void
-_obj_info_compactable_list_to_buffer(Eo_Dbg_Info *root_eo, char* buffer, unsigned int buffer_size)
+_obj_info_compactable_list_to_buffer(Efl_Dbg_Info *root_eo, char* buffer, unsigned int buffer_size)
 {
    Eina_List *l; // Iterator
    Eina_Value_List list; // list of the elements in root_eo
    eina_value_pget(&(root_eo->value), &list);
-   Eo_Dbg_Info *eo; // List element
+   Efl_Dbg_Info *eo; // List element
    buffer += snprintf(buffer, buffer_size, "%s:", root_eo->name);
    EINA_LIST_FOREACH(list.list, l, eo)
      {
@@ -2223,11 +2223,11 @@ _obj_info_compactable_list_to_buffer(Eo_Dbg_Info *root_eo, char* buffer, unsigne
 }
 
 static Eina_Bool
-_obj_info_can_list_be_compacted(Eo_Dbg_Info *root_eo)
+_obj_info_can_list_be_compacted(Efl_Dbg_Info *root_eo)
 {
    Eina_List *l; // Iterator
    Eina_Value_List list; // list of the elements in root_eo
-   Eo_Dbg_Info *eo; // List element
+   Efl_Dbg_Info *eo; // List element
    eina_value_pget(&(root_eo->value), &list);
    // We check that there is no list into this list. If such list exists,
    // we can't compact the list.
@@ -2255,7 +2255,7 @@ _obj_info_gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *eve
      {
         Eina_List *l;
         Eina_Value_List eo_list;
-        Eo_Dbg_Info *eo_root, *eo;
+        Efl_Dbg_Info *eo_root, *eo;
         eo_root = elm_object_item_data_get(glit);
         eina_value_pget(&(eo_root->value), &eo_list);
 
@@ -2305,7 +2305,7 @@ static char *
 _obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
-   Eo_Dbg_Info *eo = data;
+   Efl_Dbg_Info *eo = data;
    char buf[1024] = "";
    if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
      {
@@ -2338,7 +2338,7 @@ static char *
 _class_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
-   Eo_Dbg_Info *eo = data;
+   Efl_Dbg_Info *eo = data;
    return strdup(eo->name);
 }
 

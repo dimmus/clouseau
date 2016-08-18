@@ -35,13 +35,13 @@
 #define CLOUSEAU_BMP_DATA_ENTRY  "clouseau/app/screenshot"
 
 /* START - EO EET defs */
-#define EO_DBG_INFO_TYPE_UNKNOWN_STR      "EO_DBG_INFO_TYPE_UNKNOWN"
-#define EO_DBG_INFO_TYPE_STRING_STR       "EO_DBG_INFO_TYPE_STRING"
-#define EO_DBG_INFO_TYPE_INT_STR          "EO_DBG_INFO_TYPE_INT"
-#define EO_DBG_INFO_TYPE_BOOL_STR         "EO_DBG_INFO_TYPE_BOOL"
-#define EO_DBG_INFO_TYPE_PTR_STR          "EO_DBG_INFO_TYPE_PTR"
-#define EO_DBG_INFO_TYPE_DOUBLE_STR       "EO_DBG_INFO_TYPE_DOUBLE"
-#define EO_DBG_INFO_TYPE_LIST_STR         "EO_DBG_INFO_TYPE_LIST"
+#define EFL_DBG_INFO_TYPE_UNKNOWN_STR      "EFL_DBG_INFO_TYPE_UNKNOWN"
+#define EFL_DBG_INFO_TYPE_STRING_STR       "EFL_DBG_INFO_TYPE_STRING"
+#define EFL_DBG_INFO_TYPE_INT_STR          "EFL_DBG_INFO_TYPE_INT"
+#define EFL_DBG_INFO_TYPE_BOOL_STR         "EFL_DBG_INFO_TYPE_BOOL"
+#define EFL_DBG_INFO_TYPE_PTR_STR          "EFL_DBG_INFO_TYPE_PTR"
+#define EFL_DBG_INFO_TYPE_DOUBLE_STR       "EFL_DBG_INFO_TYPE_DOUBLE"
+#define EFL_DBG_INFO_TYPE_LIST_STR         "EFL_DBG_INFO_TYPE_LIST"
 /* END   - EO EET defs */
 
 struct _connect_st
@@ -175,7 +175,7 @@ struct _Clouseau_st_double
 
 struct _Clouseau_st_dbg_list
 {
-   Eina_List *list;  /* Sub-List of (Eo_Dbg_Info *) if needed */
+   Eina_List *list;  /* Sub-List of (Efl_Dbg_Info *) if needed */
 };
 
 /* START - EO - debug structs */
@@ -185,7 +185,7 @@ typedef struct _Clouseau_st_bool Clouseau_st_bool;
 typedef struct _Clouseau_st_ptr Clouseau_st_ptr;
 typedef struct _Clouseau_st_double Clouseau_st_double;
 typedef struct _Clouseau_st_dbg_list Clouseau_st_dbg_list;
-typedef struct _Clouseau_Eo_Dbg_Info Clouseau_Eo_Dbg_Info;
+typedef struct _Clouseau_Efl_Dbg_Info Clouseau_Efl_Dbg_Info;
 /* END   - EO - debug structs */
 
 typedef enum
@@ -199,8 +199,8 @@ typedef enum
    CLOUSEAU_DBG_INFO_TYPE_UNKNOWN
 } Clouseau_Dbg_Info_Type;
 
-struct _Clouseau_Eo_Dbg_Info
-{  /* Debug info composed of a list of Eo_Dbg_Info */
+struct _Clouseau_Efl_Dbg_Info
+{  /* Debug info composed of a list of Efl_Dbg_Info */
    const char *name;
    Clouseau_Dbg_Info_Type type;
 
@@ -211,16 +211,16 @@ struct _Clouseau_Eo_Dbg_Info
         Clouseau_st_bool bl;
         Clouseau_st_ptr ptr;
         Clouseau_st_double dbl;
-        Clouseau_st_dbg_list dbg; /* Sub-List of (Eo_Dbg_Info *) if needed */
+        Clouseau_st_dbg_list dbg; /* Sub-List of (Efl_Dbg_Info *) if needed */
      } un_dbg_info;
 };
 /* END   - EO - debug structs */
 
 void clouseau_app_disconnect(void);
 
-EAPI void clouseau_eo_info_free(Clouseau_Eo_Dbg_Info *parent);
+EAPI void clouseau_eo_info_free(Clouseau_Efl_Dbg_Info *parent);
 EAPI void clouseau_tree_item_from_legacy_convert(Clouseau_Tree_Item *treeit);
-EAPI Eina_List *clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root);
+EAPI Eina_List *clouseau_eo_to_legacy_convert(Efl_Dbg_Info *root);
 
 /* Exported From Object information */
 EAPI void clouseau_object_information_free(Clouseau_Object *oinfo);

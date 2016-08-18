@@ -26,11 +26,11 @@ libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
    treeit->ptr = (uintptr_t) o;
    treeit->is_obj = EINA_TRUE;
 
-   treeit->name = eina_stringshare_add(eo_class_name_get(o));
+   treeit->name = eina_stringshare_add(efl_class_name_get(o));
 
    /* FIXME: Hack to work with old smart inheritance.
     * Check if the class *is* (not just implements) Evas_Smart. */
-   if (eo_class_get(o) == EFL_CANVAS_GROUP_CLASS)
+   if (efl_class_get(o) == EFL_CANVAS_GROUP_CLASS)
      {
         char buf[1024];
         snprintf(buf, sizeof(buf), "%s (%s)", evas_object_type_get(o), treeit->name);
@@ -46,7 +46,7 @@ libclouseau_item_add(Evas_Object *o, Clouseau_Tree_Item *parent)
    /* if (!evas_object_smart_data_get(o)) return ; */
 
    /* Do this only for smart object */
-   if (eo_isa(o, EFL_CANVAS_GROUP_CLASS))
+   if (efl_isa(o, EFL_CANVAS_GROUP_CLASS))
      {
         children = evas_object_smart_members_get(o);
         EINA_LIST_FREE(children, child)
@@ -188,7 +188,7 @@ _clouseau_verify_e_children(Evas_Object *obj, Evas_Object *ptr)
    if (ptr == obj)
      return ptr;
 
-   if (eo_isa(obj, EFL_CANVAS_GROUP_CLASS))
+   if (efl_isa(obj, EFL_CANVAS_GROUP_CLASS))
      {
         children = evas_object_smart_members_get(obj);
         EINA_LIST_FREE(children, child)
@@ -346,13 +346,13 @@ static Clouseau_Object *
 _clouseau_object_information_get(Clouseau_Tree_Item *treeit)
 {
    Evas_Object *obj = (void*) (uintptr_t) treeit->ptr;
-   Eo_Dbg_Info *eo_dbg_info;
+   Efl_Dbg_Info *efl_dbg_info;
 
    if (!treeit->is_obj)
      return NULL;
 
-   eo_dbg_info = EO_DBG_INFO_LIST_APPEND(NULL, "");
-   eo_dbg_info_get(obj, eo_dbg_info);
+   efl_dbg_info = EFL_DBG_INFO_LIST_APPEND(NULL, "");
+   efl_dbg_info_get(obj, efl_dbg_info);
 
    /* XXX: Edje information that should be here because Evas objects can't
     * depend on Edje. This should be removed in the future. */
@@ -360,14 +360,14 @@ _clouseau_object_information_get(Clouseau_Tree_Item *treeit)
         const char *part_name = edje_object_part_object_name_get(obj);
         if (part_name)
           {
-             Eo_Dbg_Info *group = EO_DBG_INFO_LIST_APPEND(eo_dbg_info, "Edje_Part");
-             EO_DBG_INFO_APPEND(group, "Part name", EINA_VALUE_TYPE_STRING, part_name);
+             Efl_Dbg_Info *group = EFL_DBG_INFO_LIST_APPEND(efl_dbg_info, "Edje_Part");
+             EFL_DBG_INFO_APPEND(group, "Part name", EINA_VALUE_TYPE_STRING, part_name);
           }
      }
 
-   treeit->eo_info = clouseau_eo_to_legacy_convert(eo_dbg_info);
+   treeit->eo_info = clouseau_eo_to_legacy_convert(efl_dbg_info);
 
-   eo_dbg_info_free(eo_dbg_info); /* Free original list */
+   efl_dbg_info_free(efl_dbg_info); /* Free original list */
 
    return NULL;
 }

@@ -49,31 +49,31 @@ clouseau_object_information_free(Clouseau_Object *oinfo)
 }
 
 static void
-_clouseau_eo_from_legacy_convert_helper(Eo_Dbg_Info *new_root, Clouseau_Eo_Dbg_Info *root)
+_clouseau_eo_from_legacy_convert_helper(Efl_Dbg_Info *new_root, Clouseau_Efl_Dbg_Info *root)
 {
    switch (root->type)
      {
       case CLOUSEAU_DBG_INFO_TYPE_STRING:
-         EO_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_STRING, root->un_dbg_info.text.s);
+         EFL_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_STRING, root->un_dbg_info.text.s);
          break;
       case CLOUSEAU_DBG_INFO_TYPE_INT:
-         EO_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_INT, root->un_dbg_info.intg.i);
+         EFL_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_INT, root->un_dbg_info.intg.i);
          break;
       case CLOUSEAU_DBG_INFO_TYPE_BOOL:
-         EO_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_CHAR, root->un_dbg_info.bl.b);
+         EFL_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_CHAR, root->un_dbg_info.bl.b);
          break;
       case CLOUSEAU_DBG_INFO_TYPE_PTR:
-         EO_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_UINT64, root->un_dbg_info.ptr.p);
+         EFL_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_UINT64, root->un_dbg_info.ptr.p);
          break;
       case CLOUSEAU_DBG_INFO_TYPE_DOUBLE:
-         EO_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_DOUBLE, root->un_dbg_info.dbl.d);
+         EFL_DBG_INFO_APPEND(new_root, root->name, EINA_VALUE_TYPE_DOUBLE, root->un_dbg_info.dbl.d);
          break;
       case CLOUSEAU_DBG_INFO_TYPE_LIST:
            {
               Eina_List *l;
-              Clouseau_Eo_Dbg_Info *eo;
+              Clouseau_Efl_Dbg_Info *eo;
 
-              new_root = EO_DBG_INFO_LIST_APPEND(new_root, root->name);
+              new_root = EFL_DBG_INFO_LIST_APPEND(new_root, root->name);
               EINA_LIST_FOREACH(root->un_dbg_info.dbg.list, l, eo)
                  _clouseau_eo_from_legacy_convert_helper(new_root, eo);
            }
@@ -91,11 +91,11 @@ clouseau_tree_item_from_legacy_convert(Clouseau_Tree_Item *treeit)
    if (!treeit->eo_info)
       return;
    Eina_List *root = treeit->eo_info;
-   Eo_Dbg_Info *new_root = NULL;
+   Efl_Dbg_Info *new_root = NULL;
    Eina_List *l;
-   Clouseau_Eo_Dbg_Info *eo;
+   Clouseau_Efl_Dbg_Info *eo;
 
-   new_root = EO_DBG_INFO_LIST_APPEND(NULL, "");
+   new_root = EFL_DBG_INFO_LIST_APPEND(NULL, "");
    EINA_LIST_FOREACH(root, l, eo)
      {
         _clouseau_eo_from_legacy_convert_helper(new_root, eo);
@@ -126,17 +126,17 @@ _clouseau_eina_value_type_to_clouseau_type(const Eina_Value_Type *type)
    return CLOUSEAU_DBG_INFO_TYPE_UNKNOWN;
 }
 
-/* This function converts a list of Eo_Dbg_Info
- * to a list of Clouseau_Eo_Dbg_Info.
+/* This function converts a list of Efl_Dbg_Info
+ * to a list of Clouseau_Efl_Dbg_Info.
  * This is required because we would like to keep the def of
- * Eo_Dbg_Info in EO code. Thus, avoiding API/ABI error if user
+ * Efl_Dbg_Info in EO code. Thus, avoiding API/ABI error if user
  * does not do a full update of Clouseau and EO                 */
 EAPI Eina_List *
-clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root)
+clouseau_eo_to_legacy_convert(Efl_Dbg_Info *root)
 {
    Eina_List *l;
    Eina_List *new_list = NULL;
-   Eo_Dbg_Info *eo;
+   Efl_Dbg_Info *eo;
 
    if (!root && (eina_value_type_get(&(root->value)) != EINA_VALUE_TYPE_LIST))
      return new_list;
@@ -145,7 +145,7 @@ clouseau_eo_to_legacy_convert(Eo_Dbg_Info *root)
 
    EINA_LIST_FOREACH(root_list.list, l, eo)
      {
-        Clouseau_Eo_Dbg_Info *info = calloc(1, sizeof(*info));
+        Clouseau_Efl_Dbg_Info *info = calloc(1, sizeof(*info));
         info->type = _clouseau_eina_value_type_to_clouseau_type(
               eina_value_type_get(&(eo->value)));
         info->name = eina_stringshare_add(eo->name);
@@ -228,23 +228,23 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit)
    /* This code is here only for backward compatibility and will be removed soon */
    if (!treeit->eo_info && !treeit->new_eo_info)
      {
-        Eo_Dbg_Info *root = EO_DBG_INFO_LIST_APPEND(NULL, "");
+        Efl_Dbg_Info *root = EFL_DBG_INFO_LIST_APPEND(NULL, "");
         /* Populate evas properties list */
-        Eo_Dbg_Info *group = EO_DBG_INFO_LIST_APPEND(root, "Evas");
-        Eo_Dbg_Info *node;
+        Efl_Dbg_Info *group = EFL_DBG_INFO_LIST_APPEND(root, "Evas");
+        Efl_Dbg_Info *node;
 
-        EO_DBG_INFO_APPEND(group, "Visibility", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.is_visible);
-        EO_DBG_INFO_APPEND(group, "Layer", EINA_VALUE_TYPE_INT, oinfo->evas_props.layer);
+        EFL_DBG_INFO_APPEND(group, "Visibility", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.is_visible);
+        EFL_DBG_INFO_APPEND(group, "Layer", EINA_VALUE_TYPE_INT, oinfo->evas_props.layer);
 
-        node = EO_DBG_INFO_LIST_APPEND(group, "Position");
-        EO_DBG_INFO_APPEND(node, "x", EINA_VALUE_TYPE_INT, oinfo->evas_props.x);
-        EO_DBG_INFO_APPEND(node, "y", EINA_VALUE_TYPE_INT, oinfo->evas_props.y);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Position");
+        EFL_DBG_INFO_APPEND(node, "x", EINA_VALUE_TYPE_INT, oinfo->evas_props.x);
+        EFL_DBG_INFO_APPEND(node, "y", EINA_VALUE_TYPE_INT, oinfo->evas_props.y);
 
-        node = EO_DBG_INFO_LIST_APPEND(group, "Size");
-        EO_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.w);
-        EO_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.h);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Size");
+        EFL_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.w);
+        EFL_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.h);
 
-        EO_DBG_INFO_APPEND(group, "Scale", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.scale);
+        EFL_DBG_INFO_APPEND(group, "Scale", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.scale);
 
 #if 0
         if (evas_object_clip_get(obj))
@@ -255,115 +255,115 @@ clouseau_object_information_list_populate(Clouseau_Tree_Item *treeit)
           }
 #endif
 
-        node = EO_DBG_INFO_LIST_APPEND(group, "Min size");
-        EO_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.min_w);
-        EO_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.min_h);
-        node = EO_DBG_INFO_LIST_APPEND(group, "Max size");
-        EO_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.max_w);
-        EO_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.max_h);
-        node = EO_DBG_INFO_LIST_APPEND(group, "Request size");
-        EO_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.req_w);
-        EO_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.req_h);
-        node = EO_DBG_INFO_LIST_APPEND(group, "Align");
-        EO_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.align_x);
-        EO_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.align_y);
-        node = EO_DBG_INFO_LIST_APPEND(group, "Weight");
-        EO_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.weight_x);
-        EO_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.weight_y);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Min size");
+        EFL_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.min_w);
+        EFL_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.min_h);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Max size");
+        EFL_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.max_w);
+        EFL_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.max_h);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Request size");
+        EFL_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_INT, oinfo->evas_props.req_w);
+        EFL_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_INT, oinfo->evas_props.req_h);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Align");
+        EFL_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.align_x);
+        EFL_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.align_y);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Weight");
+        EFL_DBG_INFO_APPEND(node, "w", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.weight_x);
+        EFL_DBG_INFO_APPEND(node, "h", EINA_VALUE_TYPE_DOUBLE, oinfo->evas_props.weight_y);
 
 #if 0
         evas_object_size_hint_aspect_get(obj, &w, &h);
         _clouseau_information_geometry_to_tree(main_tit, "Aspect", w, h);
 #endif
 
-        node = EO_DBG_INFO_LIST_APPEND(group, "Color");
-        EO_DBG_INFO_APPEND(node, "r", EINA_VALUE_TYPE_INT, oinfo->evas_props.r);
-        EO_DBG_INFO_APPEND(node, "g", EINA_VALUE_TYPE_INT, oinfo->evas_props.g);
-        EO_DBG_INFO_APPEND(node, "b", EINA_VALUE_TYPE_INT, oinfo->evas_props.b);
-        EO_DBG_INFO_APPEND(node, "a", EINA_VALUE_TYPE_INT, oinfo->evas_props.a);
+        node = EFL_DBG_INFO_LIST_APPEND(group, "Color");
+        EFL_DBG_INFO_APPEND(node, "r", EINA_VALUE_TYPE_INT, oinfo->evas_props.r);
+        EFL_DBG_INFO_APPEND(node, "g", EINA_VALUE_TYPE_INT, oinfo->evas_props.g);
+        EFL_DBG_INFO_APPEND(node, "b", EINA_VALUE_TYPE_INT, oinfo->evas_props.b);
+        EFL_DBG_INFO_APPEND(node, "a", EINA_VALUE_TYPE_INT, oinfo->evas_props.a);
 
-        EO_DBG_INFO_APPEND(group, "Has focus", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.has_focus);
+        EFL_DBG_INFO_APPEND(group, "Has focus", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.has_focus);
 
         for (i = 0; i < sizeof (pointer_mode) / sizeof (pointer_mode[0]); ++i)
            if (pointer_mode[i].mode == oinfo->evas_props.mode)
              {
-                EO_DBG_INFO_APPEND(group, "Pointer Mode", EINA_VALUE_TYPE_STRING, pointer_mode[i].text);
+                EFL_DBG_INFO_APPEND(group, "Pointer Mode", EINA_VALUE_TYPE_STRING, pointer_mode[i].text);
                 break;
              }
 
-        EO_DBG_INFO_APPEND(group, "Pass Events", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.pass_events);
-        EO_DBG_INFO_APPEND(group, "Repeat Events", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.repeat_events);
-        EO_DBG_INFO_APPEND(group, "Propagate Events", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.propagate_events);
-        EO_DBG_INFO_APPEND(group, "Has clipees", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.is_clipper);
+        EFL_DBG_INFO_APPEND(group, "Pass Events", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.pass_events);
+        EFL_DBG_INFO_APPEND(group, "Repeat Events", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.repeat_events);
+        EFL_DBG_INFO_APPEND(group, "Propagate Events", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.propagate_events);
+        EFL_DBG_INFO_APPEND(group, "Has clipees", EINA_VALUE_TYPE_CHAR, oinfo->evas_props.is_clipper);
         if (oinfo->evas_props.clipper)
           {
              snprintf(buf, sizeof(buf), "%llx", oinfo->evas_props.clipper);
-             EO_DBG_INFO_APPEND(group, "Clipper", EINA_VALUE_TYPE_STRING, buf);
+             EFL_DBG_INFO_APPEND(group, "Clipper", EINA_VALUE_TYPE_STRING, buf);
           }
 
         if (oinfo->evas_props.points_count)
           {
-             node = EO_DBG_INFO_LIST_APPEND(group, "Evas Map");
+             node = EFL_DBG_INFO_LIST_APPEND(group, "Evas Map");
              Clouseau_Evas_Map_Point_Props *p;
              for(i = 0 ; (int) i < oinfo->evas_props.points_count; i++)
                {
                   p = &oinfo->evas_props.points[i];
 
-                  Eo_Dbg_Info *point = EO_DBG_INFO_LIST_APPEND(node, "Coords");
-                  EO_DBG_INFO_APPEND(point, "x", EINA_VALUE_TYPE_INT, p->x);
-                  EO_DBG_INFO_APPEND(point, "y", EINA_VALUE_TYPE_INT, p->y);
-                  EO_DBG_INFO_APPEND(point, "z", EINA_VALUE_TYPE_INT, p->z);
+                  Efl_Dbg_Info *point = EFL_DBG_INFO_LIST_APPEND(node, "Coords");
+                  EFL_DBG_INFO_APPEND(point, "x", EINA_VALUE_TYPE_INT, p->x);
+                  EFL_DBG_INFO_APPEND(point, "y", EINA_VALUE_TYPE_INT, p->y);
+                  EFL_DBG_INFO_APPEND(point, "z", EINA_VALUE_TYPE_INT, p->z);
                }
           }
 
         if (oinfo->extra_props.type == CLOUSEAU_OBJ_TYPE_ELM)
           {
-             group = EO_DBG_INFO_LIST_APPEND(root, "Elm");
-             EO_DBG_INFO_APPEND(group, "Wid-Type", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.elm.type);
+             group = EFL_DBG_INFO_LIST_APPEND(root, "Elm");
+             EFL_DBG_INFO_APPEND(group, "Wid-Type", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.elm.type);
 #if 0
              /* Extract actual data from theme? */
              _clouseau_information_string_to_tree(main_tit, "Theme", elm_widget_theme_get(obj));
 #endif
-             EO_DBG_INFO_APPEND(group, "Style", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.elm.style);
-             EO_DBG_INFO_APPEND(group, "Scale", EINA_VALUE_TYPE_DOUBLE, oinfo->extra_props.u.elm.scale);
-             EO_DBG_INFO_APPEND(group, "Disabled", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.is_disabled);
-             EO_DBG_INFO_APPEND(group, "Has focus", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.has_focus);
-             EO_DBG_INFO_APPEND(group, "Mirrored", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.is_mirrored);
-             EO_DBG_INFO_APPEND(group, "Automatic mirroring", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.is_mirrored_automatic);
+             EFL_DBG_INFO_APPEND(group, "Style", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.elm.style);
+             EFL_DBG_INFO_APPEND(group, "Scale", EINA_VALUE_TYPE_DOUBLE, oinfo->extra_props.u.elm.scale);
+             EFL_DBG_INFO_APPEND(group, "Disabled", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.is_disabled);
+             EFL_DBG_INFO_APPEND(group, "Has focus", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.has_focus);
+             EFL_DBG_INFO_APPEND(group, "Mirrored", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.is_mirrored);
+             EFL_DBG_INFO_APPEND(group, "Automatic mirroring", EINA_VALUE_TYPE_CHAR, oinfo->extra_props.u.elm.is_mirrored_automatic);
           }
         else if (oinfo->extra_props.type == CLOUSEAU_OBJ_TYPE_TEXT)
           {  /* EVAS_OBJ_TEXT_CLASS */
-             group = EO_DBG_INFO_LIST_APPEND(root, "Text");
-             EO_DBG_INFO_APPEND(group, "Font", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.text.font);
+             group = EFL_DBG_INFO_LIST_APPEND(root, "Text");
+             EFL_DBG_INFO_APPEND(group, "Font", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.text.font);
 
-             EO_DBG_INFO_APPEND(group, "Size", EINA_VALUE_TYPE_INT, oinfo->extra_props.u.text.size);
+             EFL_DBG_INFO_APPEND(group, "Size", EINA_VALUE_TYPE_INT, oinfo->extra_props.u.text.size);
 
-             EO_DBG_INFO_APPEND(group, "Source", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.text.source);
-             EO_DBG_INFO_APPEND(group, "Text", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.text.text);
+             EFL_DBG_INFO_APPEND(group, "Source", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.text.source);
+             EFL_DBG_INFO_APPEND(group, "Text", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.text.text);
           }
         else if (oinfo->extra_props.type == CLOUSEAU_OBJ_TYPE_IMAGE)
           {  /* EVAS_OBJ_IMAGE_CLASS */
-             group = EO_DBG_INFO_LIST_APPEND(root, "Image");
-             EO_DBG_INFO_APPEND(group, "Filename", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.image.file);
-             EO_DBG_INFO_APPEND(group, "File key", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.image.key);
-             EO_DBG_INFO_APPEND(group, "Source", EINA_VALUE_TYPE_UINT64, oinfo->extra_props.u.image.source);
+             group = EFL_DBG_INFO_LIST_APPEND(root, "Image");
+             EFL_DBG_INFO_APPEND(group, "Filename", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.image.file);
+             EFL_DBG_INFO_APPEND(group, "File key", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.image.key);
+             EFL_DBG_INFO_APPEND(group, "Source", EINA_VALUE_TYPE_UINT64, oinfo->extra_props.u.image.source);
 
              if (oinfo->extra_props.u.image.load_err)
-                EO_DBG_INFO_APPEND(group, "Load error", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.image.load_err);
+                EFL_DBG_INFO_APPEND(group, "Load error", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.image.load_err);
           }
         else if (oinfo->extra_props.type == CLOUSEAU_OBJ_TYPE_EDJE)
           {  /* EDJE_OBJ_CLASS */
-             group = EO_DBG_INFO_LIST_APPEND(root, "Edje");
-             EO_DBG_INFO_APPEND(group, "File", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.edje.file);
-             EO_DBG_INFO_APPEND(group, "Group", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.edje.group);
+             group = EFL_DBG_INFO_LIST_APPEND(root, "Edje");
+             EFL_DBG_INFO_APPEND(group, "File", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.edje.file);
+             EFL_DBG_INFO_APPEND(group, "Group", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.edje.group);
              if (oinfo->extra_props.u.image.load_err)
-                EO_DBG_INFO_APPEND(group, "Load error", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.edje.load_err);
+                EFL_DBG_INFO_APPEND(group, "Load error", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.edje.load_err);
           }
         else if (oinfo->extra_props.type == CLOUSEAU_OBJ_TYPE_TEXTBLOCK)
           {  /* EVAS_OBJ_TEXTBLOCK_CLASS */
-             group = EO_DBG_INFO_LIST_APPEND(root, "Text Block");
-             EO_DBG_INFO_APPEND(group, "Style", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.textblock.style);
-             EO_DBG_INFO_APPEND(group, "Text", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.textblock.text);
+             group = EFL_DBG_INFO_LIST_APPEND(root, "Text Block");
+             EFL_DBG_INFO_APPEND(group, "Style", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.textblock.style);
+             EFL_DBG_INFO_APPEND(group, "Text", EINA_VALUE_TYPE_STRING, oinfo->extra_props.u.textblock.text);
           }
 
         /* Convert Old format to Clouseau_eo */

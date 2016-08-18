@@ -22,12 +22,12 @@ static Eet_Data_Descriptor *eo_bool_edd = NULL;
 static Eet_Data_Descriptor *eo_ptr_edd = NULL;
 static Eet_Data_Descriptor *eo_double_edd = NULL;
 static Eet_Data_Descriptor *eo_list_edd = NULL;
-static Eet_Data_Descriptor *eo_dbg_info_edd = NULL;
+static Eet_Data_Descriptor *efl_dbg_info_edd = NULL;
 
 EAPI void
-clouseau_eo_info_free(Clouseau_Eo_Dbg_Info *parent)
+clouseau_eo_info_free(Clouseau_Efl_Dbg_Info *parent)
 {
-   Clouseau_Eo_Dbg_Info *eo;
+   Clouseau_Efl_Dbg_Info *eo;
 
    if (parent->type == CLOUSEAU_DBG_INFO_TYPE_LIST)
      EINA_LIST_FREE(parent->un_dbg_info.dbg.list, eo)
@@ -43,10 +43,10 @@ static void
 _clouseau_tree_item_free(Clouseau_Tree_Item *parent)
 {
    Clouseau_Tree_Item *treeit;
-   Clouseau_Eo_Dbg_Info *eo;
+   Clouseau_Efl_Dbg_Info *eo;
 
    if (parent->new_eo_info)
-      eo_dbg_info_free(parent->new_eo_info);
+      efl_dbg_info_free(parent->new_eo_info);
 
    EINA_LIST_FREE(parent->eo_info, eo)
       clouseau_eo_info_free(eo);
@@ -157,7 +157,7 @@ _clouseau_tree_item_desc_make(void)
    EET_DATA_DESCRIPTOR_ADD_LIST(clouseau_tree_edd, Clouseau_Tree_Item,
                                 "children", children, clouseau_tree_edd);
    EET_DATA_DESCRIPTOR_ADD_LIST(clouseau_tree_edd, Clouseau_Tree_Item,
-                                "eo_info", eo_info, eo_dbg_info_edd);
+                                "eo_info", eo_info, efl_dbg_info_edd);
    EET_DATA_DESCRIPTOR_ADD_BASIC(clouseau_tree_edd, Clouseau_Tree_Item,
                                  "name", name, EET_T_STRING);
    EET_DATA_DESCRIPTOR_ADD_BASIC(clouseau_tree_edd, Clouseau_Tree_Item,
@@ -233,22 +233,22 @@ _clouseau_bmp_req_desc_make(void)
 }
 
 /* START EO descs */
-struct _Clouseau_Eo_Dbg_Info_Mapping
+struct _Clouseau_Efl_Dbg_Info_Mapping
 {
    Clouseau_Dbg_Info_Type u;
    const char *name;
 };
-typedef struct _Clouseau_Eo_Dbg_Info_Mapping Clouseau_Eo_Dbg_Info_Mapping;
+typedef struct _Clouseau_Efl_Dbg_Info_Mapping Clouseau_Efl_Dbg_Info_Mapping;
 
 /* It's init later. */
-static Clouseau_Eo_Dbg_Info_Mapping eet_dbg_info_mapping[] =
+static Clouseau_Efl_Dbg_Info_Mapping eet_dbg_info_mapping[] =
 {
-     { CLOUSEAU_DBG_INFO_TYPE_STRING, EO_DBG_INFO_TYPE_STRING_STR },
-     { CLOUSEAU_DBG_INFO_TYPE_INT, EO_DBG_INFO_TYPE_INT_STR },
-     { CLOUSEAU_DBG_INFO_TYPE_BOOL, EO_DBG_INFO_TYPE_BOOL_STR },
-     { CLOUSEAU_DBG_INFO_TYPE_PTR, EO_DBG_INFO_TYPE_PTR_STR },
-     { CLOUSEAU_DBG_INFO_TYPE_DOUBLE, EO_DBG_INFO_TYPE_DOUBLE_STR },
-     { CLOUSEAU_DBG_INFO_TYPE_LIST, EO_DBG_INFO_TYPE_LIST_STR },
+     { CLOUSEAU_DBG_INFO_TYPE_STRING, EFL_DBG_INFO_TYPE_STRING_STR },
+     { CLOUSEAU_DBG_INFO_TYPE_INT, EFL_DBG_INFO_TYPE_INT_STR },
+     { CLOUSEAU_DBG_INFO_TYPE_BOOL, EFL_DBG_INFO_TYPE_BOOL_STR },
+     { CLOUSEAU_DBG_INFO_TYPE_PTR, EFL_DBG_INFO_TYPE_PTR_STR },
+     { CLOUSEAU_DBG_INFO_TYPE_DOUBLE, EFL_DBG_INFO_TYPE_DOUBLE_STR },
+     { CLOUSEAU_DBG_INFO_TYPE_LIST, EFL_DBG_INFO_TYPE_LIST_STR },
      { CLOUSEAU_DBG_INFO_TYPE_UNKNOWN, NULL }
 };
 
@@ -375,7 +375,7 @@ clouseau_list_desc_make(void)
    d = eet_data_descriptor_stream_new(&eddc);
 
    EET_DATA_DESCRIPTOR_ADD_LIST (d, Clouseau_st_dbg_list,
-         "list", list, eo_dbg_info_edd); /* Carefull, has to be initiated */
+         "list", list, efl_dbg_info_edd); /* Carefull, has to be initiated */
 
    return d;
 }
@@ -391,14 +391,14 @@ _clouseau_eo_descs_make(void)
    eo_ptr_edd = clouseau_ptr_desc_make();
    eo_double_edd = clouseau_double_desc_make();
 
-   EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&eddc, Clouseau_Eo_Dbg_Info);
-   eo_dbg_info_edd = eet_data_descriptor_file_new(&eddc);
-   EET_DATA_DESCRIPTOR_ADD_BASIC (eo_dbg_info_edd, Clouseau_Eo_Dbg_Info,
+   EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&eddc, Clouseau_Efl_Dbg_Info);
+   efl_dbg_info_edd = eet_data_descriptor_file_new(&eddc);
+   EET_DATA_DESCRIPTOR_ADD_BASIC (efl_dbg_info_edd, Clouseau_Efl_Dbg_Info,
          "name", name, EET_T_STRING);
-   EET_DATA_DESCRIPTOR_ADD_BASIC (eo_dbg_info_edd, Clouseau_Eo_Dbg_Info,
+   EET_DATA_DESCRIPTOR_ADD_BASIC (efl_dbg_info_edd, Clouseau_Efl_Dbg_Info,
          "type", type, EET_T_UINT);
 
-   /* Here because clouseau_list_desc_make() uses eo_dbg_info_edd */
+   /* Here because clouseau_list_desc_make() uses efl_dbg_info_edd */
    eo_list_edd = clouseau_list_desc_make();
 
    /* for union */
@@ -408,31 +408,31 @@ _clouseau_eo_descs_make(void)
    clouseau_union_edd = eet_data_descriptor_file_new(&eddc);
 
    EET_DATA_DESCRIPTOR_ADD_MAPPING(
-         clouseau_union_edd, EO_DBG_INFO_TYPE_STRING_STR
+         clouseau_union_edd, EFL_DBG_INFO_TYPE_STRING_STR
          ,eo_string_edd);
 
    EET_DATA_DESCRIPTOR_ADD_MAPPING(
-         clouseau_union_edd, EO_DBG_INFO_TYPE_INT_STR
+         clouseau_union_edd, EFL_DBG_INFO_TYPE_INT_STR
          ,eo_int_edd);
 
    EET_DATA_DESCRIPTOR_ADD_MAPPING(
-         clouseau_union_edd, EO_DBG_INFO_TYPE_BOOL_STR
+         clouseau_union_edd, EFL_DBG_INFO_TYPE_BOOL_STR
          ,eo_bool_edd);
 
    EET_DATA_DESCRIPTOR_ADD_MAPPING(
-         clouseau_union_edd, EO_DBG_INFO_TYPE_PTR_STR
+         clouseau_union_edd, EFL_DBG_INFO_TYPE_PTR_STR
          ,eo_ptr_edd);
 
    EET_DATA_DESCRIPTOR_ADD_MAPPING(
-         clouseau_union_edd, EO_DBG_INFO_TYPE_DOUBLE_STR
+         clouseau_union_edd, EFL_DBG_INFO_TYPE_DOUBLE_STR
          ,eo_double_edd);
 
    EET_DATA_DESCRIPTOR_ADD_MAPPING(
-         clouseau_union_edd, EO_DBG_INFO_TYPE_LIST_STR
+         clouseau_union_edd, EFL_DBG_INFO_TYPE_LIST_STR
          ,eo_list_edd);
 
-   EET_DATA_DESCRIPTOR_ADD_UNION(eo_dbg_info_edd,
-         Clouseau_Eo_Dbg_Info,
+   EET_DATA_DESCRIPTOR_ADD_UNION(efl_dbg_info_edd,
+         Clouseau_Efl_Dbg_Info,
          "un_dbg_info", un_dbg_info,
          type, clouseau_union_edd);
 }
@@ -466,7 +466,7 @@ _clouseau_data_descriptors_shutdown(void)
    eet_data_descriptor_free(eo_ptr_edd);
    eet_data_descriptor_free(eo_double_edd);
    eet_data_descriptor_free(eo_list_edd);
-   eet_data_descriptor_free(eo_dbg_info_edd);
+   eet_data_descriptor_free(efl_dbg_info_edd);
    eet_data_descriptor_free(clouseau_union_edd);
 
    eet_data_descriptor_free(clouseau_connect_edd);
