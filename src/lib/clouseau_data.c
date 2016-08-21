@@ -714,7 +714,7 @@ clouseau_data_eet_info_read(const char *filename,
              int alpha;
              int compress;
              int quality;
-             int lossy;
+             Eet_Image_Encoding lossy;
 
              sprintf(buf, CLOUSEAU_BMP_DATA_ENTRY"/%llx", st->object);
              st->bmp = eet_data_image_read(fp, buf,
