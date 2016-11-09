@@ -2268,11 +2268,83 @@ _obj_info_can_list_be_compacted(Efl_Dbg_Info *root_eo)
    return EINA_TRUE;
 }
 
+static Clouseau_Tree_Item*
+_rec_find(Clouseau_Tree_Item *item, unsigned long long ptr)
+{
+   Eina_List *n;
+   Clouseau_Tree_Item *it;
+
+   if (item->ptr == ptr) return item;
+
+   EINA_LIST_FOREACH(item->children, n, it)
+     {
+        Clouseau_Tree_Item *ret = _rec_find(it, ptr);
+
+        if (ret) return ret;
+     }
+
+   return NULL;
+}
+
+static void
+_send_highlight_ptr(App_Data_St *app, unsigned long long ptr)
+{
+   Clouseau_Tree_Item *item;
+   Eina_List *n;
+
+   if (!ptr) return;
+
+   EINA_LIST_FOREACH(app->td->tree, n, item)
+     {
+        Clouseau_Tree_Item *ret = _rec_find(item, ptr);
+
+        if (ret)
+          {
+             _send_highlight(app, ret);
+             return;
+          }
+
+     }
+
+   printf("Error, ptr %p cannot be found\n", (void*)ptr);
+}
+
 static void
 _obj_info_gl_selected(void *data EINA_UNUSED, Evas_Object *pobj EINA_UNUSED,
-      void *event_info EINA_UNUSED)
+      void *event_info)
 {
-   /* Currently do nothing */
+   Efl_Dbg_Info *info = elm_object_item_data_get(event_info);
+
+   /* if the user clicks on a property which is a pointer, try to highlight it*/
+   if (eina_value_type_get(&info->value) == EINA_VALUE_TYPE_UINT64)
+     {
+        uint64_t ptr;
+
+        eina_value_get(&info->value, &ptr);
+        _send_highlight_ptr(gui->sel_app, ptr);
+     }
+
+   /* if the user is clicking on a list of pointers its usefull to highlight them */
+   if (eina_value_type_get(&info->value) == EINA_VALUE_TYPE_LIST)
+     {
+        Eina_Value_List list;
+        Eina_List *n;
+        uint64_t ptr;
+        Efl_Dbg_Info *eo;
+
+        eina_value_pget(&info->value, &list);
+
+        EINA_LIST_FOREACH(list.list, n, eo)
+          {
+             if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_UINT64)
+               {
+                  uint64_t ptr;
+
+                  eina_value_get(&eo->value, &ptr);
+                  _send_highlight_ptr(gui->sel_app, ptr);
+               }
+          }
+     }
    return;
 }
 
