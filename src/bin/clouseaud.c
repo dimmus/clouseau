@@ -403,7 +403,7 @@ int main(void)
    if (_clouseaud_log_dom < 0)
      {
         EINA_LOG_ERR("Could not register log domain: %s", log_dom);
-        return EINA_FALSE;
+        return 0;
      }
 
    if (!(server = ecore_con_server_add(ECORE_CON_REMOTE_TCP | ECORE_CON_SOCKET_ACTIVATE,
