@@ -2390,7 +2390,7 @@ main(int argc, char **argv)
    if (_clouseau_client_log_dom < 0)
      {
         EINA_LOG_ERR("Could not register log domain: %s", log_dom);
-        return 0;
+        return 3;
      }
 
    Evas_Object *win, *panes, *frame;
