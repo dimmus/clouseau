@@ -2260,9 +2260,14 @@ _obj_info_can_list_be_compacted(Efl_Dbg_Info *root_eo)
    eina_value_pget(&(root_eo->value), &list);
    // We check that there is no list into this list. If such list exists,
    // we can't compact the list.
+   int number = 0;
    EINA_LIST_FOREACH(list.list, l, eo)
      {
+        number ++;
         if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
+           return EINA_FALSE;
+         //this is very unreadable
+        if (number > 10)
            return EINA_FALSE;
      }
    return EINA_TRUE;
