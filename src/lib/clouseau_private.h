@@ -218,6 +218,8 @@ struct _Clouseau_Efl_Dbg_Info
 
 void clouseau_app_disconnect(void);
 
+
+EAPI Efl_Dbg_Info* clouseau_eo_info_find(Efl_Dbg_Info *root, const char *name);
 EAPI void clouseau_eo_info_free(Clouseau_Efl_Dbg_Info *parent);
 EAPI void clouseau_tree_item_from_legacy_convert(Clouseau_Tree_Item *treeit);
 EAPI Eina_List *clouseau_eo_to_legacy_convert(Efl_Dbg_Info *root);
@@ -230,7 +232,7 @@ EAPI Clouseau_Object * clouseau_object_information_get(Clouseau_Tree_Item *treei
 EAPI void clouseau_data_tree_free(Eina_List *tree);
 EAPI void *clouseau_data_packet_compose(const char *p_type, void *data, unsigned int *size, void *blob, int blob_size);
 EAPI void *clouseau_data_packet_info_get(const char *p_type, void *data, size_t size);
-EAPI void clouseau_data_object_highlight(Evas_Object *obj, Clouseau_Evas_Props *props, bmp_info_st *view);
+EAPI void clouseau_data_object_highlight(Evas_Object *obj);
 EAPI Eina_Bool clouseau_data_eet_info_save(const char *filename, app_info_st *a, tree_data_st *ftd, Eina_List *ck_list);
 EAPI Eina_Bool clouseau_data_eet_info_read(const char *filename, app_info_st **a, tree_data_st **ftd);
 EAPI int clouseau_data_init(void);

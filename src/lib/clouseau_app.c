@@ -245,89 +245,38 @@ _clouseau_highlight_del(void *data,
    ecore_animator_del(data);
 }
 
+
 EAPI void
-clouseau_data_object_highlight(Evas_Object *obj, Clouseau_Evas_Props *props, bmp_info_st *view)
+clouseau_data_object_highlight(Evas_Object *obj)
 {
+   const Evas_Map *map;
    Ecore_Animator *t;
+   Evas *e = NULL;
    Evas_Object *r;
    int x, y, wd, ht;
-   Evas *e = NULL;
 
-   if (props)
-     {
-        e = evas_object_evas_get(view->win);
-     }
-   else
-     {
-        /* Check validity of object when working online */
-        if (!_clouseau_verify_e_obj(obj))
-          {
-             printf("<%s> Evas Object not found <%p> (probably deleted)\n",
-                   __func__, obj);
-             return;
-          }
-
-        /* Take evas from object if working online */
-        e = evas_object_evas_get(obj);
-        if (!e) return;
-     }
-
-   /* Continue and do the Highlight */
+   e = evas_object_evas_get(obj);
    r = evas_object_polygon_add(e);
-   evas_object_move(r, 0, 0);
 
-   if (props)
+   if ((map = evas_object_map_get(obj)))
      {
-        /* When working offline grab info from struct */
-        Evas_Coord x_bmp, y_bmp;
-
-        /* If there's a map, highlight the map coords, not the object's */
-        if (props->points_count > 0)
+        int i = evas_map_count_get(map);
+        for ( ; i > 0 ; i--)
           {
-             int i = props->points_count;
-             for ( ; i > 0 ; i--)
-               {
-                  evas_object_polygon_point_add(r,
-                        props->points[i].x, props->points[i].y);
-               }
-          }
-        else
-          {
-             evas_object_geometry_get(view->o, &x_bmp, &y_bmp, NULL, NULL);
-             x =  (view->zoom_val * props->x) + x_bmp;
-             y =  (view->zoom_val * props->y) + y_bmp;
-             wd = (view->zoom_val * props->w);
-             ht = (view->zoom_val * props->h);
-             evas_object_polygon_point_add(r, x, y);
-             evas_object_polygon_point_add(r, x + wd, y);
-             evas_object_polygon_point_add(r, x + wd, y + ht);
-             evas_object_polygon_point_add(r, x, y + ht);
+             Evas_Coord mx, my;
+             evas_map_point_coord_get(map, i - 1, &mx, &my, NULL);
+             evas_object_polygon_point_add(r, mx, my);
           }
      }
    else
      {
-        const Evas_Map *map;
-        if ((map = evas_object_map_get(obj)))
-          {
-             int i = evas_map_count_get(map);
-             for ( ; i > 0 ; i--)
-               {
-                  Evas_Coord mx, my;
-                  evas_map_point_coord_get(map, i - 1, &mx, &my, NULL);
-                  evas_object_polygon_point_add(r, mx, my);
-               }
-          }
-        else
-          {
-             evas_object_geometry_get(obj, &x, &y, &wd, &ht);
-             evas_object_polygon_point_add(r, x, y);
-             evas_object_polygon_point_add(r, x + wd, y);
-             evas_object_polygon_point_add(r, x + wd, y + ht);
-             evas_object_polygon_point_add(r, x, y + ht);
-          }
+        evas_object_geometry_get(obj, &x, &y, &wd, &ht);
+        evas_object_polygon_point_add(r, x, y);
+        evas_object_polygon_point_add(r, x + wd, y);
+        evas_object_polygon_point_add(r, x + wd, y + ht);
+        evas_object_polygon_point_add(r, x, y + ht);
      }
 
-   /* Put the object as high as possible. */
    evas_object_layer_set(r, EVAS_LAYER_MAX);
    evas_object_color_set(r,
                          HIGHLIGHT_R, HIGHLIGHT_G, HIGHLIGHT_B, HIGHLIGHT_A);
@@ -337,9 +286,6 @@ clouseau_data_object_highlight(Evas_Object *obj, Clouseau_Evas_Props *props, bmp
    t = ecore_animator_add(_clouseau_highlight_fade, r);
    evas_object_event_callback_add(r, EVAS_CALLBACK_DEL,
                                   _clouseau_highlight_del, t);
-/* Print backtrace info, saved for future ref
-   tmp = evas_object_data_get(obj, ".clouseau.bt");
-   fprintf(stderr, "Creation backtrace :\n%s*******\n", tmp); */
 }
 
 static Clouseau_Object *
@@ -423,7 +369,14 @@ _highlight_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
 {  /* Highlight msg contains PTR of object to highlight */
    highlight_st *ht = value;
    Evas_Object *obj = (Evas_Object *) (uintptr_t) ht->object;
-   clouseau_data_object_highlight(obj, NULL, NULL);
+
+   if (!_clouseau_verify_e_obj(obj))
+     {
+        printf("Evas Object not found <%p> (probably deleted)\n", obj);
+        return;
+     }
+
+   clouseau_data_object_highlight(obj);
 }
 
 void

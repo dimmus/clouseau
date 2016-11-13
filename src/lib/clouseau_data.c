@@ -39,6 +39,28 @@ clouseau_eo_info_free(Clouseau_Efl_Dbg_Info *parent)
    free(parent);
 }
 
+
+EAPI Efl_Dbg_Info*
+clouseau_eo_info_find(Efl_Dbg_Info *root, const char *name)
+{
+   Eina_Value_List eo_list;
+   Eina_List *n;
+   Efl_Dbg_Info *info;
+
+   if (!root) return NULL;
+
+   eina_value_pget(&(root->value), &eo_list);
+
+   EINA_LIST_FOREACH(eo_list.list, n, info)
+     {
+        if (!strcmp(info->name, name))
+          {
+             return info;
+          }
+     }
+   return NULL;
+}
+
 static void
 _clouseau_tree_item_free(Clouseau_Tree_Item *parent)
 {

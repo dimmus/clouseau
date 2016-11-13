@@ -1313,6 +1313,63 @@ _connect_to_daemon(Gui_Elements *g)
 }
 
 static void
+_send_highlight(App_Data_St *app, Clouseau_Tree_Item *tree)
+{
+   if (!do_highlight)
+     return;
+
+   if (!eet_svr)
+     {
+        //do offline highlight
+        Efl_Dbg_Info *evas_object, *pos, *size, *x, *y, *w, *h;
+        Eina_Rectangle r;
+        Evas_Object *rectangle;
+        bmp_info_st *bmp;
+        Evas *e;
+
+        evas_object = clouseau_eo_info_find(tree->new_eo_info , "Evas_Object");
+        size = clouseau_eo_info_find(evas_object, "Size");
+        pos = clouseau_eo_info_find(evas_object, "Position");
+
+#define FIND_AND_GET(c, name) \
+        name = clouseau_eo_info_find(c, ""#name""); \
+        eina_value_get(&name->value, &r.name);
+
+        FIND_AND_GET(pos, x)
+        FIND_AND_GET(pos, y)
+        FIND_AND_GET(size, w)
+        FIND_AND_GET(size, h)
+
+#undef FIND_AND_GET
+
+        bmp = eina_list_search_unsorted(app->app->view,
+                                        _bmp_app_ptr_cmp,
+                                        (void*) (uintptr_t) app->td->app);
+
+        if (!bmp)
+          {
+             printf("Error, failed to find window of open screenshot!\n");
+             return;
+          }
+
+        //win is null as long as the screenshot is not displayed
+        if (!bmp->win) return;
+        e = efl_parent_get(bmp->win);
+        rectangle = evas_object_rectangle_add(e);
+        evas_object_geometry_set(rectangle, r.x, r.y, r.w, r.h);
+        clouseau_data_object_highlight(rectangle);
+     }
+   else
+     {
+        //sent highlight to the listening client
+        highlight_st st = { (unsigned long long) (uintptr_t) app->app->ptr,
+                            tree->ptr };
+
+        ecore_con_eet_send(eet_svr, CLOUSEAU_HIGHLIGHT_STR, &st);
+     }
+}
+
+static void
 _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
 {
    Gui_Elements *g = data;
@@ -1367,38 +1424,7 @@ _gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
           }
      }
 
-   if (!do_highlight)
-     return;
-
-   /* START - replacing libclouseau_highlight(obj); */
-   app_info_st *app = g->sel_app->app;
-   highlight_st st = { (unsigned long long) (uintptr_t) app->ptr,
-                       treeit->ptr };
-
-   if (eet_svr)
-     {
-        ecore_con_eet_send(eet_svr, CLOUSEAU_HIGHLIGHT_STR, &st);
-     }
-
-   /* We also like to HIGHLIGHT on any app views that open (for offline) */
-   do
-     {
-        parent = prt;
-        prt = elm_genlist_item_parent_get(prt);
-     }
-   while (prt);
-
-   Clouseau_Tree_Item *t = elm_object_item_data_get(parent);
-   bmp_info_st *bmp = eina_list_search_unsorted(app->view,
-                                             _bmp_object_ptr_cmp,
-                                             (void*) (uintptr_t) t->ptr);
-
-   if (bmp && bmp->win)
-     {  /* Third param gives evas surface when running offline */
-        clouseau_data_object_highlight((void*) (uintptr_t) treeit->ptr,
-                                  &treeit->info->evas_props, bmp);
-     }
-   /* END   - replacing clouseau_object_highlight(obj); */
+   _send_highlight(g->sel_app , treeit);
 }
 
 static void
