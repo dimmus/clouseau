@@ -675,9 +675,9 @@ clouseau_data_eet_info_save(const char *filename,
    if (!fp) return EINA_FALSE;
 
    eet_data_write(fp, clouseau_app_add_edd, CLOUSEAU_APP_ADD_ENTRY,
-                  a, EINA_TRUE);
+                  a, EET_COMPRESSION_DEFAULT);
    eet_data_write(fp, clouseau_tree_data_edd, CLOUSEAU_TREE_DATA_ENTRY,
-                  ftd, EINA_TRUE);
+                  ftd, EET_COMPRESSION_DEFAULT);
 
    /* Build list of (bmp_info_st *) according to user selection    */
    EINA_LIST_FOREACH(ck_list, l , ck)
@@ -699,7 +699,7 @@ clouseau_data_eet_info_save(const char *filename,
 
         t.view = shots;
         eet_data_write(fp, clouseau_shot_list_edd, CLOUSEAU_BMP_LIST_ENTRY,
-                       &t, EINA_TRUE);
+                       &t, EET_COMPRESSION_DEFAULT);
         EINA_LIST_FREE(shots, st)
           {
              sprintf(buf, CLOUSEAU_BMP_DATA_ENTRY"/%llx", st->object);
