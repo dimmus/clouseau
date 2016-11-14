@@ -413,8 +413,8 @@ _clouseau_eo_descs_make(void)
    eo_ptr_edd = clouseau_ptr_desc_make();
    eo_double_edd = clouseau_double_desc_make();
 
-   EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&eddc, Clouseau_Efl_Dbg_Info);
-   efl_dbg_info_edd = eet_data_descriptor_file_new(&eddc);
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Clouseau_Efl_Dbg_Info);
+   efl_dbg_info_edd = eet_data_descriptor_stream_new(&eddc);
    EET_DATA_DESCRIPTOR_ADD_BASIC (efl_dbg_info_edd, Clouseau_Efl_Dbg_Info,
          "name", name, EET_T_STRING);
    EET_DATA_DESCRIPTOR_ADD_BASIC (efl_dbg_info_edd, Clouseau_Efl_Dbg_Info,
@@ -427,7 +427,7 @@ _clouseau_eo_descs_make(void)
    eddc.version = EET_DATA_DESCRIPTOR_CLASS_VERSION;
    eddc.func.type_get = _dbg_info_union_type_get;
    eddc.func.type_set = _dbg_info_union_type_set;
-   clouseau_union_edd = eet_data_descriptor_file_new(&eddc);
+   clouseau_union_edd = eet_data_descriptor_stream_new(&eddc);
 
    EET_DATA_DESCRIPTOR_ADD_MAPPING(
          clouseau_union_edd, EFL_DBG_INFO_TYPE_STRING_STR
