@@ -132,8 +132,8 @@ _titlebar_string_set(Gui_Elements *g, Eina_Bool online)
      }
 }
 
-Eina_Bool
-_add(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
+static Eina_Bool
+_client_connected(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
       EINA_UNUSED Ecore_Con_Server *conn)
 {
    _add_callback_called = EINA_TRUE;
@@ -209,8 +209,8 @@ _work_offline_popup(void)
    /* END   - Popup asking user to close client or work offline */
 }
 
-Eina_Bool
-_del(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
+static Eina_Bool
+_client_disconnected(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
       Ecore_Con_Server *conn)
 {
    if ((!_add_callback_called) || (!eet_svr))
@@ -1296,8 +1296,8 @@ _connect_to_daemon(Gui_Elements *g)
    clouseau_register_descs(ece);
 
    /* Register callbacks for ecore_con_eet */
-   ecore_con_eet_server_connect_callback_add(ece, _add, NULL);
-   ecore_con_eet_server_disconnect_callback_add(ece, _del, NULL);
+   ecore_con_eet_server_connect_callback_add(ece, _client_connected, NULL);
+   ecore_con_eet_server_disconnect_callback_add(ece, _client_disconnected, NULL);
    ecore_con_eet_data_callback_add(ece, CLOUSEAU_APP_CLOSED_STR,
          _app_closed_cb, NULL);
    ecore_con_eet_data_callback_add(ece, CLOUSEAU_APP_ADD_STR,
