@@ -1500,24 +1500,27 @@ _bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUS
 }
 
 static void
+_load_file(const char *path)
+{
+   app_info_st *app = calloc(1, sizeof(*app));
+   tree_data_st *td =  calloc(1, sizeof(*td));
+   Eina_Bool s = clouseau_data_eet_info_read(path,
+                 (app_info_st **) &app, (tree_data_st **) &td);
+
+   if (s)
+     {  /* Add the app to list of apps, then set this as selected app */
+        app->file = strdup(path);
+        App_Data_St *st = _add_app(gui, app);
+        st->td = td;  /* This is the same as we got TREE_DATA message */
+        _set_selected_app(st, gui->hover.dd_list, NULL);
+     }
+}
+
+static void
 _bt_load_file(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    if (event_info)
-     {
-        Gui_Elements *g = data;
-        app_info_st *app = calloc(1, sizeof(*app));
-        tree_data_st *td =  calloc(1, sizeof(*td));
-        Eina_Bool s = clouseau_data_eet_info_read(event_info,
-              (app_info_st **) &app, (tree_data_st **) &td);
-
-        if (s)
-          {  /* Add the app to list of apps, then set this as selected app */
-             app->file = strdup(event_info);
-             App_Data_St *st = _add_app(g, app);
-             st->td = td;  /* This is the same as we got TREE_DATA message */
-             _set_selected_app(st, g->hover.dd_list, NULL);
-          }
-     }
+     _load_file(event_info);
 }
 
 static void
@@ -2408,10 +2411,51 @@ _property_list_create(Evas_Object *panes)
    evas_object_show(o);
 }
 
+static void
+print_help(void)
+{
+   printf("Usage of clouseau_client:\n");
+   printf("   -f <file> will start clouseau_client in offline mode with the specified file loaded.\n");
+   printf("   -a <adress> will start clouseau_client, and connect to the specified adress.\n");
+   printf("   Only one file or one adress is allowed\n");
+   exit(-1);
+}
+static void
+_parse_arguments(int argc, char **argv, char **file)
+{
+   for (int i = 1; i < argc; ++i)
+     {
+        if (!strcmp(argv[i], "-f"))
+          {
+             if (i+1 >= argc) print_help();
+             *file = argv[i+1];
+             i++;
+          }
+        else if (!strcmp(argv[i], "-a"))
+          {
+             if (i+1 >= argc) print_help();
+             gui->address = strdup(argv[i+1]);
+             i++;
+          }
+        else
+          {
+             printf("Cannot undestand argument %s\n", argv[i]);
+             print_help();
+          }
+     }
+
+   if (*file && gui->address)
+     {
+        printf("Only file or adress is allowed\n");
+        exit(-1);
+     }
+}
+
 int
 main(int argc, char **argv)
 {  /* Create Client Window */
    const char *log_dom = "clouseau_client";
+   char *file = NULL;
    _clouseau_client_log_dom = eina_log_domain_register(log_dom, EINA_COLOR_LIGHTBLUE);
    if (_clouseau_client_log_dom < 0)
      {
@@ -2431,13 +2475,12 @@ main(int argc, char **argv)
    setenv("ELM_CLOUSEAU", "0", 1);
    elm_init(argc, argv);
 
+   _parse_arguments(argc, argv, &file);
+
    clouseau_cfg_init(PACKAGE_NAME);
    clouseau_cfg_load();
 
    _modules_init();
-
-
-   if (argc == 2) gui->address = strdup(argv[1]); // if the user executes the client with ip and port in the arguments line
 
    gui->win = win = elm_win_util_standard_add("client", CLIENT_NAME);
    elm_win_autodel_set(win, EINA_TRUE);
@@ -2450,14 +2493,14 @@ main(int argc, char **argv)
    elm_win_resize_object_add(win, gui->bx);
 
    _control_buttons_create(gui, win);
-   
+
    frame = elm_frame_add(gui->bx);
    elm_object_style_set(frame, "pad_medium");
    evas_object_size_hint_weight_set(frame, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
    elm_box_pack_end(gui->bx, frame);
    evas_object_show(frame);
-   
+
    panes = elm_panes_add(gui->bx);
    evas_object_size_hint_weight_set(panes, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(panes, EVAS_HINT_FILL, EVAS_HINT_FILL);
@@ -2492,6 +2535,11 @@ main(int argc, char **argv)
    if (gui->address)
      {
         _show_gui(gui, EINA_FALSE);
+     }
+   else if (file)
+     {
+        _show_gui(gui, EINA_TRUE);
+        _load_file(file);
      }
    else
      {
