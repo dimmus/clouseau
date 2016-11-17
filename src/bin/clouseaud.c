@@ -378,6 +378,7 @@ _clouseaud_send_ready(void)
 
 int main(void)
 {
+   int ret = 0;
    /* Check single instance. */
 
      {
@@ -403,16 +404,23 @@ int main(void)
    if (_clouseaud_log_dom < 0)
      {
         EINA_LOG_ERR("Could not register log domain: %s", log_dom);
-        return 3;
+        ret = 3;
+        goto shutdown_and_exit;
      }
 
    if (!(server = ecore_con_server_add(ECORE_CON_REMOTE_TCP | ECORE_CON_SOCKET_ACTIVATE,
-				       LISTEN_IP, PORT, NULL)))
-     exit(1);
+         LISTEN_IP, PORT, NULL)))
+     {
+        ret = 1;
+        goto shutdown_and_exit;
+     }
 
    eet_svr = ecore_con_eet_server_new(server);
    if (!eet_svr)
-     exit(2);
+     {
+        ret = 2;
+        goto shutdown_and_exit;
+     }
 
    clouseau_register_descs(eet_svr);
 
@@ -441,10 +449,11 @@ int main(void)
 
    _daemon_cleanup();
 
+shutdown_and_exit:
    clouseau_data_shutdown();
    ecore_con_shutdown();
    ecore_shutdown();
    eina_shutdown();
 
-   return 0;
+   return ret;
 }
