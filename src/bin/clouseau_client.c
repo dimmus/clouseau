@@ -2321,6 +2321,13 @@ _obj_info_gl_selected(void *data EINA_UNUSED, Evas_Object *pobj EINA_UNUSED,
    Efl_Dbg_Info *info = elm_object_item_data_get(event_info);
 
    /* if the user clicks on a property which is a pointer, try to highlight it*/
+   if (eina_value_type_get(&info->value) == EINA_VALUE_TYPE_STRING)
+     {
+         const char *string;
+
+         eina_value_get(&info->value, &string);
+         elm_cnp_selection_set(pobj, ELM_SEL_TYPE_PRIMARY, ELM_SEL_FORMAT_TEXT, string, strlen(string));
+     }
    if (eina_value_type_get(&info->value) == EINA_VALUE_TYPE_UINT64)
      {
         uint64_t ptr;
