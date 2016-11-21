@@ -59,46 +59,90 @@ ecore_main_loop_begin(void)
 }
 
 #define EINA_LOCK_DEBUG_BT_NUM 64
-typedef void (*Eina_Lock_Bt_Func) ();
 
-EAPI Evas_Object *
-evas_object_new(Evas *e)
+static void
+_clouseau_efl_object_dbg_info_get(Eo *obj, void *pd EINA_UNUSED, Efl_Dbg_Info *root)
 {
-   Eina_Lock_Bt_Func lock_bt[EINA_LOCK_DEBUG_BT_NUM];
-   int lock_bt_num;
-   Evas_Object *(*_evas_object_new)(Evas *e) = dlsym(RTLD_NEXT, __func__);
-   Eina_Strbuf *str;
-   Evas_Object *r;
-   char **strings;
-   int i;
+   const char *bt;
+   Efl_Dbg_Info *creation;
 
-   r = _evas_object_new(e);
-   if (!r) return NULL;
+   bt = efl_key_data_get(obj, ".clouseau.bt");
+   creation = EFL_DBG_INFO_LIST_APPEND(root, "Creation");
+   EFL_DBG_INFO_APPEND(creation, "Backtrace", EINA_VALUE_TYPE_STRING, bt);
 
-   lock_bt_num = backtrace((void **)lock_bt, EINA_LOCK_DEBUG_BT_NUM);
-   strings = backtrace_symbols((void **)lock_bt, lock_bt_num);
+   efl_dbg_info_get(efl_super(obj, EFL_OBJECT_OVERRIDE_CLASS), root);
+}
+static void
+_clouseau_efl_destructor(Eo *obj, void *pd EINA_UNUSED)
+{
+   char *bt;
 
-   str = eina_strbuf_new();
+   bt = efl_key_data_get(obj, ".clouseau.bt");
+   free(bt);
 
-   for (i = 1; i < lock_bt_num; ++i)
-     eina_strbuf_append_printf(str, "%s\n", strings[i]);
-
-   evas_object_data_set(r, ".clouseau.bt", eina_stringshare_add(eina_strbuf_string_get(str)));
-
-   free(strings);
-   eina_strbuf_free(str);
-
-   return r;
+   efl_destructor(efl_super(obj, EFL_OBJECT_OVERRIDE_CLASS));
 }
 
-EAPI void
-evas_object_free(Evas_Object *obj, int clean_layer)
+static char*
+_clouseau_backtrace_create(void)
 {
-   void (*_evas_object_free)(Evas_Object *obj, int clean_layer) = dlsym(RTLD_NEXT, __func__);
-   const char *tmp;
+   void *bt[EINA_LOCK_DEBUG_BT_NUM];
+   Eina_Strbuf *buf;
+   int lock_bt_num;
 
-   tmp = evas_object_data_get(obj, ".clouseau.bt");
-   eina_stringshare_del(tmp);
+   lock_bt_num = backtrace((void **)bt, EINA_LOCK_DEBUG_BT_NUM);
+   buf = eina_strbuf_new();
+   for (int i = 0; i < lock_bt_num; ++i)
+     {
+        Dl_info info;
+        const char *file;
+        unsigned long long offset, base;
 
-   _evas_object_free(obj, clean_layer);
+        if ((dladdr(bt[i], &info)) && (info.dli_fname[0]))
+          {
+             offset = (unsigned long long)bt[i];
+             base = (unsigned long long)info.dli_fbase;
+             file = info.dli_fname;
+          }
+        if (file)
+          eina_strbuf_append_printf(buf, "%s\t 0x%llx 0x%llx\n", file, offset, base);
+        else
+          eina_strbuf_append_printf(buf, "??\t -\n");
+     }
+
+   {
+      char *str;
+
+      str = eina_strbuf_string_steal(buf);
+      eina_strbuf_free(buf);
+
+      return str;
+   }
+}
+
+EAPI Eo*
+_efl_add_internal_start(const char *file, int line, const Efl_Class *klass_id, Eo *parent_id, Eina_Bool ref, Eina_Bool is_fallback)
+{
+   Eo* (*__efl_add_internal_start)(const char *file, int line, const Efl_Class *klass_id, Eo *parent_id, Eina_Bool ref EINA_UNUSED, Eina_Bool is_fallback);
+   const char *str;
+   Eo *obj;
+
+   //create bt
+   str = _clouseau_backtrace_create();
+
+   //containue construction
+   __efl_add_internal_start = dlsym(RTLD_NEXT, __func__);
+   obj = __efl_add_internal_start(file, line, klass_id, parent_id, ref, is_fallback);
+
+   //override needed functions
+   EFL_OPS_DEFINE(ops,
+    EFL_OBJECT_OP_FUNC(efl_dbg_info_get, _clouseau_efl_object_dbg_info_get),
+    EFL_OBJECT_OP_FUNC(efl_destructor, _clouseau_efl_destructor)
+   );
+   efl_object_override(obj, &ops);
+
+   //add backtrace and free buf
+   efl_key_data_set(obj, ".clouseau.bt", str);
+
+   return obj;
 }
