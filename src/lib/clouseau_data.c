@@ -580,7 +580,7 @@ clouseau_data_packet_compose(const char *p_type, void *data,
         e_size32 = (uint32_t) e_size;
 
         /* Allocate buffer to hold whole packet data */
-        t_size = sizeof(e_size32) + /* encoding size of bmp_info_st */
+        t_size = sizeof(e_size32)   /* encoding size of bmp_info_st */
            + e_size                 /* Encoded bmp_info_st */
            + sizeof(e_size32)       /* bmp-blob-size       */
            + blob_size;             /* The BMP blob data   */
