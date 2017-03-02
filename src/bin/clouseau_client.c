@@ -480,9 +480,8 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
 }
 #undef _MAX_LABEL
 
-#if 0
-static Eina_Bool
-_debug_obj_info_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
+static Eina_Debug_Error
+_obj_info_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
       void *buffer, int size)
 {
    if(_obj_info)
@@ -513,7 +512,6 @@ _debug_obj_info_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
 
    return EINA_TRUE;
 }
-#endif
 
 static void
 _objs_expand_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
@@ -860,6 +858,7 @@ static const Eina_Debug_Opcode ops[] =
      {"Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
      {"Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
      {"Evas/object/highlight",  &_obj_highlight_op,  NULL},
+     {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
      {NULL, NULL, NULL}
 };
 
