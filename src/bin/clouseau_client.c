@@ -31,12 +31,12 @@ static Evas_Object *
 _obj_info_tootip(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
       Evas_Object *tt, void *item   EINA_UNUSED);
 
-static int _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
-static int _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _cl_stat_reg_op = EINA_DEBUG_OPCODE_INVALID;
+static int _module_init_op = EINA_DEBUG_OPCODE_INVALID;
 static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _klids_get_op = EINA_DEBUG_OPCODE_INVALID;
-static int _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
-static int _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
+static int _obj_highlight_op = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
 static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
@@ -537,8 +537,10 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
 
    printf("Sending Eolian get request for Eo object[%lX]\n", info->obj);
    elm_genlist_clear(_main_widgets->object_infos_list);
-   eina_debug_session_send(_session, _selected_app, _obj_info_opcode, &(info->obj), sizeof(uint64_t));
-   eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id, _obj_highlight_opcode, &(info->obj), sizeof(uint64_t));
+   eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
+         _obj_highlight_op, &(info->obj), sizeof(uint64_t));
+   eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
+         _obj_info_op, &(info->obj), sizeof(uint64_t));
 }
 
 static void
@@ -654,7 +656,7 @@ _hoversel_selected_app(void *data,
    elm_genlist_clear(_main_widgets->object_infos_list);
    eina_hash_free_buckets(_objs_hash);
 
-   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eo", 3);
+   eina_debug_session_send(_session, _selected_app, _module_init_op, "eo", 3);
 }
 
 static Eina_Debug_Error
@@ -728,17 +730,17 @@ _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
 
    if (!_selected_profile->eo_init_done)
      {
-        eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eo", 3);
+        eina_debug_session_send(_session, _selected_app, _module_init_op, "eo", 3);
         return EINA_DEBUG_OK;
      }
    if (!_selected_profile->eolian_init_done)
      {
-        eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eolian", 7);
+        eina_debug_session_send(_session, _selected_app, _module_init_op, "eolian", 7);
         return EINA_DEBUG_OK;
      }
    if (!_selected_profile->evas_init_done)
      {
-        eina_debug_session_send(_session, _selected_app, _module_init_opcode, "evas", 5);
+        eina_debug_session_send(_session, _selected_app, _module_init_op, "evas", 5);
         return EINA_DEBUG_OK;
      }
    eina_debug_session_send(session, src, _klids_get_op, NULL, 0);
@@ -846,18 +848,18 @@ _post_register_handle(Eina_Bool flag)
 {
    if(!flag) return;
    eina_debug_session_dispatch_override(_session, _disp_cb);
-   eina_debug_session_send(_session, 0, _cl_stat_reg_opcode, NULL, 0);
+   eina_debug_session_send(_session, 0, _cl_stat_reg_op, NULL, 0);
 }
 
 static const Eina_Debug_Opcode ops[] =
 {
-     {"daemon/observer/client/register", &_cl_stat_reg_opcode, NULL},
+     {"daemon/observer/client/register", &_cl_stat_reg_op, NULL},
      {"daemon/observer/slave_added", NULL, _clients_info_added_cb},
      {"daemon/observer/slave_deleted", NULL, _clients_info_deleted_cb},
-     {"module/init",            &_module_init_opcode, &_module_initted_cb},
+     {"module/init",            &_module_init_op, &_module_initted_cb},
      {"Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
      {"Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
-     {"Evas/object/highlight",  &_obj_highlight_opcode,  NULL},
+     {"Evas/object/highlight",  &_obj_highlight_op,  NULL},
      {NULL, NULL, NULL}
 };
 
