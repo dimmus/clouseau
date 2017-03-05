@@ -39,7 +39,6 @@ static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_highlight_op = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
-static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
 
 #if 0
 typedef struct
@@ -68,23 +67,32 @@ typedef struct
 
 typedef enum
 {
-   CLOUSEAU_OBJ_CLASS = 0,
-   CLOUSEAU_OBJ_FUNC,
-   CLOUSEAU_OBJ_PARAM,
-   CLOUSEAU_OBJ_RET
-} Clouseau_Obj_Info_Type;
+   OBJ_CLASS = 0,
+   OBJ_FUNC,
+   OBJ_PARAM,
+   OBJ_RET
+} Obj_Info_Type;
 
 typedef struct
 {
-   Clouseau_Obj_Info_Type type;
+   Obj_Info_Type type;
    void *data;
 } _Obj_info_node;
 
 typedef enum
 {
-   CLOUSEAU_PROFILE_LOCAL = 1,
-   CLOUSEAU_PROFILE_SHELL_REMOTE
-} Clouseau_Profile_Type;
+   OFFLINE = 0,
+   LOCAL_CONNECTION,
+   REMOTE_CONNECTION,
+   LAST_CONNECTION
+} Connection_Type;
+
+static const char *_conn_strs[] =
+{
+   "Offline",
+   "Local",
+   "Remote"
+};
 
 typedef struct
 {
@@ -92,28 +100,25 @@ typedef struct
    const char *name;
    const char *command;
    const char *script;
-   Clouseau_Profile_Type type;
-   Elm_Object_Item *item;
-   Eina_Bool   eo_init_done;
-   Eina_Bool   eolian_init_done;
-   Eina_Bool   evas_init_done;
-} Clouseau_Profile;
+   /* Not eet */
+   Eo *menu_item;
+} Profile;
 
 typedef struct
 {
    int wdgs_show_type;
 } Config;
 
+static Connection_Type _conn_type = OFFLINE;
 static Eina_Debug_Session *_session = NULL;
 static int _selected_app = -1;
+
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Elm_Genlist_Item_Class *_obj_info_itc = NULL;
-static Elm_Genlist_Item_Class *_profiles_itc = NULL;
 static Eolian_Debug_Object_Information *_obj_info = NULL;
 
 static Eet_Data_Descriptor *_profile_edd = NULL, *_config_edd = NULL;
 static Eina_List *_profiles = NULL;
-static Clouseau_Profile *_selected_profile = NULL;
 static Config *_config = NULL;
 
 static Eina_Hash *_classes_hash_by_id = NULL, *_classes_hash_by_name = NULL;
@@ -121,6 +126,12 @@ static Eina_Hash *_classes_hash_by_id = NULL, *_classes_hash_by_name = NULL;
 static Eina_Hash *_objs_hash = NULL;
 static Eina_List *_objs_list_tree = NULL;
 
+static Eina_Bool _eo_init_done = EINA_FALSE;
+static Eina_Bool _eolian_init_done = EINA_FALSE;
+static Eina_Bool _evas_init_done = EINA_FALSE;
+
+static Eo *_menu_remote_item = NULL;
+static Profile *_selected_profile = NULL;
 static Eina_Bool
 _mkdir(const char *dir)
 {
@@ -171,33 +182,32 @@ _profile_eet_load()
    if (_profile_edd) return;
    Eet_Data_Descriptor_Class eddc;
 
-   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Clouseau_Profile);
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Profile);
    _profile_edd = eet_data_descriptor_stream_new(&eddc);
 
 #define CFG_ADD_BASIC(member, eet_type)\
    EET_DATA_DESCRIPTOR_ADD_BASIC\
-   (_profile_edd, Clouseau_Profile, # member, member, eet_type)
+   (_profile_edd, Profile, # member, member, eet_type)
 
    CFG_ADD_BASIC(name, EET_T_STRING);
    CFG_ADD_BASIC(command, EET_T_STRING);
    CFG_ADD_BASIC(script, EET_T_STRING);
-   CFG_ADD_BASIC(type, EET_T_INT);
 
 #undef CFG_ADD_BASIC
 }
 
-static Clouseau_Profile *
+static Profile *
 _profile_find(const char *name)
 {
    Eina_List *itr;
-   Clouseau_Profile *p;
+   Profile *p;
    EINA_LIST_FOREACH(_profiles, itr, p)
       if (p->name == name || !strcmp(p->name, name)) return p;
    return NULL;
 }
 
 static void
-_profile_save(const Clouseau_Profile *p)
+_profile_save(const Profile *p)
 {
    char path[1024];
    if (!p) return;
@@ -223,7 +233,7 @@ _configs_load()
      {
         sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), filename);
         Eet_File *file = eet_open(path, EET_FILE_MODE_READ);
-        Clouseau_Profile *p = eet_data_read(file, _profile_edd, _EET_ENTRY);
+        Profile *p = eet_data_read(file, _profile_edd, _EET_ENTRY);
         p->file_name = eina_stringshare_add(filename);
         eet_close(file);
         _profiles = eina_list_append(_profiles, p);
@@ -298,14 +308,14 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
    Elm_Object_Item *glit = event->info;
    _Obj_info_node *node = elm_object_item_data_get(glit);
    Eina_List *itr;
-   if(node->type == CLOUSEAU_OBJ_CLASS)
+   if(node->type == OBJ_CLASS)
      {
         Eolian_Debug_Class *kl = node->data;
         Eolian_Debug_Function *func;
         EINA_LIST_FOREACH(kl->functions, itr, func)
           {
              _Obj_info_node *node_itr = calloc(1, sizeof(*node_itr));
-             node_itr->type = CLOUSEAU_OBJ_FUNC;
+             node_itr->type = OBJ_FUNC;
              node_itr->data = func;
 
             Elm_Genlist_Item *glist =  elm_genlist_item_append(
@@ -466,11 +476,11 @@ _obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
 {
    _Obj_info_node *node = data;
 
-   if(node->type == CLOUSEAU_OBJ_CLASS)
+   if(node->type == OBJ_CLASS)
      {
         return strdup(eolian_class_full_name_get(((Eolian_Debug_Class *)(node->data))->ekl));
      }
-   else if(node->type == CLOUSEAU_OBJ_FUNC)
+   else if(node->type == OBJ_FUNC)
      {
         char buffer[_MAX_LABEL];
         _obj_info_params_to_string(node, buffer, EINA_FALSE);
@@ -499,7 +509,7 @@ _obj_info_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
         Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_TREE;
         _Obj_info_node *node = NULL;
         node = calloc(1, sizeof(*node));
-        node->type = CLOUSEAU_OBJ_CLASS;
+        node->type = OBJ_CLASS;
         node->data = kl;
 
         Elm_Object_Item  *glg = elm_genlist_item_append(
@@ -681,6 +691,15 @@ _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNU
    return EINA_DEBUG_OK;
 }
 
+static void
+_connection_reset()
+{
+   _selected_profile = NULL;
+   _eo_init_done = EINA_FALSE;
+   _eolian_init_done = EINA_FALSE;
+   _evas_init_done = EINA_FALSE;
+}
+
 static Eina_Debug_Error
 _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
@@ -703,12 +722,7 @@ _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_U
                }
           }
 
-        if (cid == _selected_app)
-          {
-             _selected_profile->eo_init_done = EINA_FALSE;
-             _selected_profile->eolian_init_done = EINA_FALSE;
-             _selected_profile->evas_init_done = EINA_FALSE;
-          }
+        if (cid == _selected_app) _connection_reset();
      }
    return EINA_DEBUG_OK;
 }
@@ -722,21 +736,21 @@ _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
      {
         printf("Error loading module %s in the target\n", (char *)buffer);
      }
-   if (!strcmp(buffer, "eo")) _selected_profile->eo_init_done = ret;
-   if (!strcmp(buffer, "eolian")) _selected_profile->eolian_init_done = ret;
-   if (!strcmp(buffer, "evas")) _selected_profile->evas_init_done = ret;
+   if (!strcmp(buffer, "eo")) _eo_init_done = ret;
+   if (!strcmp(buffer, "eolian")) _eolian_init_done = ret;
+   if (!strcmp(buffer, "evas")) _evas_init_done = ret;
 
-   if (!_selected_profile->eo_init_done)
+   if (!_eo_init_done)
      {
         eina_debug_session_send(_session, _selected_app, _module_init_op, "eo", 3);
         return EINA_DEBUG_OK;
      }
-   if (!_selected_profile->eolian_init_done)
+   if (!_eolian_init_done)
      {
         eina_debug_session_send(_session, _selected_app, _module_init_op, "eolian", 7);
         return EINA_DEBUG_OK;
      }
-   if (!_selected_profile->evas_init_done)
+   if (!_evas_init_done)
      {
         eina_debug_session_send(_session, _selected_app, _module_init_op, "evas", 5);
         return EINA_DEBUG_OK;
@@ -861,15 +875,6 @@ static const Eina_Debug_Opcode ops[] =
      {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
      {NULL, NULL, NULL}
 };
-
-static void
-_profile_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   Elm_Object_Item *glit = event_info;
-   _selected_profile = glit ? elm_object_item_data_get(glit) : NULL;
-   elm_object_disabled_set(_profiles_wdgs->profile_ok_button, !_selected_profile);
-   elm_object_disabled_set(_profiles_wdgs->profile_delete_button, !_selected_profile);
-}
 
 #if 0
 static Eina_List *
@@ -1068,6 +1073,25 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
    _main_widgets = gui_gui_get()->main_win;
 
+   for (i = 0; i < LAST_CONNECTION; i++)
+     {
+        if (i == REMOTE_CONNECTION)
+          {
+             _menu_remote_item = elm_menu_item_add(_main_widgets->conn_selector_menu,
+                   NULL, NULL, _conn_strs[i], NULL, NULL);
+             elm_menu_item_add(_main_widgets->conn_selector_menu,
+                   _menu_remote_item, NULL, "New profile...",
+                   _profile_new_clicked, NULL);
+          }
+        else
+          {
+             elm_menu_item_add(_main_widgets->conn_selector_menu,
+                   NULL, NULL, _conn_strs[i],
+                   _menu_selected_conn, (void *)(uintptr_t)i);
+          }
+     }
+   _connection_type_change(conn_type);
+
    //Init objects Genlist
    if (!_objs_itc)
      {
@@ -1097,17 +1121,6 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL);
    efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL);
    efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_CONTRACTED, _obj_info_contracted_cb, NULL);
-
-   if (1) /* if a profile is not given as parameter, we show the profiles window */
-     {
-        _profiles_wdgs = gui_profiles_win_create(_main_widgets->main_win);
-        elm_win_modal_set(_profiles_wdgs->profiles_win, EINA_TRUE);
-        Eina_List *itr;
-        Clouseau_Profile *p;
-        EINA_LIST_FOREACH(_profiles, itr, p)
-           p->item = elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
-                 NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
-     }
 
    elm_run();
 
