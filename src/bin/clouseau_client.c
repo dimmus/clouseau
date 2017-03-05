@@ -7,6 +7,8 @@
 #ifndef ELM_INTERNAL_API_ARGESFSDFEFC
 #define ELM_INTERNAL_API_ARGESFSDFEFC
 #endif
+#include <getopt.h>
+
 #include <Efreet.h>
 #include <Elementary.h>
 #include <Evas.h>
@@ -901,167 +903,179 @@ _parse_script(const char *script)
 }
 #endif
 
-static void
-_profile_load()
+Eina_Bool
+_new_profile_save_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
-   switch (_selected_profile->type)
+   Gui_New_Profile_Win_Widgets *wdgs = NULL;
+   Profile *p = NULL;
+   Eo *save_bt = event->object;
+   wdgs = efl_key_data_get(save_bt, "_wdgs");
+   const char *name = elm_object_text_get(wdgs->new_profile_name);
+   const char *cmd = elm_object_text_get(wdgs->new_profile_command);
+   const char *script = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->new_profile_script));
+   if (!name || !*name) return EINA_TRUE;
+   if (!cmd || !*cmd) return EINA_TRUE;
+   p = calloc(1, sizeof(*p));
+   p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
+   p->name = eina_stringshare_add(name);
+   p->command = eina_stringshare_add(cmd);
+   p->script = eina_stringshare_add(script);
+   _profile_save(p);
+   efl_del(wdgs->new_profile_win);
+   return EINA_TRUE;
+}
+
+void
+gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs)
+{
+   efl_key_data_set(wdgs->new_profile_save_button, "_wdgs", wdgs);
+   efl_key_data_set(wdgs->new_profile_cancel_button, "_wdgs", wdgs);
+}
+
+static void
+_connection_type_change(Connection_Type conn_type)
+{
+   /* FIXME disconnection if connected */
+   if (_session) eina_debug_session_terminate(_session);
+   _session = NULL;
+   _connection_reset();
+   elm_hoversel_clear(_main_widgets->apps_selector);
+   switch (conn_type)
      {
-      case CLOUSEAU_PROFILE_LOCAL:
-         if (!(_session = eina_debug_local_connect(EINA_TRUE)))
+      case OFFLINE: break;
+      case LOCAL_CONNECTION:
            {
-              fprintf(stderr, "ERROR: Cannot connect to debug daemon.\n");
-              elm_exit();
+              _session = eina_debug_local_connect(EINA_TRUE);
+              break;
            }
-         break;
-      case CLOUSEAU_PROFILE_SHELL_REMOTE:
+      case REMOTE_CONNECTION:
+           {
 #if 0
          eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
          Eina_List *script_lines = _parse_script(_selected_profile->script);
          if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, script_lines))
            {
               fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
-              elm_exit();
            }
 #endif
-         break;
-      default:
-           {
-              printf("Profile type %d not supported\n", _selected_profile->type);
-              elm_exit();
+              break;
            }
+      default: return;
      }
-
-   eina_debug_opcodes_register(_session, ops, _post_register_handle);
-}
-
-static void _profile_type_selected_cb(void *data, Evas_Object *obj, void *event_info)
-{
-   Gui_New_Profile_Win_Widgets *wdgs = NULL;
-   wdgs = efl_key_data_get(obj, "_wdgs");
-   elm_object_text_set(obj, elm_object_item_text_get(event_info));
-   Clouseau_Profile_Type type = (Clouseau_Profile_Type) data;
-   if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
-     {
-        elm_object_disabled_set(wdgs->new_profile_command, EINA_FALSE);
-        elm_object_disabled_set(wdgs->new_profile_script, EINA_FALSE);
-     }
-   else
-     {
-        elm_object_text_set(wdgs->new_profile_command, NULL);
-        elm_object_text_set(wdgs->new_profile_script, NULL);
-        elm_object_disabled_set(wdgs->new_profile_command, EINA_TRUE);
-        elm_object_disabled_set(wdgs->new_profile_script, EINA_TRUE);
-     }
-   efl_key_data_set(wdgs->new_profile_type_selector, "_current_type", data);
-}
-
-Eina_Bool
-_new_profile_save_cb(void *data, Eo *save_bt, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Gui_New_Profile_Win_Widgets *wdgs = NULL;
-   Clouseau_Profile *p = NULL;
-   wdgs = efl_key_data_get(save_bt, "_wdgs");
-   data = NULL;
-   data = efl_key_data_get(wdgs->new_profile_type_selector, "_current_type");
-   if (!data) return EINA_TRUE; /* No type selected yet -> nothing done */
-   Clouseau_Profile_Type type = (Clouseau_Profile_Type) data;
-   const char *name = elm_object_text_get(wdgs->new_profile_name);
-   const char *cmd = elm_object_text_get(wdgs->new_profile_command);
-   const char *script = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->new_profile_script));
-   if (!name || !*name) return EINA_TRUE;
-   if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
-     {
-        if (!cmd || !*cmd) return EINA_TRUE;
-     }
-   p = calloc(1, sizeof(*p));
-   p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
-   p->name = eina_stringshare_add(name);
-   p->type = type;
-   p->command = eina_stringshare_add(cmd);
-   p->script = eina_stringshare_add(script);
-   _profile_save(p);
-   efl_del(wdgs->new_profile_win);
-   p->item = elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
-         NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
-   return EINA_TRUE;
-}
-
-void
-gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs)
-   {
-      efl_key_data_set(wdgs->new_profile_type_selector, "_wdgs", wdgs);
-      elm_hoversel_hover_parent_set(wdgs->new_profile_type_selector, wdgs->new_profile_win);
-      elm_hoversel_item_add(wdgs->new_profile_type_selector, "Local connection", NULL, ELM_ICON_NONE, _profile_type_selected_cb, (void *)CLOUSEAU_PROFILE_LOCAL);
-      elm_hoversel_item_add(wdgs->new_profile_type_selector, "Shell remote", NULL, ELM_ICON_NONE, _profile_type_selected_cb, (void *)CLOUSEAU_PROFILE_SHELL_REMOTE);
-
-      efl_key_data_set(wdgs->new_profile_save_button, "_wdgs", wdgs);
-      efl_key_data_set(wdgs->new_profile_cancel_button, "_wdgs", wdgs);
-}
-
-static char *_profile_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
-      const char *part EINA_UNUSED)
-{
-   Clouseau_Profile *p = data;
-   return strdup(p->name);
-}
-
-Eina_Bool
-_profile_win_close_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   efl_del(_profiles_wdgs->profiles_win);
-   _profiles_wdgs = NULL;
-   _profile_load();
-   return EINA_TRUE;
+   if (_session) eina_debug_opcodes_register(_session, ops, _post_register_handle);
+   elm_object_text_set(_main_widgets->conn_selector, _conn_strs[conn_type]);
+   _conn_type = conn_type;
 }
 
 static void
-_profile_item_del(void *data, Evas_Object *obj EINA_UNUSED)
+_menu_selected_conn(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   Clouseau_Profile *p = data;
-   p->item = NULL;
+   _connection_type_change((uintptr_t)data);
 }
 
-Eina_Bool
-_profile_del_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
+static void
+_menu_profile_selected(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   if (_selected_profile)
+   _selected_profile = data;
+   _connection_type_change(REMOTE_CONNECTION);
+}
+
+void
+conn_menu_show(void *data EINA_UNUSED, const Efl_Event *event EINA_UNUSED)
+{
+   Eina_List *itr;
+   Profile *p;
+   int x = 0, y = 0, h = 0;
+   efl_gfx_position_get(_main_widgets->conn_selector, &x, &y);
+   efl_gfx_size_get(_main_widgets->conn_selector, NULL, &h);
+   elm_menu_move(_main_widgets->conn_selector_menu, x, y + h);
+   efl_gfx_visible_set(_main_widgets->conn_selector_menu, EINA_TRUE);
+
+   EINA_LIST_FOREACH(_profiles, itr, p)
      {
-        char path[1024];
-        sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), _selected_profile->file_name);
-        remove(path);
-        elm_object_item_del(_selected_profile->item);
-        _profiles = eina_list_remove(_profiles, _selected_profile);
-        eina_stringshare_del(_selected_profile->file_name);
-        eina_stringshare_del(_selected_profile->name);
-        free(_selected_profile);
-        _selected_profile = NULL;
+        if (p->menu_item) continue;
+        p->menu_item = elm_menu_item_add(_main_widgets->conn_selector_menu,
+              _menu_remote_item, NULL, p->name,
+              _menu_profile_selected, p);
+        efl_wref_add(p->menu_item, &p->menu_item);
      }
-   _profile_sel_cb(NULL, NULL, NULL);
-   return EINA_TRUE;
+}
+
+static void
+_profile_new_clicked(void *data EINA_UNUSED,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Gui_New_Profile_Win_Widgets *wdgs = gui_new_profile_win_create(NULL);
+   gui_new_profile_win_create_done(wdgs);
 }
 
 EAPI_MAIN int
 elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 {
+   Connection_Type conn_type = OFFLINE;
+   char *offline_filename = NULL;
+   int i, long_index = 0, opt;
+   Eina_Bool help = EINA_FALSE;
+
    eina_init();
    eolian_init();
 
    _configs_load();
-   if (!_profile_find("Local connection"))
-     {
-        Clouseau_Profile *p = calloc(1, sizeof(*p));
-        p->file_name = "local";
-        p->name = eina_stringshare_add("Local connection");
-        p->type = CLOUSEAU_PROFILE_LOCAL;
-        _profile_save(p);
-     }
 
-   if (!_profiles_itc)
+   static struct option long_options[] =
      {
-        _profiles_itc = elm_genlist_item_class_new();
-        _profiles_itc->item_style = "default";
-        _profiles_itc->func.text_get = _profile_item_label_get;
-        _profiles_itc->func.del = _profile_item_del;
+        /* These options set a flag. */
+          {"help",      no_argument,        0, 'h'},
+          {"local",     no_argument,        0, 'l'},
+          {"remote",    required_argument,  0, 'r'},
+          {"file",      required_argument,  0, 'f'},
+          {0, 0, 0, 0}
+     };
+   while ((opt = getopt_long(argc, argv,"hlr:f:", long_options, &long_index )) != -1)
+     {
+        if (conn_type != OFFLINE || offline_filename)
+          {
+             printf("You cannot use more than one option at a time\n");
+             help = EINA_TRUE;
+          }
+        switch (opt) {
+           case 0: break;
+           case 'l':
+                   {
+                      conn_type = LOCAL_CONNECTION;
+                      break;
+                   }
+           case 'r':
+                   {
+                      conn_type = REMOTE_CONNECTION;
+                      _selected_profile = _profile_find(optarg);
+                      if (!_selected_profile)
+                        {
+                           printf("Profile %s not found\n", optarg);
+                           help = EINA_TRUE;
+                        }
+                      break;
+                   }
+           case 'f':
+                   {
+                      conn_type = OFFLINE;
+                      offline_filename = strdup(optarg);
+                      break;
+                   }
+           case 'h': help = EINA_TRUE; break;
+           default: help = EINA_TRUE;
+        }
+     }
+   if (help)
+     {
+        printf("Usage: %s [-h/--help] [-v/--verbose] [options]\n", argv[0]);
+        printf("       --help/-h Print that help\n");
+        printf("       --local/-l Create a local connection\n");
+        printf("       --remote/-r Create a remote connection by using the given profile name\n");
+        printf("       --file/-f Run in offline mode and load the given file\n");
+        return 0;
      }
 
    _classes_hash_by_id = eina_hash_pointer_new(NULL);
