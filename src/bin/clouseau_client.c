@@ -648,11 +648,8 @@ _objs_tree_free(Eina_List *parents)
 }
 
 static void
-_hoversel_selected_app(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+_app_objs_clean()
 {
-   _selected_app = (int)(long)data;
-
    if (_objs_list_tree)
      {
         _objs_tree_free(_objs_list_tree);
@@ -664,7 +661,14 @@ _hoversel_selected_app(void *data,
    elm_genlist_clear(_main_widgets->objects_list);
    elm_genlist_clear(_main_widgets->object_infos_list);
    eina_hash_free_buckets(_objs_hash);
+}
 
+static void
+_hoversel_selected_app(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   _selected_app = (int)(long)data;
+   _app_objs_clean();
    eina_debug_session_send(_session, _selected_app, _module_init_op, "eo", 3);
 }
 
@@ -937,6 +941,7 @@ _connection_type_change(Connection_Type conn_type)
    if (_session) eina_debug_session_terminate(_session);
    _session = NULL;
    _connection_reset();
+   _app_objs_clean();
    elm_hoversel_clear(_main_widgets->apps_selector);
    switch (conn_type)
      {
@@ -990,6 +995,27 @@ _menu_profile_selected(void *data,
 {
    _selected_profile = data;
    _connection_type_change(REMOTE_CONNECTION);
+}
+
+void
+load_perform(void *data EINA_UNUSED, const Efl_Event *event EINA_UNUSED)
+{
+   switch (_conn_type)
+     {
+      case OFFLINE:
+           {
+              /* FIXME open file selector */
+              break;
+           }
+      case LOCAL_CONNECTION:
+      case REMOTE_CONNECTION:
+           {
+              _app_objs_clean();
+              eina_debug_session_send(_session, _selected_app, _klids_get_op, NULL, 0);
+              break;
+           }
+      default: break;
+     }
 }
 
 void

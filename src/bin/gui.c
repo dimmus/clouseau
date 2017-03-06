@@ -34,6 +34,8 @@ extern void
 config_ok_button_clicked(void *data, const Efl_Event *event);
 extern void
 conn_menu_show(void *data, const Efl_Event *event);
+extern void
+load_perform(void *data, const Efl_Event *event);
 
 static void
 _config_open(void *data, const Efl_Event *event);
@@ -109,6 +111,7 @@ gui_main_win_create(Eo *__main_parent)
    evas_object_size_hint_align_set(load_button, -1.000000, -1.000000);
    efl_gfx_visible_set(load_button, EINA_TRUE);
    elm_box_pack_end(bar_box, load_button);
+   efl_event_callback_add(load_button, EFL_UI_EVENT_CLICKED, load_perform, NULL);
 
    apps_selector = elm_hoversel_add(main_win);
    pub_widgets->apps_selector = apps_selector;
