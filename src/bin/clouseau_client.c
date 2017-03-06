@@ -545,7 +545,6 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
    Elm_Object_Item *glit = event_info;
    Obj_Info *info = elm_object_item_data_get(glit);
 
-   printf("Sending Eolian get request for Eo object[%lX]\n", info->obj);
    elm_genlist_clear(_main_widgets->object_infos_list);
    eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
          _obj_highlight_op, &(info->obj), sizeof(uint64_t));
@@ -769,7 +768,6 @@ _klid_walk(void *data EINA_UNUSED, uint64_t kl, char *name)
    info->name = eina_stringshare_add(name);
    eina_hash_add(_classes_hash_by_id, &(info->id), info);
    eina_hash_add(_classes_hash_by_name, info->name, info);
-   printf("ZZZ %s\n", name);
 }
 
 static Eina_Debug_Error
