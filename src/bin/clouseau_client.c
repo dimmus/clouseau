@@ -109,6 +109,7 @@ typedef struct
 typedef struct
 {
    int wdgs_show_type;
+   Eina_Bool highlight;
 } Config;
 
 static Connection_Type _conn_type = OFFLINE;
@@ -163,6 +164,7 @@ _config_eet_load()
    (_config_edd, Config, # member, member, eet_type)
 
    CFG_ADD_BASIC(wdgs_show_type, EET_T_INT);
+   CFG_ADD_BASIC(highlight, EET_T_INT);
 
 #undef CFG_ADD_BASIC
 }
@@ -247,6 +249,7 @@ _configs_load()
      {
         _config = calloc(1, sizeof(Config));
         _config->wdgs_show_type = 0;
+        _config->highlight = EINA_TRUE;
         _config_save();
      }
    else
@@ -546,8 +549,11 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_i
    Obj_Info *info = elm_object_item_data_get(glit);
 
    elm_genlist_clear(_main_widgets->object_infos_list);
-   eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
-         _obj_highlight_op, &(info->obj), sizeof(uint64_t));
+   if (_config->highlight)
+     {
+        eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
+              _obj_highlight_op, &(info->obj), sizeof(uint64_t));
+     }
    eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
          _obj_info_op, &(info->obj), sizeof(uint64_t));
 }
@@ -607,6 +613,7 @@ gui_config_win_widgets_done(Gui_Config_Win_Widgets *wdgs)
    elm_win_modal_set(wdgs->win, EINA_TRUE);
    elm_object_text_set(wdgs->objs_types_sel, objs_types_strings[_config->wdgs_show_type]);
    efl_event_callback_add(wdgs->objs_types_sel, EFL_UI_EVENT_SELECTED, _config_objs_type_sel_selected, NULL);
+   elm_check_state_set(wdgs->highlight_ck, _config->highlight);
 }
 
 void
@@ -618,6 +625,7 @@ config_ok_button_clicked(void *data, const Efl_Event *event EINA_UNUSED)
      {
         _config->wdgs_show_type = (uintptr_t)elm_object_item_data_get(item);
      }
+   _config->highlight = elm_check_state_get(wdgs->highlight_ck);
    _config_save();
    efl_del(wdgs->win);
 }

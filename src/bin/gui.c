@@ -363,6 +363,7 @@ gui_config_win_create(Eo *__main_parent)
    Eo *ok_button;
    Eo *cancel_button;
    Eo *objs_types_sel;
+   Eo *highlight_ck;
 
    win = elm_win_add(__main_parent, "Win", ELM_WIN_BASIC);
    pub_widgets->win = win;
@@ -413,6 +414,8 @@ gui_config_win_create(Eo *__main_parent)
    evas_object_size_hint_weight_set(options_box, 1.000000, 0.200000);
 
    objs_types_sel = elm_hoversel_add(options_box);
+   evas_object_size_hint_weight_set(objs_types_sel, 1.000000, 0.000000);
+   evas_object_size_hint_align_set(objs_types_sel, -1.00000, -1.000000);
    elm_hoversel_hover_parent_set(objs_types_sel, win);
    elm_hoversel_auto_update_set(objs_types_sel, EINA_TRUE);
    elm_hoversel_item_add(objs_types_sel, objs_types_strings[0], NULL, ELM_ICON_NONE, NULL, (void *)0);
@@ -420,6 +423,14 @@ gui_config_win_create(Eo *__main_parent)
    efl_gfx_visible_set(objs_types_sel, EINA_TRUE);
    elm_box_pack_end(options_box, objs_types_sel);
    pub_widgets->objs_types_sel = objs_types_sel;
+
+   highlight_ck = elm_check_add(options_box);
+   pub_widgets->highlight_ck = highlight_ck;
+   evas_object_size_hint_weight_set(highlight_ck, 1.000000, 1.000000);
+   evas_object_size_hint_align_set(highlight_ck, -1.00000, -1.000000);
+   elm_object_text_set(highlight_ck, "Highlight");
+   elm_box_pack_end(options_box, highlight_ck);
+   efl_gfx_visible_set(highlight_ck, EINA_TRUE);
 
    elm_box_pack_end(elm_box2, options_box);
    elm_box_pack_end(elm_box2, elm_box3);

@@ -38,6 +38,7 @@ typedef struct
    Eo *ok_button;
    Eo *cancel_button;
    Eo *objs_types_sel;
+   Eo *highlight_ck;
 } Gui_Config_Win_Widgets;
 
 typedef struct
