@@ -12,9 +12,12 @@ static const char* objs_types_strings[] =
 typedef struct
 {
    Eo *main_win;
+   Eo *bar_box;
    Eo *conn_selector;
    Eo *conn_selector_menu;
+   Eo *load_button;
    Eo *apps_selector;
+   Eo *save_bt;
    Eo *object_infos_list;
    Eo *objects_list;
 } Gui_Main_Win_Widgets;

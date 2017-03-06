@@ -942,14 +942,26 @@ _connection_type_change(Connection_Type conn_type)
    elm_hoversel_clear(_main_widgets->apps_selector);
    switch (conn_type)
      {
-      case OFFLINE: break;
+      case OFFLINE:
+           {
+              efl_gfx_visible_set(_main_widgets->save_bt, EINA_FALSE);
+              elm_box_unpack(_main_widgets->bar_box, _main_widgets->save_bt);
+              elm_object_text_set(_main_widgets->load_button, "Load file...");
+              break;
+           }
       case LOCAL_CONNECTION:
            {
+              efl_gfx_visible_set(_main_widgets->save_bt, EINA_TRUE);
+              elm_box_pack_end(_main_widgets->bar_box, _main_widgets->save_bt);
+              elm_object_text_set(_main_widgets->load_button, "Reload");
               _session = eina_debug_local_connect(EINA_TRUE);
               break;
            }
       case REMOTE_CONNECTION:
            {
+              efl_gfx_visible_set(_main_widgets->save_bt, EINA_TRUE);
+              elm_box_pack_end(_main_widgets->bar_box, _main_widgets->save_bt);
+              elm_object_text_set(_main_widgets->load_button, "Reload");
 #if 0
          eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
          Eina_List *script_lines = _parse_script(_selected_profile->script);

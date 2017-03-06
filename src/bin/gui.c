@@ -55,8 +55,12 @@ gui_main_win_create(Eo *__main_parent)
    Eo *bar_box;
    Eo *conn_selector;
    Eo *conn_selector_menu;
+   Eo *load_button;
    Eo *apps_selector;
-   Eo *config_bt;
+   Eo *jump_to_entry;
+   Eo *extensions_bt;
+   Eo *settings_bt;
+   Eo *save_bt;
    Eo *elm_panes1;
    Eo *object_infos_list;
    Eo *objects_list;
@@ -82,15 +86,16 @@ gui_main_win_create(Eo *__main_parent)
    elm_win_resize_object_add(main_win, elm_box1);
 
    bar_box = elm_box_add(main_win);
+   pub_widgets->bar_box = bar_box;
    elm_box_horizontal_set(bar_box, EINA_TRUE);
    evas_object_size_hint_weight_set(bar_box, 1.000000, 0.000000);
-   evas_object_size_hint_align_set(bar_box, 0.500000, 0.000000);
+   evas_object_size_hint_align_set(bar_box, -1.00000, -1.000000);
    efl_gfx_visible_set(bar_box, EINA_TRUE);
 
-   conn_selector = elm_button_add(elm_box1);
+   conn_selector = elm_button_add(bar_box);
    pub_widgets->conn_selector = conn_selector;
-   evas_object_size_hint_weight_set(conn_selector, 1.000000, 0.000000);
-   evas_object_size_hint_align_set(conn_selector, 0.500000, 0.000000);
+   evas_object_size_hint_weight_set(conn_selector, 1.000000, 1.000000);
+   evas_object_size_hint_align_set(conn_selector, -1.000000, -1.000000);
    efl_gfx_visible_set(conn_selector, EINA_TRUE);
    elm_box_pack_end(bar_box, conn_selector);
    efl_event_callback_add(conn_selector, EFL_UI_EVENT_CLICKED, conn_menu_show, NULL);
@@ -98,21 +103,52 @@ gui_main_win_create(Eo *__main_parent)
    conn_selector_menu = elm_menu_add(main_win);
    pub_widgets->conn_selector_menu = conn_selector_menu;
 
-   apps_selector = elm_hoversel_add(elm_box1);
+   load_button = elm_button_add(bar_box);
+   pub_widgets->load_button = load_button;
+   evas_object_size_hint_weight_set(load_button, 1.000000, 1.000000);
+   evas_object_size_hint_align_set(load_button, -1.000000, -1.000000);
+   efl_gfx_visible_set(load_button, EINA_TRUE);
+   elm_box_pack_end(bar_box, load_button);
+
+   apps_selector = elm_hoversel_add(main_win);
    pub_widgets->apps_selector = apps_selector;
-   evas_object_size_hint_weight_set(apps_selector, 1.000000, 0.000000);
-   evas_object_size_hint_align_set(apps_selector, 0.500000, 0.000000);
+   evas_object_size_hint_weight_set(apps_selector, 1.000000, 1.000000);
+   evas_object_size_hint_align_set(apps_selector, -1.00000, -1.000000);
    efl_gfx_visible_set(apps_selector, EINA_TRUE);
    elm_obj_widget_part_text_set(apps_selector, NULL, "Select App");
    elm_box_pack_end(bar_box, apps_selector);
 
-   config_bt = elm_button_add(elm_box1);
-   evas_object_size_hint_weight_set(config_bt, 1.000000, 0.000000);
-   evas_object_size_hint_align_set(config_bt, 0.500000, 0.000000);
-   efl_gfx_visible_set(config_bt, EINA_TRUE);
-   elm_obj_widget_part_text_set(config_bt, NULL, "Config.");
-   elm_box_pack_end(bar_box, config_bt);
-   efl_event_callback_add(config_bt, EFL_UI_EVENT_CLICKED, _config_open, main_win);
+   jump_to_entry = elm_entry_add(bar_box);
+   elm_entry_scrollable_set(jump_to_entry, EINA_TRUE);
+   elm_entry_single_line_set(jump_to_entry, EINA_TRUE);
+   elm_object_part_text_set(jump_to_entry, "guide", "Jump To Pointer");
+   evas_object_size_hint_align_set(jump_to_entry,
+                                   EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_size_hint_weight_set(jump_to_entry,
+                                    EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   elm_box_pack_end(bar_box, jump_to_entry);
+   evas_object_show(jump_to_entry);
+
+   extensions_bt = elm_button_add(bar_box);
+   evas_object_size_hint_weight_set(extensions_bt, 1.000000, 1.000000);
+   evas_object_size_hint_align_set(extensions_bt, -1.00000, -1.000000);
+   efl_gfx_visible_set(extensions_bt, EINA_TRUE);
+   elm_obj_widget_part_text_set(extensions_bt, NULL, "Extensions");
+   elm_box_pack_end(bar_box, extensions_bt);
+
+   settings_bt = elm_button_add(bar_box);
+   evas_object_size_hint_weight_set(settings_bt, 1.000000, 1.000000);
+   evas_object_size_hint_align_set(settings_bt, -1.00000, -1.000000);
+   efl_gfx_visible_set(settings_bt, EINA_TRUE);
+   elm_obj_widget_part_text_set(settings_bt, NULL, "Settings");
+   elm_box_pack_end(bar_box, settings_bt);
+   efl_event_callback_add(settings_bt, EFL_UI_EVENT_CLICKED, _config_open, main_win);
+
+   save_bt = elm_button_add(bar_box);
+   pub_widgets->save_bt = save_bt;
+   evas_object_size_hint_weight_set(save_bt, 1.000000, 1.000000);
+   evas_object_size_hint_align_set(save_bt, -1.00000, -1.000000);
+   elm_obj_widget_part_text_set(save_bt, NULL, "Save");
 
    elm_panes1 = efl_add(ELM_PANES_CLASS, elm_box1);
    elm_obj_panes_content_right_size_set(elm_panes1, 0.600000);
