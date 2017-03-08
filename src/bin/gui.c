@@ -36,6 +36,8 @@ extern void
 conn_menu_show(void *data, const Efl_Event *event);
 extern void
 load_perform(void *data, const Efl_Event *event);
+extern void
+jump_entry_changed(void *data, const Efl_Event *event);
 
 static void
 _config_open(void *data, const Efl_Event *event);
@@ -126,11 +128,12 @@ gui_main_win_create(Eo *__main_parent)
    elm_entry_single_line_set(jump_to_entry, EINA_TRUE);
    elm_object_part_text_set(jump_to_entry, "guide", "Jump To Pointer");
    evas_object_size_hint_align_set(jump_to_entry,
-                                   EVAS_HINT_FILL, EVAS_HINT_FILL);
+         EVAS_HINT_FILL, EVAS_HINT_FILL);
    evas_object_size_hint_weight_set(jump_to_entry,
-                                    EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    elm_box_pack_end(bar_box, jump_to_entry);
    evas_object_show(jump_to_entry);
+   efl_event_callback_add(jump_to_entry, ELM_ENTRY_EVENT_ACTIVATED, jump_entry_changed, NULL);
 
    extensions_bt = elm_button_add(bar_box);
    evas_object_size_hint_weight_set(extensions_bt, 1.000000, 1.000000);

@@ -566,11 +566,12 @@ _objs_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
    Obj_Info *info = elm_object_item_data_get(glit), *it_data;
    EINA_LIST_FOREACH(info->children, itr, it_data)
      {
-        Elm_Object_Item *nitem = elm_genlist_item_append(event->object, _objs_itc,
+        it_data->glitem = elm_genlist_item_append(event->object, _objs_itc,
               it_data, glit,
               it_data->children ? ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE,
               _objs_sel_cb, NULL);
-        elm_genlist_item_expanded_set(nitem, EINA_FALSE);
+        elm_genlist_item_expanded_set(it_data->glitem, EINA_FALSE);
+        efl_wref_add(it_data->glitem, &(it_data->glitem));
      }
 }
 
@@ -846,6 +847,7 @@ _eoids_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *b
                    _main_widgets->objects_list, _objs_itc, info, NULL,
                    info->children ? ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE,
                    _objs_sel_cb, NULL);
+             efl_wref_add(info->glitem, &(info->glitem));
              if (info->children)
                 elm_genlist_item_expanded_set(info->glitem, EINA_FALSE);
           }
@@ -1003,6 +1005,45 @@ _menu_profile_selected(void *data,
 {
    _selected_profile = data;
    _connection_type_change(REMOTE_CONNECTION);
+}
+
+static void
+_item_realize(Obj_Info *info)
+{
+   if (info->parent)
+      {
+         Obj_Info *pinfo =  eina_hash_find(_objs_hash, &(info->parent));
+         if (pinfo && !pinfo->glitem) _item_realize(pinfo);
+         elm_genlist_item_expanded_set(pinfo->glitem, EINA_TRUE);
+      }
+}
+
+void
+jump_entry_changed(void *data EINA_UNUSED, const Efl_Event *event)
+{
+   Eo *en = event->object;
+   const char *ptr = elm_entry_entry_get(en);
+   uint64_t id = 0;
+   Eina_Bool err = EINA_FALSE;
+   printf("Ptr %s\n", ptr);
+   while (*ptr && !err)
+     {
+        char c = *ptr;
+        id <<= 4;
+        if (c >= '0' && c <= '9') id |= (*ptr - '0');
+        else if (c >= 'a' && c <= 'f') id |= (*ptr - 'a' + 0xA);
+        else if (c >= 'A' && c <= 'F') id |= (*ptr - 'A' + 0xA);
+        else err = EINA_TRUE;
+        ptr++;
+     }
+   if (!err)
+     {
+        Obj_Info *info =  eina_hash_find(_objs_hash, &id);
+        if (!info) return;
+        if (!info->glitem) _item_realize(info);
+        elm_genlist_item_show(info->glitem, ELM_GENLIST_ITEM_SCROLLTO_MIDDLE);
+        elm_genlist_item_selected_set(info->glitem, EINA_TRUE);
+     }
 }
 
 void
