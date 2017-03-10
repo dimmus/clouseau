@@ -18,8 +18,7 @@
 
 #include <Eolian_Debug.h>
 #include <Eo_Debug.h>
-
-#define SHOW_SCREENSHOT     "/images/show-screenshot.png"
+#include <Evas_Debug.h>
 
 #define EXTRACT(_buf, pval, sz) \
 { \
@@ -39,6 +38,7 @@ static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _klids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_highlight_op = EINA_DEBUG_OPCODE_INVALID;
+static int _win_screenshot_op = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
 
@@ -64,7 +64,9 @@ typedef struct
    uint64_t kl_id;
    int thread_id;
    Eina_List *children;
+   Eina_List *screenshots;
    Eo *glitem;
+   Eo *screenshots_menu;
 } Obj_Info;
 
 typedef enum
@@ -593,13 +595,90 @@ _objs_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
    return strdup(buf);
 }
 
-Eina_Bool
-screenshot_req_cb(void *data EINA_UNUSED, Eo *obj, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
+static Eina_Debug_Error
+_win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
+      void *buffer, int size)
 {
-   Obj_Info *info = efl_key_data_get(obj, "__info_node");
+   Evas_Debug_Screenshot *s = NULL;
+   uint64_t id;
+   s = evas_debug_screenshot_decode(buffer, size, &id);
+   if (!s) return EINA_DEBUG_ERROR;
+   Obj_Info *info =  eina_hash_find(_objs_hash, &id);
+   if (!info) return EINA_DEBUG_OK;
+   info->screenshots = eina_list_append(info->screenshots, s);
+   if (info->glitem) elm_genlist_item_update(info->glitem);
+   return EINA_DEBUG_OK;
+}
 
-   printf("show screenshot of obj %lX\n", info->obj);
-   return EINA_TRUE;
+void
+take_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
+{
+   Obj_Info *info = efl_key_data_get(event->object, "__info_node");
+
+   eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
+         _win_screenshot_op, &(info->obj), sizeof(uint64_t));
+}
+
+static void
+_screenshot_display(Evas_Debug_Screenshot *s)
+{
+   Gui_Show_Screenshot_Win_Widgets *wdgs = gui_show_screenshot_win_create(NULL);
+
+   Eo *img = evas_object_image_filled_add(evas_object_evas_get(wdgs->win));
+
+   evas_object_size_hint_min_set(img, s->w, s->h);
+   elm_object_content_set(wdgs->bg, img);
+
+   evas_object_image_colorspace_set(img, EVAS_COLORSPACE_ARGB8888);
+   evas_object_image_alpha_set(img, EINA_FALSE);
+   evas_object_image_size_set(img, s->w, s->h);
+   evas_object_image_data_copy_set(img, s->img);
+   evas_object_image_data_update_add(img, 0, 0, s->w, s->h);
+   evas_object_show(img);
+
+   evas_object_resize(wdgs->win, s->w, s->h);
+}
+
+static void
+_menu_screenshot_selected(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   _screenshot_display(data);
+}
+
+void
+show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
+{
+   Obj_Info *info = efl_key_data_get(event->object, "__info_node");
+   if (eina_list_count(info->screenshots) == 1)
+     {
+        _screenshot_display(eina_list_data_get(info->screenshots));
+     }
+   else
+     {
+        Eina_List *itr;
+        Evas_Debug_Screenshot *s;
+        int x = 0, y = 0, h = 0;
+        if (!info->screenshots_menu)
+          {
+             info->screenshots_menu = elm_menu_add(_main_widgets->main_win);
+             efl_wref_add(info->screenshots_menu, &info->screenshots_menu);
+          }
+        efl_gfx_position_get(event->object, &x, &y);
+        efl_gfx_size_get(event->object, NULL, &h);
+        elm_menu_move(info->screenshots_menu, x, y + h);
+        efl_gfx_visible_set(info->screenshots_menu, EINA_TRUE);
+        EINA_LIST_FOREACH(info->screenshots, itr, s)
+          {
+             char str[200];
+             if (s->menu_item) continue;
+             sprintf(str, "%.2d:%.2d:%.2d",
+                   s->time.tm_hour, s->time.tm_min, s->time.tm_sec);
+             s->menu_item = elm_menu_item_add(info->screenshots_menu,
+                   NULL, NULL, str, _menu_screenshot_selected, s);
+             efl_wref_add(s->menu_item, &s->menu_item);
+          }
+     }
 }
 
 static void
@@ -634,12 +713,41 @@ config_ok_button_clicked(void *data, const Efl_Event *event EINA_UNUSED)
 static Evas_Object *
 _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
 {
-   if(!strcmp(part, "elm.swallow.end"))
+   static uint64_t canvas_id = 0;
+   Obj_Info *info = data;
+   if (!canvas_id)
+     {
+        Class_Info *kl_info = eina_hash_find(_classes_hash_by_name, "Evas.Canvas");
+        if (kl_info) canvas_id = kl_info->id;
+     }
+   if(info->kl_id == canvas_id && !strcmp(part, "elm.swallow.end"))
    {
-      Gui_Screenshot_Button_Widgets *wdgs = gui_screenshot_button_create(obj);
-      elm_object_tooltip_text_set(wdgs->screenshot_button, "Show App Screenshot");
-      efl_key_data_set(wdgs->screenshot_button, "__info_node", data);
-      return wdgs->screenshot_button;
+      Eo *box = elm_box_add(obj);
+      evas_object_size_hint_weight_set(box, 1.000000, 1.000000);
+      elm_box_horizontal_set(box, EINA_TRUE);
+      efl_gfx_visible_set(box, EINA_TRUE);
+
+      if (info->screenshots)
+        {
+           Gui_Show_Screenshot_Button_Widgets *swdgs = gui_show_screenshot_button_create(box);
+           if (eina_list_count(info->screenshots) == 1)
+             {
+                elm_object_tooltip_text_set(swdgs->bt, "Show screenshot");
+             }
+           else
+             {
+                elm_object_tooltip_text_set(swdgs->bt, "List screenshots");
+             }
+           efl_key_data_set(swdgs->bt, "__info_node", info);
+           elm_box_pack_end(box, swdgs->bt);
+        }
+
+      Gui_Take_Screenshot_Button_Widgets *twdgs = gui_take_screenshot_button_create(box);
+      elm_object_tooltip_text_set(twdgs->bt, "Take screenshot");
+      efl_key_data_set(twdgs->bt, "__info_node", info);
+      elm_box_pack_end(box, twdgs->bt);
+
+      return box;
    }
    return NULL;
 }
@@ -885,7 +993,8 @@ static const Eina_Debug_Opcode ops[] =
      {"module/init",            &_module_init_op, &_module_initted_cb},
      {"Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
      {"Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
-     {"Evas/object/highlight",  &_obj_highlight_op,  NULL},
+     {"Evas/object/highlight",  &_obj_highlight_op, NULL},
+     {"Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
      {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
      {NULL, NULL, NULL}
 };

@@ -43,8 +43,19 @@ typedef struct
 
 typedef struct
 {
-   Eo *screenshot_button;
-} Gui_Screenshot_Button_Widgets;
+   Eo *bt;
+} Gui_Take_Screenshot_Button_Widgets;
+
+typedef struct
+{
+   Eo *bt;
+} Gui_Show_Screenshot_Button_Widgets;
+
+typedef struct
+{
+   Eo *win;
+   Eo *bg;
+} Gui_Show_Screenshot_Win_Widgets;
 
 typedef struct
 {
@@ -55,7 +66,9 @@ Gui_Main_Win_Widgets *gui_main_win_create(Eo *parent);
 
 Gui_New_Profile_Win_Widgets *gui_new_profile_win_create(Eo *parent);
 
-Gui_Screenshot_Button_Widgets *gui_screenshot_button_create(Eo *parent);
+Gui_Take_Screenshot_Button_Widgets *gui_take_screenshot_button_create(Eo *parent);
+Gui_Show_Screenshot_Button_Widgets *gui_show_screenshot_button_create(Eo *parent);
+Gui_Show_Screenshot_Win_Widgets *gui_show_screenshot_win_create(Eo *parent);
 
 Gui_Config_Win_Widgets *gui_config_win_create(Eo *__main_parent);
 
