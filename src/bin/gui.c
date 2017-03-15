@@ -26,9 +26,7 @@ extern void gui_config_win_widgets_done(Gui_Config_Win_Widgets *wdgs);
 #endif
 
 extern void
-_new_profile_save_cb(void *data, const Efl_Event *event);
-extern void
-_new_profile_cancel_cb(void *data, const Efl_Event *event);
+new_profile_save_cb(void *data, const Efl_Event *event);
 extern void
 screenshot_req_cb(void *data, const Efl_Event *event);
 extern void
@@ -243,7 +241,7 @@ gui_new_profile_win_create(Eo *__main_parent)
    efl_gfx_visible_set(new_profile_save_button, EINA_TRUE);
    efl_gfx_size_set(new_profile_save_button, 73, 30);
    elm_obj_widget_part_text_set(new_profile_save_button, NULL, "Save");
-   efl_event_callback_add(new_profile_save_button, EFL_UI_EVENT_CLICKED, _new_profile_save_cb, NULL);
+   efl_event_callback_add(new_profile_save_button, EFL_UI_EVENT_CLICKED, new_profile_save_cb, NULL);
    elm_box_pack_end(elm_box4, new_profile_save_button);
    elm_box_pack_end(elm_box4, new_profile_cancel_button);
    elm_box6 = elm_box_add(elm_box5);

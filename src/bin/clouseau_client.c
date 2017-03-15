@@ -1025,7 +1025,7 @@ _parse_script(const char *script)
 #endif
 
 Eina_Bool
-_new_profile_save_cb(void *data EINA_UNUSED, const Efl_Event *event)
+new_profile_save_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
    Gui_New_Profile_Win_Widgets *wdgs = NULL;
    Profile *p = NULL;
