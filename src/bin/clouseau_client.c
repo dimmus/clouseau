@@ -775,6 +775,7 @@ _app_objs_clean()
    eina_hash_free_buckets(_classes_hash_by_id);
    eina_hash_free_buckets(_classes_hash_by_name);
 
+   elm_object_text_set(_main_widgets->apps_selector, "Select App");
    elm_genlist_clear(_main_widgets->objects_list);
    elm_genlist_clear(_main_widgets->object_infos_list);
    eina_hash_free_buckets(_objs_hash);
@@ -782,10 +783,13 @@ _app_objs_clean()
 
 static void
 _hoversel_selected_app(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+      Evas_Object *obj, void *event_info)
 {
-   _selected_app = (int)(long)data;
+   const char *label = elm_object_item_part_text_get(event_info, NULL);
    _app_objs_clean();
+
+   _selected_app = (int)(long)data;
+   elm_object_text_set(obj, label);
    eina_debug_session_send(_session, _selected_app, _module_init_op, "eo", 3);
 }
 
