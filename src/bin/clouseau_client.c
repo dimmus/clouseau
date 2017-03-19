@@ -53,6 +53,14 @@ typedef struct
 
 typedef struct
 {
+   int cid;
+   int pid;
+   Eina_Stringshare *name;
+   Eo *hs_item;
+} App_Info;
+
+typedef struct
+{
    uint64_t id;
    Eina_Stringshare *name;
 } Class_Info;
@@ -137,6 +145,9 @@ static Eina_Bool _evas_init_done = EINA_FALSE;
 
 static Eo *_menu_remote_item = NULL;
 static Profile *_selected_profile = NULL;
+
+static Eina_List *_apps = NULL;
+
 static Eina_Bool
 _mkdir(const char *dir)
 {
@@ -259,6 +270,41 @@ _configs_load()
         _config = eet_data_read(file, _config_edd, _EET_ENTRY);
         eet_close(file);
      }
+}
+
+static App_Info *
+_app_find_by_cid(int cid)
+{
+   Eina_List *itr;
+   App_Info *info;
+   EINA_LIST_FOREACH(_apps, itr, info)
+     {
+        if (info->cid == cid) return info;
+     }
+   return NULL;
+}
+
+static void
+_app_del(int cid)
+{
+   App_Info *ai = _app_find_by_cid(cid);
+   if (!ai) return;
+   _apps = eina_list_remove(_apps, ai);
+   eina_stringshare_del(ai->name);
+   if (ai->hs_item) efl_del(ai->hs_item);
+   free(ai);
+}
+
+static App_Info *
+_app_add(int cid, int pid, const char *name)
+{
+   App_Info *ai = calloc(1, sizeof(*ai));
+   ai->cid = cid;
+   ai->pid = pid;
+   ai->name = eina_stringshare_add(name);
+   _app_del(cid);
+   _apps = eina_list_append(_apps, ai);
+   return ai;
 }
 
 #if 0
@@ -797,17 +843,19 @@ static Eina_Debug_Error
 _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
-   while(size)
+   while (size)
      {
         int cid, pid, len;
         EXTRACT(buf, &cid, sizeof(int));
         EXTRACT(buf, &pid, sizeof(int));
         if(pid != getpid())
           {
-             char option[100];
-             snprintf(option, 90, "%s [%d]", buf, pid);
-             elm_hoversel_item_add(_main_widgets->apps_selector,
-                   option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
+             char hs_name[100];
+             App_Info *ai = _app_add(cid, pid, buf);
+
+             snprintf(hs_name, 90, "%s [%d]", buf, pid);
+             ai->hs_item = elm_hoversel_item_add(_main_widgets->apps_selector,
+                   hs_name, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
                    (void *)(long)cid);
           }
         len = strlen(buf) + 1;
@@ -834,20 +882,7 @@ _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_U
      {
         int cid;
         EXTRACT(buf, &cid, sizeof(int));
-
-        const Eina_List *items = elm_hoversel_items_get(_main_widgets->apps_selector);
-        const Eina_List *l;
-        Elm_Object_Item *hoversel_it;
-
-        EINA_LIST_FOREACH(items, l, hoversel_it)
-          {
-             if((int)(long)elm_object_item_data_get(hoversel_it) == cid)
-               {
-                  elm_object_item_del(hoversel_it);
-                  break;
-               }
-          }
-
+        _app_del(cid);
         if (cid == _selected_app) _connection_reset();
      }
    return EINA_DEBUG_OK;
@@ -972,12 +1007,31 @@ static void
 _ecore_thread_dispatcher(void *data)
 {
    eina_debug_dispatch(_session, data);
+   free(data);
+}
+
+static Eina_Bool
+_snapshot_is_candidate(void *buffer)
+{
+   Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
+   if (hdr->opcode == _eoids_get_op ||
+         hdr->opcode == _klids_get_op ||
+         hdr->opcode == _obj_info_op ||
+         hdr->opcode == _win_screenshot_op) return EINA_TRUE;
+   else return EINA_FALSE;
 }
 
 Eina_Debug_Error
 _disp_cb(Eina_Debug_Session *session EINA_UNUSED, void *buffer)
 {
-   ecore_main_loop_thread_safe_call_async(_ecore_thread_dispatcher, buffer);
+   if (_snapshot && _snapshot_is_candidate(buffer))
+     {
+        _snapshot_buffer_append(buffer);
+     }
+   else
+     {
+        ecore_main_loop_thread_safe_call_async(_ecore_thread_dispatcher, buffer);
+     }
    return EINA_DEBUG_OK;
 }
 
