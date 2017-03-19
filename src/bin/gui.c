@@ -8,6 +8,7 @@
 #define ELM_INTERNAL_API_ARGESFSDFEFC
 #endif
 #include <Elementary.h>
+#include <elm_fileselector_button.eo.h>
 #include "elm_widget_container.h"
 #include "elm_interface_scrollable.h"
 #include "elm_interface_fileselector.h"
@@ -41,6 +42,8 @@ extern void
 take_screenshot_button_clicked(void *data, const Efl_Event *event);
 extern void
 show_screenshot_button_clicked(void *data, const Efl_Event *event);
+extern void
+snapshot_do(void *data, Evas_Object *fs, void *event_info);
 
 static void
 _config_open(void *data, const Efl_Event *event);
@@ -68,6 +71,8 @@ gui_main_win_create(Eo *__main_parent)
    Eo *extensions_bt;
    Eo *settings_bt;
    Eo *save_bt;
+   Eo *freeze_pulse;
+   Eo *freeze_inwin;
    Eo *elm_panes1;
    Eo *object_infos_list;
    Eo *objects_list;
@@ -153,11 +158,29 @@ gui_main_win_create(Eo *__main_parent)
    elm_box_pack_end(bar_box, settings_bt);
    efl_event_callback_add(settings_bt, EFL_UI_EVENT_CLICKED, _config_open, main_win);
 
-   save_bt = elm_button_add(bar_box);
+   save_bt = elm_fileselector_button_add(bar_box);
    pub_widgets->save_bt = save_bt;
    evas_object_size_hint_weight_set(save_bt, 1.000000, 1.000000);
    evas_object_size_hint_align_set(save_bt, -1.00000, -1.000000);
-   elm_obj_widget_part_text_set(save_bt, NULL, "Save");
+   elm_fileselector_button_inwin_mode_set(save_bt, EINA_TRUE);
+   elm_fileselector_is_save_set(save_bt, EINA_TRUE);
+   elm_fileselector_path_set(save_bt, getenv("HOME"));
+   elm_object_text_set(save_bt, "Save");
+   evas_object_smart_callback_add(save_bt, "file,chosen", snapshot_do, NULL);
+
+   freeze_pulse = elm_progressbar_add(main_win);
+   pub_widgets->freeze_pulse = freeze_pulse;
+   elm_object_style_set(freeze_pulse, "wheel");
+   elm_object_text_set(freeze_pulse, "Style: wheel");
+   elm_progressbar_pulse_set(freeze_pulse, EINA_TRUE);
+   elm_progressbar_pulse(freeze_pulse, EINA_FALSE);
+   evas_object_size_hint_align_set(freeze_pulse, 0.5, 0.0);
+   evas_object_size_hint_weight_set(freeze_pulse, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   elm_win_resize_object_add(main_win, freeze_pulse);
+
+   freeze_inwin = elm_win_inwin_add(main_win);
+   pub_widgets->freeze_inwin = freeze_inwin;
+   elm_object_style_set(freeze_inwin, "minimal");
 
    elm_panes1 = efl_add(ELM_PANES_CLASS, elm_box1);
    elm_obj_panes_content_right_size_set(elm_panes1, 0.600000);

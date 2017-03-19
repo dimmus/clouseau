@@ -20,6 +20,8 @@ typedef struct
    Eo *save_bt;
    Eo *object_infos_list;
    Eo *objects_list;
+   Eo *freeze_pulse;
+   Eo *freeze_inwin;
 } Gui_Main_Win_Widgets;
 
 typedef struct
