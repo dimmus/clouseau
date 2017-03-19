@@ -39,6 +39,8 @@ static int _klids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_highlight_op = EINA_DEBUG_OPCODE_INVALID;
 static int _win_screenshot_op = EINA_DEBUG_OPCODE_INVALID;
+static int _snapshot_do_op = EINA_DEBUG_OPCODE_INVALID;
+static int _snapshot_done_op = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
 
@@ -91,6 +93,21 @@ typedef struct
    void *data;
 } _Obj_info_node;
 
+typedef struct
+{
+   Eina_Stringshare *app_name;
+   int app_pid;
+   Eina_Stringshare *out_file;
+
+   char *buffer;
+   unsigned int max_len;
+   unsigned int cur_len;
+
+   int klids_op;
+   int eoids_op;
+   int obj_info_op;
+} Snapshot;
+
 typedef enum
 {
    OFFLINE = 0,
@@ -142,9 +159,13 @@ static Eina_List *_objs_list_tree = NULL;
 static Eina_Bool _eo_init_done = EINA_FALSE;
 static Eina_Bool _eolian_init_done = EINA_FALSE;
 static Eina_Bool _evas_init_done = EINA_FALSE;
+static Eina_Bool _clouseau_init_done = EINA_FALSE;
 
 static Eo *_menu_remote_item = NULL;
 static Profile *_selected_profile = NULL;
+
+static Snapshot *_snapshot = NULL;
+static Eet_Data_Descriptor *_snapshot_edd = NULL;
 
 static Eina_List *_apps = NULL;
 
@@ -307,6 +328,70 @@ _app_add(int cid, int pid, const char *name)
    return ai;
 }
 
+static void
+_snapshot_buffer_append(void *buffer)
+{
+   Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
+   unsigned int size = hdr->size;
+   if (_snapshot->max_len < _snapshot->cur_len + size)
+     {
+        /* Realloc with addition of 1MB+size */
+        _snapshot->max_len += size + 1000000;
+        _snapshot->buffer = realloc(_snapshot->buffer, _snapshot->max_len);
+     }
+   memcpy(_snapshot->buffer + _snapshot->cur_len, buffer, size);
+   _snapshot->cur_len += size;
+}
+
+static void
+_snapshot_eet_load()
+{
+   if (_snapshot_edd) return;
+   Eet_Data_Descriptor_Class eddc;
+
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Snapshot);
+   _snapshot_edd = eet_data_descriptor_stream_new(&eddc);
+
+#define SNP_ADD_BASIC(member, eet_type)\
+   EET_DATA_DESCRIPTOR_ADD_BASIC\
+   (_snapshot_edd, Snapshot, # member, member, eet_type)
+
+   SNP_ADD_BASIC(app_name, EET_T_STRING);
+   SNP_ADD_BASIC(app_pid, EET_T_UINT);
+   SNP_ADD_BASIC(eoids_op, EET_T_INT);
+   SNP_ADD_BASIC(klids_op, EET_T_INT);
+   SNP_ADD_BASIC(obj_info_op, EET_T_INT);
+
+#undef SNP_ADD_BASIC
+}
+
+static Eina_Bool
+_snapshot_save()
+{
+   FILE *fp = fopen(_snapshot->out_file, "w");
+   void *out_buf = NULL;
+   int out_size = 0;
+   App_Info *ai = _app_find_by_cid(_selected_app);
+   if (!ai) return EINA_FALSE;
+   _snapshot_eet_load();
+   if (!fp)
+     {
+        printf("Can not open file: \"%s\".\n", _snapshot->out_file);
+        return EINA_FALSE;
+     }
+   _snapshot->app_name = ai->name;
+   _snapshot->app_pid = ai->pid;
+   _snapshot->eoids_op = _eoids_get_op;
+   _snapshot->klids_op = _klids_get_op;
+   _snapshot->obj_info_op = _obj_info_op;
+   out_buf = eet_data_descriptor_encode(_snapshot_edd, _snapshot, &out_size);
+   fwrite(&out_size, sizeof(int), 1, fp);
+   fwrite(out_buf, 1, out_size, fp);
+   printf("Snapshot buffer size %d max %d\n", _snapshot->cur_len, _snapshot->max_len);
+   fwrite(_snapshot->buffer, 1, _snapshot->cur_len, fp);
+   fclose(fp);
+   return EINA_TRUE;
+}
 #if 0
 static Eina_List *_pending = NULL;
 
@@ -728,6 +813,53 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
 }
 
 static void
+_ui_freeze(Eina_Bool on)
+{
+   elm_progressbar_pulse(_main_widgets->freeze_pulse, on);
+   efl_gfx_visible_set(_main_widgets->freeze_pulse, on);
+   efl_gfx_visible_set(_main_widgets->freeze_inwin, on);
+}
+
+static void *
+_eoids_request_prepare(int *size)
+{
+   uint64_t obj_kl, canvas_kl;
+   Class_Info *info = eina_hash_find(_classes_hash_by_name,
+         _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Elm.Widget");
+   if (info) obj_kl = info->id;
+   info = eina_hash_find(_classes_hash_by_name, "Efl.Canvas");
+   if (info) canvas_kl = info->id;
+   return eo_debug_eoids_request_prepare(size, obj_kl, canvas_kl, NULL);
+}
+
+static Eina_Debug_Error
+_snapshot_done_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
+      void *buffer EINA_UNUSED, int size EINA_UNUSED)
+{
+   if (!_snapshot) return EINA_DEBUG_OK;
+   _snapshot_save();
+   free(_snapshot->buffer);
+   free(_snapshot);
+   _snapshot = NULL;
+   _ui_freeze(EINA_FALSE);
+   return EINA_DEBUG_OK;
+}
+
+void
+snapshot_do(void *data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
+{
+   void *buf;
+   int size;
+   _ui_freeze(EINA_TRUE);
+   _snapshot = calloc(1, sizeof(*_snapshot));
+   _snapshot->out_file = eina_stringshare_add(ev);
+   /* EET app + opcodes */
+   buf = _eoids_request_prepare(&size);
+   eina_debug_session_send(_session, _selected_app, _snapshot_do_op, buf, size);
+   free(buf);
+}
+
+static void
 _config_objs_type_sel_selected(void *data EINA_UNUSED, const Efl_Event *event)
 {
    efl_key_data_set(event->object, "show_type_item", event->info);
@@ -872,6 +1004,7 @@ _connection_reset()
    _eo_init_done = EINA_FALSE;
    _eolian_init_done = EINA_FALSE;
    _evas_init_done = EINA_FALSE;
+   _clouseau_init_done = EINA_FALSE;
 }
 
 static Eina_Debug_Error
@@ -900,6 +1033,7 @@ _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
    if (!strcmp(buffer, "eo")) _eo_init_done = ret;
    if (!strcmp(buffer, "eolian")) _eolian_init_done = ret;
    if (!strcmp(buffer, "evas")) _evas_init_done = ret;
+   if (!strcmp(buffer, "clouseau")) _clouseau_init_done = ret;
 
    if (!_eo_init_done)
      {
@@ -914,6 +1048,11 @@ _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
    if (!_evas_init_done)
      {
         eina_debug_session_send(_session, _selected_app, _module_init_op, "evas", 5);
+        return EINA_DEBUG_OK;
+     }
+   if (!_clouseau_init_done)
+     {
+        eina_debug_session_send(_session, _selected_app, _module_init_op, "clouseau", 9);
         return EINA_DEBUG_OK;
      }
    eina_debug_session_send(session, src, _klids_get_op, NULL, 0);
@@ -1054,6 +1193,8 @@ static const Eina_Debug_Opcode ops[] =
      {"Evas/object/highlight",  &_obj_highlight_op, NULL},
      {"Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
      {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
+     {"Clouseau/snapshot_do",   &_snapshot_do_op, NULL},
+     {"Clouseau/snapshot_done", &_snapshot_done_op, &_snapshot_done_cb},
      {NULL, NULL, NULL}
 };
 
