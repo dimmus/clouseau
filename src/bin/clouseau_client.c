@@ -28,10 +28,6 @@
 
 #define _EET_ENTRY "config"
 
-static Evas_Object *
-_obj_info_tootip(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
-      Evas_Object *tt, void *item   EINA_UNUSED);
-
 static int _cl_stat_reg_op = EINA_DEBUG_OPCODE_INVALID;
 static int _module_init_op = EINA_DEBUG_OPCODE_INVALID;
 static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
@@ -59,6 +55,10 @@ typedef struct
    int pid;
    Eina_Stringshare *name;
    Eo *hs_item;
+   Eina_Bool eo_init_done;
+   Eina_Bool eolian_init_done;
+   Eina_Bool evas_init_done;
+   Eina_Bool clouseau_init_done;
 } App_Info;
 
 typedef struct
@@ -77,6 +77,7 @@ typedef struct
    Eina_List *screenshots;
    Eo *glitem;
    Eo *screenshots_menu;
+   Eolian_Debug_Object_Information *eolian_info;
 } Obj_Info;
 
 typedef struct
@@ -127,12 +128,13 @@ typedef struct
 
 static Connection_Type _conn_type = OFFLINE;
 static Eina_Debug_Session *_session = NULL;
-static int _selected_app = -1;
+static Eina_List *_apps = NULL;
+static App_Info *_selected_app = NULL;
+static Obj_Info *_selected_obj = NULL;
 
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
 static Elm_Genlist_Item_Class *_obj_kl_info_itc = NULL;
 static Elm_Genlist_Item_Class *_obj_func_info_itc = NULL;
-static Eolian_Debug_Object_Information *_obj_info = NULL;
 
 static Eet_Data_Descriptor *_profile_edd = NULL, *_config_edd = NULL;
 static Eina_List *_profiles = NULL;
@@ -143,18 +145,38 @@ static Eina_Hash *_classes_hash_by_id = NULL, *_classes_hash_by_name = NULL;
 static Eina_Hash *_objs_hash = NULL;
 static Eina_List *_objs_list_tree = NULL;
 
-static Eina_Bool _eo_init_done = EINA_FALSE;
-static Eina_Bool _eolian_init_done = EINA_FALSE;
-static Eina_Bool _evas_init_done = EINA_FALSE;
-static Eina_Bool _clouseau_init_done = EINA_FALSE;
-
 static Eo *_menu_remote_item = NULL;
 static Profile *_selected_profile = NULL;
 
 static Snapshot *_snapshot = NULL;
 static Eet_Data_Descriptor *_snapshot_edd = NULL;
 
-static Eina_List *_apps = NULL;
+static Evas_Object * _obj_info_tootip(void *, Evas_Object *, Evas_Object *, void *);
+
+static Eina_Debug_Error _clients_info_added_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Debug_Error _clients_info_deleted_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Debug_Error _module_initted_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Debug_Error _eoids_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Debug_Error _klids_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Debug_Error _obj_info_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Debug_Error _snapshot_done_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Debug_Error _win_screenshot_get(Eina_Debug_Session *, int, void *, int);
+
+static const Eina_Debug_Opcode ops[] =
+{
+     {"daemon/observer/client/register", &_cl_stat_reg_op, NULL},
+     {"daemon/observer/slave_added", NULL, _clients_info_added_cb},
+     {"daemon/observer/slave_deleted", NULL, _clients_info_deleted_cb},
+     {"module/init",            &_module_init_op, &_module_initted_cb},
+     {"Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
+     {"Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
+     {"Evas/object/highlight",  &_obj_highlight_op, NULL},
+     {"Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
+     {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
+     {"Clouseau/snapshot_do",   &_snapshot_do_op, NULL},
+     {"Clouseau/snapshot_done", &_snapshot_done_op, &_snapshot_done_cb},
+     {NULL, NULL, NULL}
+};
 
 static Eina_Bool
 _mkdir(const char *dir)
@@ -316,6 +338,59 @@ _app_add(int cid, int pid, const char *name)
 }
 
 static void
+_apps_free()
+{
+   Eina_List *itr, *itr2;
+   App_Info *ai;
+   EINA_LIST_FOREACH_SAFE(_apps, itr, itr2, ai)
+     {
+        _app_del(ai->cid);
+     }
+}
+
+static void
+_objs_tree_free(Eina_List *parents)
+{
+   Obj_Info *info;
+   EINA_LIST_FREE(parents, info)
+     {
+        eolian_debug_object_information_free(info->eolian_info);
+        _objs_tree_free(info->children);
+        free(info);
+     }
+}
+
+static void
+_clean(Eina_Bool full)
+{
+   if (_objs_list_tree)
+     {
+        _objs_tree_free(_objs_list_tree);
+        _objs_list_tree = NULL;
+     }
+   _selected_obj = NULL;
+   eina_hash_free_buckets(_classes_hash_by_id);
+   eina_hash_free_buckets(_classes_hash_by_name);
+
+   elm_genlist_clear(_main_widgets->objects_list);
+   elm_genlist_clear(_main_widgets->object_infos_list);
+   eina_hash_free_buckets(_objs_hash);
+
+   if (full)
+     {
+        int i;
+        _selected_profile = NULL;
+        _apps_free();
+
+        while (ops[i].opcode_name)
+          {
+             if (ops[i].opcode_id) *(ops[i].opcode_id) = EINA_DEBUG_OPCODE_INVALID;
+             i++;
+          }
+     }
+}
+
+static void
 _snapshot_buffer_append(void *buffer)
 {
    Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
@@ -345,6 +420,7 @@ _snapshot_eet_load()
 
    SNP_ADD_BASIC(app_name, EET_T_STRING);
    SNP_ADD_BASIC(app_pid, EET_T_UINT);
+   SNP_ADD_BASIC(cur_len, EET_T_INT);
    SNP_ADD_BASIC(eoids_op, EET_T_INT);
    SNP_ADD_BASIC(klids_op, EET_T_INT);
    SNP_ADD_BASIC(obj_info_op, EET_T_INT);
@@ -358,16 +434,15 @@ _snapshot_save()
    FILE *fp = fopen(_snapshot->out_file, "w");
    void *out_buf = NULL;
    int out_size = 0;
-   App_Info *ai = _app_find_by_cid(_selected_app);
-   if (!ai) return EINA_FALSE;
+   if (!_selected_app) return EINA_FALSE;
    _snapshot_eet_load();
    if (!fp)
      {
         printf("Can not open file: \"%s\".\n", _snapshot->out_file);
         return EINA_FALSE;
      }
-   _snapshot->app_name = ai->name;
-   _snapshot->app_pid = ai->pid;
+   _snapshot->app_name = _selected_app->name;
+   _snapshot->app_pid = _selected_app->pid;
    _snapshot->eoids_op = _eoids_get_op;
    _snapshot->klids_op = _klids_get_op;
    _snapshot->obj_info_op = _obj_info_op;
@@ -379,6 +454,81 @@ _snapshot_save()
    fclose(fp);
    return EINA_TRUE;
 }
+
+static Snapshot *
+_snapshot_open(const char *in_file)
+{
+   FILE *fp = fopen(in_file, "r");
+   void *eet_buffer = NULL;
+   Snapshot *s = NULL;
+   int eet_size = 0;
+   if (!fp) return NULL;
+
+   if (fread(&eet_size, sizeof(int), 1, fp) != 1)
+     {
+        printf("Read size from %s failed\n", in_file);
+        goto end;
+     }
+   _snapshot_eet_load();
+   eet_buffer = malloc(eet_size);
+   if ((int)fread(eet_buffer, 1, eet_size, fp) != eet_size)
+     {
+        printf("Read EET buffer from %s failed\n", in_file);
+        goto end;
+     }
+
+   s = eet_data_descriptor_decode(_snapshot_edd, eet_buffer, eet_size);
+
+   if (s->cur_len)
+     {
+        s->buffer = malloc(s->cur_len);
+        if (fread(s->buffer, 1, s->cur_len, fp) != s->cur_len)
+          {
+             printf("Read snapshot buffer from %s failed\n", in_file);
+             free(s->buffer);
+             s->buffer = NULL;
+             goto end;
+          }
+     }
+
+end:
+   if (eet_buffer) free(eet_buffer);
+   return s;
+}
+
+static void
+_snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
+{
+   char hs_name[100];
+   Eo *inwin = data;
+   Snapshot *s = _snapshot_open(ev);
+   unsigned int idx = 0;
+   if (!s) return;
+
+   _clean(EINA_TRUE);
+
+   Eina_Debug_Session *session = eina_debug_fake_session_create();
+
+   _eoids_get_op = s->eoids_op;
+   _klids_get_op = s->klids_op;
+   _obj_info_op = s->obj_info_op;
+   eina_debug_opcodes_register(session, ops, NULL);
+   if (inwin) efl_del(inwin);
+   snprintf(hs_name, 90, "%s [%d]", s->app_name, s->app_pid);
+   elm_object_text_set(_main_widgets->apps_selector, hs_name);
+
+   /* Prevent free of the buffer */
+   while (idx < s->cur_len)
+     {
+        Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)(s->buffer + idx);
+        eina_debug_dispatch(session, s->buffer + idx);
+        idx += hdr->size;
+     }
+   free(s->buffer);
+   free(s);
+   eina_debug_session_terminate(session);
+}
+
 #if 0
 static Eina_List *_pending = NULL;
 
@@ -602,31 +752,38 @@ _obj_func_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
 }
 #undef _MAX_LABEL
 
+static void
+_obj_info_realize(Eolian_Debug_Object_Information *e_info)
+{
+   Eolian_Debug_Class *kl;
+   Eina_List *kl_itr;
+
+   elm_genlist_clear(_main_widgets->object_infos_list);
+   EINA_LIST_FOREACH(e_info->classes, kl_itr, kl)
+     {
+        Elm_Object_Item  *glg = elm_genlist_item_append(
+              _main_widgets->object_infos_list, _obj_kl_info_itc,
+              kl, NULL, ELM_GENLIST_ITEM_TREE, NULL, NULL);
+        elm_genlist_item_expanded_set(glg, EINA_FALSE);
+     }
+}
+
 static Eina_Debug_Error
 _obj_info_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
       void *buffer, int size)
 {
-   if(_obj_info)
-     {
-        elm_genlist_clear(_main_widgets->object_infos_list);
-        eolian_debug_object_information_free(_obj_info);
-        _obj_info = NULL;
-     }
-   _obj_info = eolian_debug_object_information_decode(buffer, size);
+   Eolian_Debug_Object_Information *e_info =
+      eolian_debug_object_information_decode(buffer, size);
+   Obj_Info *o_info = eina_hash_find(_objs_hash, &(e_info->obj));
+   if (!o_info) return EINA_DEBUG_OK;
 
-   Eolian_Debug_Class *kl;
-   Eina_List *kl_itr;
-   EINA_LIST_FOREACH(_obj_info->classes, kl_itr, kl)
-     {
-        Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_TREE;
+   if (o_info->eolian_info)
+      eolian_debug_object_information_free(o_info->eolian_info);
+   o_info->eolian_info = e_info;
 
-        Elm_Object_Item  *glg = elm_genlist_item_append(
-              _main_widgets->object_infos_list, _obj_kl_info_itc,
-              kl, NULL, type, NULL, NULL);
-        elm_genlist_item_expanded_set(glg, EINA_FALSE);
-     }
+   if (o_info == _selected_obj) _obj_info_realize(e_info);
 
-   return EINA_TRUE;
+   return EINA_DEBUG_OK;
 }
 
 static void
@@ -646,17 +803,21 @@ _objs_contract_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
 static void
 _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
+   if (!_selected_app) return;
    Elm_Object_Item *glit = event_info;
    Obj_Info *info = elm_object_item_data_get(glit);
+
+   _selected_obj = info;
 
    elm_genlist_clear(_main_widgets->object_infos_list);
    if (_config->highlight)
      {
-        eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
+        eina_debug_session_send_to_thread(_session, _selected_app->cid, info->thread_id,
               _obj_highlight_op, &(info->obj), sizeof(uint64_t));
      }
-   eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
+   eina_debug_session_send_to_thread(_session, _selected_app->cid, info->thread_id,
          _obj_info_op, &(info->obj), sizeof(uint64_t));
+   if (info->eolian_info) _obj_info_realize(info->eolian_info);
 }
 
 static void
@@ -712,9 +873,10 @@ _win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED
 void
 take_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
 {
+   if (!_selected_app) return;
    Obj_Info *info = efl_key_data_get(event->object, "__info_node");
 
-   eina_debug_session_send_to_thread(_session, _selected_app, info->thread_id,
+   eina_debug_session_send_to_thread(_session, _selected_app->cid, info->thread_id,
          _win_screenshot_op, &(info->obj), sizeof(uint64_t));
 }
 
@@ -818,12 +980,13 @@ snapshot_do(void *data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
 {
    void *buf;
    int size;
+   if (!_selected_app) return;
    _ui_freeze(EINA_TRUE);
    _snapshot = calloc(1, sizeof(*_snapshot));
    _snapshot->out_file = eina_stringshare_add(ev);
    /* EET app + opcodes */
    buf = _eoids_request_prepare(&size);
-   eina_debug_session_send(_session, _selected_app, _snapshot_do_op, buf, size);
+   eina_debug_session_send(_session, _selected_app->cid, _snapshot_do_op, buf, size);
    free(buf);
 }
 
@@ -866,7 +1029,7 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
         Class_Info *kl_info = eina_hash_find(_classes_hash_by_name, "Evas.Canvas");
         if (kl_info) canvas_id = kl_info->id;
      }
-   if(info->kl_id == canvas_id && !strcmp(part, "elm.swallow.end"))
+   if (info->kl_id == canvas_id && !strcmp(part, "elm.swallow.end"))
    {
       Eo *box = elm_box_add(obj);
       evas_object_size_hint_weight_set(box, 1.000000, 1.000000);
@@ -888,10 +1051,13 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
            elm_box_pack_end(box, swdgs->bt);
         }
 
-      Gui_Take_Screenshot_Button_Widgets *twdgs = gui_take_screenshot_button_create(box);
-      elm_object_tooltip_text_set(twdgs->bt, "Take screenshot");
-      efl_key_data_set(twdgs->bt, "__info_node", info);
-      elm_box_pack_end(box, twdgs->bt);
+      if (_conn_type != OFFLINE)
+        {
+           Gui_Take_Screenshot_Button_Widgets *twdgs = gui_take_screenshot_button_create(box);
+           elm_object_tooltip_text_set(twdgs->bt, "Take screenshot");
+           efl_key_data_set(twdgs->bt, "__info_node", info);
+           elm_box_pack_end(box, twdgs->bt);
+        }
 
       return box;
    }
@@ -899,44 +1065,15 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
 }
 
 static void
-_objs_tree_free(Eina_List *parents)
-{
-   Obj_Info *info;
-
-   EINA_LIST_FREE(parents, info)
-     {
-        _objs_tree_free(info->children);
-        free(info);
-     }
-}
-
-static void
-_app_objs_clean()
-{
-   if (_objs_list_tree)
-     {
-        _objs_tree_free(_objs_list_tree);
-        _objs_list_tree = NULL;
-     }
-   eina_hash_free_buckets(_classes_hash_by_id);
-   eina_hash_free_buckets(_classes_hash_by_name);
-
-   elm_object_text_set(_main_widgets->apps_selector, "Select App");
-   elm_genlist_clear(_main_widgets->objects_list);
-   elm_genlist_clear(_main_widgets->object_infos_list);
-   eina_hash_free_buckets(_objs_hash);
-}
-
-static void
 _hoversel_selected_app(void *data,
       Evas_Object *obj, void *event_info)
 {
    const char *label = elm_object_item_part_text_get(event_info, NULL);
-   _app_objs_clean();
+   _clean(EINA_FALSE);
 
-   _selected_app = (int)(long)data;
+   _selected_app = data;
    elm_object_text_set(obj, label);
-   eina_debug_session_send(_session, _selected_app, _module_init_op, "eo", 3);
+   eina_debug_session_send(_session, _selected_app->cid, _module_init_op, "eo", 3);
 }
 
 static Eina_Debug_Error
@@ -956,23 +1093,13 @@ _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNU
              snprintf(hs_name, 90, "%s [%d]", buf, pid);
              ai->hs_item = elm_hoversel_item_add(_main_widgets->apps_selector,
                    hs_name, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
-                   (void *)(long)cid);
+                   ai);
           }
         len = strlen(buf) + 1;
         buf += len;
         size -= (2 * sizeof(int) + len);
      }
    return EINA_DEBUG_OK;
-}
-
-static void
-_connection_reset()
-{
-   _selected_profile = NULL;
-   _eo_init_done = EINA_FALSE;
-   _eolian_init_done = EINA_FALSE;
-   _evas_init_done = EINA_FALSE;
-   _clouseau_init_done = EINA_FALSE;
 }
 
 static Eina_Debug_Error
@@ -983,8 +1110,8 @@ _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_U
      {
         int cid;
         EXTRACT(buf, &cid, sizeof(int));
+        if (_selected_app && cid == _selected_app->cid) _selected_app = NULL;
         _app_del(cid);
-        if (cid == _selected_app) _connection_reset();
      }
    return EINA_DEBUG_OK;
 }
@@ -993,34 +1120,35 @@ static Eina_Debug_Error
 _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
 {
    if (size <= 0) return EINA_DEBUG_ERROR;
+   if (!_selected_app || _selected_app->cid != src) return EINA_DEBUG_OK;
    Eina_Bool ret = !!((char *)buffer)[size - 1];
    if (!ret)
      {
         printf("Error loading module %s in the target\n", (char *)buffer);
      }
-   if (!strcmp(buffer, "eo")) _eo_init_done = ret;
-   if (!strcmp(buffer, "eolian")) _eolian_init_done = ret;
-   if (!strcmp(buffer, "evas")) _evas_init_done = ret;
-   if (!strcmp(buffer, "clouseau")) _clouseau_init_done = ret;
+   if (!strcmp(buffer, "eo")) _selected_app->eo_init_done = ret;
+   if (!strcmp(buffer, "eolian")) _selected_app->eolian_init_done = ret;
+   if (!strcmp(buffer, "evas")) _selected_app->evas_init_done = ret;
+   if (!strcmp(buffer, "clouseau")) _selected_app->clouseau_init_done = ret;
 
-   if (!_eo_init_done)
+   if (!_selected_app->eo_init_done)
      {
-        eina_debug_session_send(_session, _selected_app, _module_init_op, "eo", 3);
+        eina_debug_session_send(_session, src, _module_init_op, "eo", 3);
         return EINA_DEBUG_OK;
      }
-   if (!_eolian_init_done)
+   if (!_selected_app->eolian_init_done)
      {
-        eina_debug_session_send(_session, _selected_app, _module_init_op, "eolian", 7);
+        eina_debug_session_send(_session, src, _module_init_op, "eolian", 7);
         return EINA_DEBUG_OK;
      }
-   if (!_evas_init_done)
+   if (!_selected_app->evas_init_done)
      {
-        eina_debug_session_send(_session, _selected_app, _module_init_op, "evas", 5);
+        eina_debug_session_send(_session, src, _module_init_op, "evas", 5);
         return EINA_DEBUG_OK;
      }
-   if (!_clouseau_init_done)
+   if (!_selected_app->clouseau_init_done)
      {
-        eina_debug_session_send(_session, _selected_app, _module_init_op, "clouseau", 9);
+        eina_debug_session_send(_session, src, _module_init_op, "clouseau", 9);
         return EINA_DEBUG_OK;
      }
    eina_debug_session_send(session, src, _klids_get_op, NULL, 0);
@@ -1150,22 +1278,6 @@ _post_register_handle(Eina_Bool flag)
    eina_debug_session_send(_session, 0, _cl_stat_reg_op, NULL, 0);
 }
 
-static const Eina_Debug_Opcode ops[] =
-{
-     {"daemon/observer/client/register", &_cl_stat_reg_op, NULL},
-     {"daemon/observer/slave_added", NULL, _clients_info_added_cb},
-     {"daemon/observer/slave_deleted", NULL, _clients_info_deleted_cb},
-     {"module/init",            &_module_init_op, &_module_initted_cb},
-     {"Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
-     {"Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
-     {"Evas/object/highlight",  &_obj_highlight_op, NULL},
-     {"Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
-     {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
-     {"Clouseau/snapshot_do",   &_snapshot_do_op, NULL},
-     {"Clouseau/snapshot_done", &_snapshot_done_op, &_snapshot_done_cb},
-     {NULL, NULL, NULL}
-};
-
 #if 0
 static Eina_List *
 _parse_script(const char *script)
@@ -1226,9 +1338,8 @@ _connection_type_change(Connection_Type conn_type)
    /* FIXME disconnection if connected */
    if (_session) eina_debug_session_terminate(_session);
    _session = NULL;
-   _connection_reset();
-   _app_objs_clean();
-   elm_hoversel_clear(_main_widgets->apps_selector);
+   _clean(EINA_TRUE);
+   elm_object_text_set(_main_widgets->apps_selector, "Select App");
    switch (conn_type)
      {
       case OFFLINE:
@@ -1236,6 +1347,7 @@ _connection_type_change(Connection_Type conn_type)
               efl_gfx_visible_set(_main_widgets->save_bt, EINA_FALSE);
               elm_box_unpack(_main_widgets->bar_box, _main_widgets->save_bt);
               elm_object_text_set(_main_widgets->load_button, "Load file...");
+              elm_object_disabled_set(_main_widgets->apps_selector, EINA_TRUE);
               break;
            }
       case LOCAL_CONNECTION:
@@ -1243,6 +1355,7 @@ _connection_type_change(Connection_Type conn_type)
               efl_gfx_visible_set(_main_widgets->save_bt, EINA_TRUE);
               elm_box_pack_end(_main_widgets->bar_box, _main_widgets->save_bt);
               elm_object_text_set(_main_widgets->load_button, "Reload");
+              elm_object_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
               _session = eina_debug_local_connect(EINA_TRUE);
               break;
            }
@@ -1251,6 +1364,7 @@ _connection_type_change(Connection_Type conn_type)
               efl_gfx_visible_set(_main_widgets->save_bt, EINA_TRUE);
               elm_box_pack_end(_main_widgets->bar_box, _main_widgets->save_bt);
               elm_object_text_set(_main_widgets->load_button, "Reload");
+              elm_object_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
 #if 0
          eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
          Eina_List *script_lines = _parse_script(_selected_profile->script);
@@ -1322,6 +1436,24 @@ jump_entry_changed(void *data EINA_UNUSED, const Efl_Event *event)
      }
 }
 
+static void
+_fs_activate(Eina_Bool is_save)
+{
+   Eo *inwin = elm_win_inwin_add(_main_widgets->main_win);
+   Eo *fs = elm_fileselector_add(inwin);
+
+   elm_fileselector_is_save_set(fs, is_save);
+   elm_fileselector_path_set(fs, getenv("HOME"));
+   evas_object_size_hint_weight_set
+      (fs, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_size_hint_align_set(fs, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_smart_callback_add(fs, "done", _snapshot_load, inwin);
+   evas_object_show(fs);
+
+   elm_win_inwin_content_set(inwin, fs);
+   elm_win_inwin_activate(inwin);
+}
+
 void
 load_perform(void *data EINA_UNUSED, const Efl_Event *event EINA_UNUSED)
 {
@@ -1329,14 +1461,16 @@ load_perform(void *data EINA_UNUSED, const Efl_Event *event EINA_UNUSED)
      {
       case OFFLINE:
            {
-              /* FIXME open file selector */
+              _fs_activate(EINA_FALSE);
               break;
            }
       case LOCAL_CONNECTION:
       case REMOTE_CONNECTION:
            {
-              _app_objs_clean();
-              eina_debug_session_send(_session, _selected_app, _klids_get_op, NULL, 0);
+              /* Reload */
+              if (!_selected_app) return;
+              _clean(EINA_FALSE);
+              eina_debug_session_send(_session, _selected_app->cid, _klids_get_op, NULL, 0);
               break;
            }
       default: break;
@@ -1376,7 +1510,7 @@ EAPI_MAIN int
 elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 {
    Connection_Type conn_type = OFFLINE;
-   char *offline_filename = NULL;
+   const char *offline_filename = NULL;
    int i, long_index = 0, opt;
    Eina_Bool help = EINA_FALSE;
 
@@ -1422,7 +1556,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
            case 'f':
                    {
                       conn_type = OFFLINE;
-                      offline_filename = strdup(optarg);
+                      offline_filename = optarg;
                       break;
                    }
            case 'h': help = EINA_TRUE; break;
@@ -1499,9 +1633,10 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL);
    efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_CONTRACTED, _obj_info_contracted_cb, NULL);
 
+   if (conn_type == OFFLINE && offline_filename) _snapshot_load(NULL, NULL, (void *)offline_filename);
+
    elm_run();
 
-   eolian_debug_object_information_free(_obj_info);
    _objs_tree_free(_objs_list_tree);
    eina_debug_session_terminate(_session);
    eina_shutdown();
