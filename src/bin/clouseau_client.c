@@ -79,20 +79,6 @@ typedef struct
    Eo *screenshots_menu;
 } Obj_Info;
 
-typedef enum
-{
-   OBJ_CLASS = 0,
-   OBJ_FUNC,
-   OBJ_PARAM,
-   OBJ_RET
-} Obj_Info_Type;
-
-typedef struct
-{
-   Obj_Info_Type type;
-   void *data;
-} _Obj_info_node;
-
 typedef struct
 {
    Eina_Stringshare *app_name;
@@ -144,7 +130,8 @@ static Eina_Debug_Session *_session = NULL;
 static int _selected_app = -1;
 
 static Elm_Genlist_Item_Class *_objs_itc = NULL;
-static Elm_Genlist_Item_Class *_obj_info_itc = NULL;
+static Elm_Genlist_Item_Class *_obj_kl_info_itc = NULL;
+static Elm_Genlist_Item_Class *_obj_func_info_itc = NULL;
 static Eolian_Debug_Object_Information *_obj_info = NULL;
 
 static Eet_Data_Descriptor *_profile_edd = NULL, *_config_edd = NULL;
@@ -444,22 +431,18 @@ static void
 _obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
    Elm_Object_Item *glit = event->info;
-   _Obj_info_node *node = elm_object_item_data_get(glit);
-   Eina_List *itr;
-   if(node->type == OBJ_CLASS)
+   const Elm_Genlist_Item_Class *itc = elm_genlist_item_item_class_get(glit);
+   if (itc == _obj_kl_info_itc)
      {
-        Eolian_Debug_Class *kl = node->data;
+        Eolian_Debug_Class *kl = elm_object_item_data_get(glit);
         Eolian_Debug_Function *func;
+        Eina_List *itr;
         EINA_LIST_FOREACH(kl->functions, itr, func)
           {
-             _Obj_info_node *node_itr = calloc(1, sizeof(*node_itr));
-             node_itr->type = OBJ_FUNC;
-             node_itr->data = func;
-
             Elm_Genlist_Item *glist =  elm_genlist_item_append(
-                   event->object, _obj_info_itc, node_itr, glit,
+                   event->object, _obj_func_info_itc, func, glit,
                    ELM_GENLIST_ITEM_NONE, NULL, NULL);
-            elm_genlist_item_tooltip_content_cb_set(glist, _obj_info_tootip, node_itr, NULL);
+            elm_genlist_item_tooltip_content_cb_set(glist, _obj_info_tootip, func, NULL);
           }
      }
 }
@@ -469,13 +452,6 @@ _obj_info_contracted_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
    Elm_Object_Item *glit = event->info;
    elm_genlist_item_subitems_clear(glit);
-}
-
-static void
-_obj_info_item_del(void *data, Evas_Object *obj EINA_UNUSED)
-{
-   _Obj_info_node *node = data;
-   free(node);
 }
 
 static void
@@ -545,16 +521,15 @@ _eolian_value_to_string(Eolian_Debug_Value *value, char *buffer, int max)
 
 #define _MAX_LABEL 2000
 static void
-_obj_info_params_to_string(_Obj_info_node *node, char *buffer, Eina_Bool full)
+_func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full)
 {
    Eina_List *itr;
    int buffer_size = 0;
    buffer_size += snprintf(buffer + buffer_size,
          _MAX_LABEL - buffer_size,  "%s:  ",
-         eolian_function_name_get(((Eolian_Debug_Function *)(node->data))->efunc));
+         eolian_function_name_get(func->efunc));
    buffer[0] = toupper(buffer[0]);
 
-   Eolian_Debug_Function *func =  (Eolian_Debug_Function *)(node->data);
    Eolian_Debug_Parameter *param;
    EINA_LIST_FOREACH(func->params, itr, param)
      {
@@ -594,14 +569,14 @@ _obj_info_params_to_string(_Obj_info_node *node, char *buffer, Eina_Bool full)
 }
 
 static Evas_Object *
-_obj_info_tootip(void *data   EINA_UNUSED,
+_obj_info_tootip(void *data,
               Evas_Object *obj EINA_UNUSED,
               Evas_Object *tt,
               void *item   EINA_UNUSED)
 {
    Evas_Object *l = elm_label_add(tt);
    char buffer[_MAX_LABEL];
-   _obj_info_params_to_string(data, buffer, EINA_TRUE);
+   _func_params_to_string(data, buffer, EINA_TRUE);
    elm_object_text_set(l, buffer);
    elm_label_line_wrap_set(l, ELM_WRAP_NONE);
 
@@ -609,22 +584,21 @@ _obj_info_tootip(void *data   EINA_UNUSED,
 }
 
 static char *
-_obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+_obj_kl_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
-   _Obj_info_node *node = data;
+   Eolian_Debug_Class *kl = data;
+   return strdup(eolian_class_full_name_get(kl->ekl));
+}
 
-   if(node->type == OBJ_CLASS)
-     {
-        return strdup(eolian_class_full_name_get(((Eolian_Debug_Class *)(node->data))->ekl));
-     }
-   else if(node->type == OBJ_FUNC)
-     {
-        char buffer[_MAX_LABEL];
-        _obj_info_params_to_string(node, buffer, EINA_FALSE);
-        return strdup(buffer);
-     }
-   return NULL;
+static char *
+_obj_func_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+      const char *part EINA_UNUSED)
+{
+   char buffer[_MAX_LABEL];
+   Eolian_Debug_Function *func = data;
+   _func_params_to_string(func, buffer, EINA_FALSE);
+   return strdup(buffer);
 }
 #undef _MAX_LABEL
 
@@ -645,16 +619,10 @@ _obj_info_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
    EINA_LIST_FOREACH(_obj_info->classes, kl_itr, kl)
      {
         Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_TREE;
-        _Obj_info_node *node = NULL;
-        node = calloc(1, sizeof(*node));
-        node->type = OBJ_CLASS;
-        node->data = kl;
 
         Elm_Object_Item  *glg = elm_genlist_item_append(
-              _main_widgets->object_infos_list, _obj_info_itc,
-              (void *)node, NULL,
-              type,
-              NULL, NULL);
+              _main_widgets->object_infos_list, _obj_kl_info_itc,
+              kl, NULL, type, NULL, NULL);
         elm_genlist_item_expanded_set(glg, EINA_FALSE);
      }
 
@@ -1506,23 +1474,25 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         _objs_itc->item_style = "default";
         _objs_itc->func.text_get = _objs_item_label_get;
         _objs_itc->func.content_get = _objs_item_content_get;
-        _objs_itc->func.state_get = NULL;
-        _objs_itc->func.del = NULL;
      }
    efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL);
    efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL);
    efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL);
    efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, NULL);
 
-   //Init object info Genlist
-   if (!_obj_info_itc)
+   //Init object class info itc
+   if (!_obj_kl_info_itc)
      {
-        _obj_info_itc = elm_genlist_item_class_new();
-        _obj_info_itc->item_style = "default";
-        _obj_info_itc->func.text_get = _obj_info_item_label_get;
-        _obj_info_itc->func.content_get = NULL;
-        _obj_info_itc->func.state_get = NULL;
-        _obj_info_itc->func.del = _obj_info_item_del;
+        _obj_kl_info_itc = elm_genlist_item_class_new();
+        _obj_kl_info_itc->item_style = "default";
+        _obj_kl_info_itc->func.text_get = _obj_kl_info_item_label_get;
+     }
+   //Init object function info itc
+   if (!_obj_func_info_itc)
+     {
+        _obj_func_info_itc = elm_genlist_item_class_new();
+        _obj_func_info_itc->item_style = "default";
+        _obj_func_info_itc->func.text_get = _obj_func_info_item_label_get;
      }
    efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL);
    efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL);
