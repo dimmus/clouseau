@@ -859,11 +859,9 @@ static Eina_Debug_Error
 _win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
       void *buffer, int size)
 {
-   Evas_Debug_Screenshot *s = NULL;
-   uint64_t id;
-   s = evas_debug_screenshot_decode(buffer, size, &id);
+   Evas_Debug_Screenshot *s = evas_debug_screenshot_decode(buffer, size);
    if (!s) return EINA_DEBUG_ERROR;
-   Obj_Info *info =  eina_hash_find(_objs_hash, &id);
+   Obj_Info *info =  eina_hash_find(_objs_hash, &(s->obj));
    if (!info) return EINA_DEBUG_OK;
    info->screenshots = eina_list_append(info->screenshots, s);
    if (info->glitem) elm_genlist_item_update(info->glitem);
@@ -910,6 +908,7 @@ _menu_screenshot_selected(void *data,
 void
 show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
 {
+   Eo *bt = event->object;
    Obj_Info *info = efl_key_data_get(event->object, "__info_node");
    if (eina_list_count(info->screenshots) == 1)
      {
@@ -920,24 +919,22 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
         Eina_List *itr;
         Evas_Debug_Screenshot *s;
         int x = 0, y = 0, h = 0;
-        if (!info->screenshots_menu)
-          {
-             info->screenshots_menu = elm_menu_add(_main_widgets->main_win);
-             efl_wref_add(info->screenshots_menu, &info->screenshots_menu);
-          }
-        efl_gfx_position_get(event->object, &x, &y);
-        efl_gfx_size_get(event->object, NULL, &h);
+
+        if (info->screenshots_menu) efl_del(info->screenshots_menu);
+        info->screenshots_menu = elm_menu_add(_main_widgets->main_win);
+        efl_wref_add(info->screenshots_menu, &info->screenshots_menu);
+
+        efl_gfx_position_get(bt, &x, &y);
+        efl_gfx_size_get(bt, NULL, &h);
         elm_menu_move(info->screenshots_menu, x, y + h);
         efl_gfx_visible_set(info->screenshots_menu, EINA_TRUE);
         EINA_LIST_FOREACH(info->screenshots, itr, s)
           {
              char str[200];
-             if (s->menu_item) continue;
              sprintf(str, "%.2d:%.2d:%.2d",
                    s->time.tm_hour, s->time.tm_min, s->time.tm_sec);
-             s->menu_item = elm_menu_item_add(info->screenshots_menu,
+             elm_menu_item_add(info->screenshots_menu,
                    NULL, NULL, str, _menu_screenshot_selected, s);
-             efl_wref_add(s->menu_item, &s->menu_item);
           }
      }
 }
@@ -1120,7 +1117,6 @@ static Eina_Debug_Error
 _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
 {
    if (size <= 0) return EINA_DEBUG_ERROR;
-   if (!_selected_app || _selected_app->cid != src) return EINA_DEBUG_OK;
    Eina_Bool ret = !!((char *)buffer)[size - 1];
    if (!ret)
      {
@@ -1259,6 +1255,13 @@ _snapshot_is_candidate(void *buffer)
 Eina_Debug_Error
 _disp_cb(Eina_Debug_Session *session EINA_UNUSED, void *buffer)
 {
+   Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
+   if (hdr->cid && (!_selected_app || _selected_app->cid != hdr->cid))
+     {
+        free(buffer);
+        return EINA_DEBUG_OK;
+     }
+
    if (_snapshot && _snapshot_is_candidate(buffer))
      {
         _snapshot_buffer_append(buffer);
@@ -1335,7 +1338,6 @@ gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs)
 static void
 _connection_type_change(Connection_Type conn_type)
 {
-   /* FIXME disconnection if connected */
    if (_session) eina_debug_session_terminate(_session);
    _session = NULL;
    _clean(EINA_TRUE);
