@@ -55,6 +55,7 @@ typedef struct
    int pid;
    Eina_Stringshare *name;
    Eo *hs_item;
+   Eina_List *screenshots; /* Only useful for snapshot save */
    Eina_Bool eo_init_done;
    Eina_Bool eolian_init_done;
    Eina_Bool evas_init_done;
@@ -85,6 +86,8 @@ typedef struct
    Eina_Stringshare *app_name;
    int app_pid;
    Eina_Stringshare *out_file;
+
+   Eina_List *screenshots;
 
    char *buffer;
    unsigned int max_len;
@@ -378,7 +381,7 @@ _clean(Eina_Bool full)
 
    if (full)
      {
-        int i;
+        int i = 0;
         _selected_profile = NULL;
         _apps_free();
 
@@ -410,6 +413,28 @@ _snapshot_eet_load()
 {
    if (_snapshot_edd) return;
    Eet_Data_Descriptor_Class eddc;
+   Evas_Debug_Screenshot s;
+
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Evas_Debug_Screenshot);
+   Eet_Data_Descriptor *evas_shot_edd = eet_data_descriptor_stream_new(&eddc);
+
+#define SHOT_ADD_BASIC(member, eet_type)\
+   EET_DATA_DESCRIPTOR_ADD_BASIC\
+   (evas_shot_edd, Evas_Debug_Screenshot, # member, member, eet_type)
+
+   SHOT_ADD_BASIC(obj, EET_T_ULONG_LONG);
+   SHOT_ADD_BASIC(w, EET_T_INT);
+   SHOT_ADD_BASIC(h, EET_T_INT);
+   eet_data_descriptor_element_add(evas_shot_edd,
+                                   "img", EET_T_CHAR, EET_G_VAR_ARRAY,
+                                   (char *)(&(s.img)) - (char *)(&s),
+                                   (char *)(&(s.img_size)) - (char *)(&s),
+                                   NULL, NULL);
+   SHOT_ADD_BASIC(tm_sec, EET_T_INT);
+   SHOT_ADD_BASIC(tm_min, EET_T_INT);
+   SHOT_ADD_BASIC(tm_hour, EET_T_INT);
+
+#undef SHOT_ADD_BASIC
 
    EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Snapshot);
    _snapshot_edd = eet_data_descriptor_stream_new(&eddc);
@@ -424,6 +449,8 @@ _snapshot_eet_load()
    SNP_ADD_BASIC(eoids_op, EET_T_INT);
    SNP_ADD_BASIC(klids_op, EET_T_INT);
    SNP_ADD_BASIC(obj_info_op, EET_T_INT);
+   EET_DATA_DESCRIPTOR_ADD_LIST(_snapshot_edd, Snapshot,
+         "screenshots", screenshots, evas_shot_edd);
 
 #undef SNP_ADD_BASIC
 }
@@ -446,6 +473,7 @@ _snapshot_save()
    _snapshot->eoids_op = _eoids_get_op;
    _snapshot->klids_op = _klids_get_op;
    _snapshot->obj_info_op = _obj_info_op;
+   _snapshot->screenshots = _selected_app->screenshots;
    out_buf = eet_data_descriptor_encode(_snapshot_edd, _snapshot, &out_size);
    fwrite(&out_size, sizeof(int), 1, fp);
    fwrite(out_buf, 1, out_size, fp);
@@ -502,6 +530,7 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
    char hs_name[100];
    Eo *inwin = data;
    Snapshot *s = _snapshot_open(ev);
+   Evas_Debug_Screenshot *shot;
    unsigned int idx = 0;
    if (!s) return;
 
@@ -523,6 +552,13 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
         Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)(s->buffer + idx);
         eina_debug_dispatch(session, s->buffer + idx);
         idx += hdr->size;
+     }
+   EINA_LIST_FREE(s->screenshots, shot)
+     {
+        Obj_Info *info = eina_hash_find(_objs_hash, &(shot->obj));
+        if (!info) continue;
+        info->screenshots = eina_list_append(info->screenshots, shot);
+        if (info->glitem) elm_genlist_item_update(info->glitem);
      }
    free(s->buffer);
    free(s);
@@ -861,9 +897,10 @@ _win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED
 {
    Evas_Debug_Screenshot *s = evas_debug_screenshot_decode(buffer, size);
    if (!s) return EINA_DEBUG_ERROR;
-   Obj_Info *info =  eina_hash_find(_objs_hash, &(s->obj));
+   Obj_Info *info = eina_hash_find(_objs_hash, &(s->obj));
    if (!info) return EINA_DEBUG_OK;
    info->screenshots = eina_list_append(info->screenshots, s);
+   _selected_app->screenshots = eina_list_append(_selected_app->screenshots, s);
    if (info->glitem) elm_genlist_item_update(info->glitem);
    return EINA_DEBUG_OK;
 }
@@ -932,7 +969,7 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
           {
              char str[200];
              sprintf(str, "%.2d:%.2d:%.2d",
-                   s->time.tm_hour, s->time.tm_min, s->time.tm_sec);
+                   s->tm_hour, s->tm_min, s->tm_sec);
              elm_menu_item_add(info->screenshots_menu,
                    NULL, NULL, str, _menu_screenshot_selected, s);
           }
@@ -981,7 +1018,6 @@ snapshot_do(void *data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
    _ui_freeze(EINA_TRUE);
    _snapshot = calloc(1, sizeof(*_snapshot));
    _snapshot->out_file = eina_stringshare_add(ev);
-   /* EET app + opcodes */
    buf = _eoids_request_prepare(&size);
    eina_debug_session_send(_session, _selected_app->cid, _snapshot_do_op, buf, size);
    free(buf);
