@@ -14,10 +14,16 @@
 #include "elm_interface_fileselector.h"
 #include "gui.h"
 
+static const char* objs_types_strings[] =
+{
+   "Show all canvas objects",
+   "Only show Elementary widgets",
+   NULL
+};
+
 static Gui_Widgets g_pub_widgets;
 
 extern void gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs);
-extern void gui_config_win_widgets_done(Gui_Config_Win_Widgets *wdgs);
 
 #ifdef GUI_IMAGES_PATH
   const char *SHOW_SCREENSHOT_ICON = GUI_IMAGES_PATH"/show-screenshot.png";
@@ -31,11 +37,11 @@ new_profile_save_cb(void *data, const Efl_Event *event);
 extern void
 screenshot_req_cb(void *data, const Efl_Event *event);
 extern void
-config_ok_button_clicked(void *data, const Efl_Event *event);
+conn_menu_show(void *data, Evas_Object *obj, void *event_info);
 extern void
-conn_menu_show(void *data, const Efl_Event *event);
+reload_perform(void *data, Evas_Object *obj, void *event_info);
 extern void
-load_perform(void *data, const Efl_Event *event);
+save_load_perform(void *data, Evas_Object *obj, void *event_info);
 extern void
 jump_entry_changed(void *data, const Efl_Event *event);
 extern void
@@ -44,14 +50,21 @@ extern void
 show_screenshot_button_clicked(void *data, const Efl_Event *event);
 extern void
 snapshot_do(void *data, Evas_Object *fs, void *event_info);
-
-static void
-_config_open(void *data, const Efl_Event *event);
+extern void
+objs_type_changed(void *data, Evas_Object *obj, void *event_info);
+extern void
+highlight_changed(void *data, Evas_Object *obj, void *event_info);
 
 static void
 _pubs_free_cb(void *data, const Efl_Event *event EINA_UNUSED)
 {
    free(data);
+}
+
+static void
+_jump_to_ptr_inwin_show(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   elm_win_inwin_activate(data);
 }
 
 Gui_Main_Win_Widgets *
@@ -62,15 +75,10 @@ gui_main_win_create(Eo *__main_parent)
    Eo *main_win;
    Eo *elm_bg1;
    Eo *elm_box1;
-   Eo *bar_box;
+   Eo *tb;
    Eo *conn_selector;
-   Eo *conn_selector_menu;
-   Eo *load_button;
-   Eo *apps_selector;
+   Eo *jump2ptr_inwin;
    Eo *jump_to_entry;
-   Eo *extensions_bt;
-   Eo *settings_bt;
-   Eo *save_bt;
    Eo *freeze_pulse;
    Eo *freeze_inwin;
    Eo *elm_panes1;
@@ -97,76 +105,77 @@ gui_main_win_create(Eo *__main_parent)
    elm_win_resize_object_add(main_win, elm_bg1);
    elm_win_resize_object_add(main_win, elm_box1);
 
-   bar_box = elm_box_add(main_win);
-   pub_widgets->bar_box = bar_box;
-   elm_box_horizontal_set(bar_box, EINA_TRUE);
-   evas_object_size_hint_weight_set(bar_box, 1.000000, 0.000000);
-   evas_object_size_hint_align_set(bar_box, -1.00000, -1.000000);
-   efl_gfx_visible_set(bar_box, EINA_TRUE);
+   tb = elm_toolbar_add(elm_box1);
+   pub_widgets->tb = tb;
+   elm_toolbar_shrink_mode_set(tb, ELM_TOOLBAR_SHRINK_MENU);
+   elm_toolbar_menu_parent_set(tb, main_win);
+   evas_object_size_hint_weight_set(tb, 1.000000, 0.000000);
+   evas_object_size_hint_align_set(tb, -1.00000, 0);
+   efl_gfx_visible_set(tb, EINA_TRUE);
 
-   conn_selector = elm_button_add(bar_box);
+   conn_selector = elm_toolbar_item_append(tb, "call-start", "Connection", conn_menu_show, NULL);
    pub_widgets->conn_selector = conn_selector;
-   evas_object_size_hint_weight_set(conn_selector, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(conn_selector, -1.000000, -1.000000);
-   efl_gfx_visible_set(conn_selector, EINA_TRUE);
-   elm_box_pack_end(bar_box, conn_selector);
-   efl_event_callback_add(conn_selector, EFL_UI_EVENT_CLICKED, conn_menu_show, NULL);
+   elm_toolbar_item_menu_set(conn_selector, EINA_TRUE);
+   elm_toolbar_item_priority_set(conn_selector, -9999);
 
-   conn_selector_menu = elm_menu_add(main_win);
-   pub_widgets->conn_selector_menu = conn_selector_menu;
+   pub_widgets->conn_selector_menu = elm_toolbar_item_menu_get(conn_selector);
 
-   load_button = elm_button_add(bar_box);
-   pub_widgets->load_button = load_button;
-   evas_object_size_hint_weight_set(load_button, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(load_button, -1.000000, -1.000000);
-   efl_gfx_visible_set(load_button, EINA_TRUE);
-   elm_box_pack_end(bar_box, load_button);
-   efl_event_callback_add(load_button, EFL_UI_EVENT_CLICKED, load_perform, NULL);
+   pub_widgets->reload_button = elm_toolbar_item_append(tb, "view-refresh", "Reload", reload_perform, NULL);
 
-   apps_selector = elm_hoversel_add(main_win);
-   pub_widgets->apps_selector = apps_selector;
-   evas_object_size_hint_weight_set(apps_selector, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(apps_selector, -1.00000, -1.000000);
-   efl_gfx_visible_set(apps_selector, EINA_TRUE);
-   elm_obj_widget_part_text_set(apps_selector, NULL, "Select App");
-   elm_box_pack_end(bar_box, apps_selector);
+   pub_widgets->apps_selector = elm_toolbar_item_append(tb, "view-list-details", "Select App", NULL, NULL);
+   elm_toolbar_item_menu_set(pub_widgets->apps_selector, EINA_TRUE);
+   elm_toolbar_item_priority_set(pub_widgets->apps_selector, -9999);
 
-   jump_to_entry = elm_entry_add(bar_box);
+   pub_widgets->apps_selector_menu = elm_toolbar_item_menu_get(pub_widgets->apps_selector);
+
+   jump2ptr_inwin = elm_win_inwin_add(main_win);
+   jump_to_entry = elm_entry_add(jump2ptr_inwin);
    elm_entry_scrollable_set(jump_to_entry, EINA_TRUE);
    elm_entry_single_line_set(jump_to_entry, EINA_TRUE);
    elm_object_part_text_set(jump_to_entry, "guide", "Jump To Pointer");
-   evas_object_size_hint_align_set(jump_to_entry,
-         EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(jump_to_entry,
-         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   elm_box_pack_end(bar_box, jump_to_entry);
+   efl_event_callback_add(jump_to_entry, ELM_ENTRY_EVENT_ACTIVATED, jump_entry_changed, jump2ptr_inwin);
    evas_object_show(jump_to_entry);
-   efl_event_callback_add(jump_to_entry, ELM_ENTRY_EVENT_ACTIVATED, jump_entry_changed, NULL);
+   elm_win_inwin_content_set(jump2ptr_inwin, jump_to_entry);
 
-   extensions_bt = elm_button_add(bar_box);
+   elm_toolbar_item_append(tb, "edit-find", "Jump To Pointer", _jump_to_ptr_inwin_show, jump2ptr_inwin);
+
+   /*
+   extensions_bt = elm_button_add(tb);
    evas_object_size_hint_weight_set(extensions_bt, 1.000000, 1.000000);
    evas_object_size_hint_align_set(extensions_bt, -1.00000, -1.000000);
    efl_gfx_visible_set(extensions_bt, EINA_TRUE);
    elm_obj_widget_part_text_set(extensions_bt, NULL, "Extensions");
-   elm_box_pack_end(bar_box, extensions_bt);
+   elm_box_pack_end(tb, extensions_bt);
+   */
 
-   settings_bt = elm_button_add(bar_box);
-   evas_object_size_hint_weight_set(settings_bt, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(settings_bt, -1.00000, -1.000000);
-   efl_gfx_visible_set(settings_bt, EINA_TRUE);
-   elm_obj_widget_part_text_set(settings_bt, NULL, "Settings");
-   elm_box_pack_end(bar_box, settings_bt);
-   efl_event_callback_add(settings_bt, EFL_UI_EVENT_CLICKED, _config_open, main_win);
+     {
+        int i;
+        Eo *settings_it = elm_toolbar_item_append(tb, "system-run", "Settings", NULL, NULL);
+        elm_toolbar_item_menu_set(settings_it, EINA_TRUE);
+        elm_toolbar_item_priority_set(settings_it, -9999);
 
-   save_bt = elm_fileselector_button_add(bar_box);
-   pub_widgets->save_bt = save_bt;
-   evas_object_size_hint_weight_set(save_bt, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(save_bt, -1.00000, -1.000000);
-   elm_fileselector_button_inwin_mode_set(save_bt, EINA_TRUE);
-   elm_fileselector_is_save_set(save_bt, EINA_TRUE);
-   elm_fileselector_path_set(save_bt, getenv("HOME"));
-   elm_object_text_set(save_bt, "Save");
-   evas_object_smart_callback_add(save_bt, "file,chosen", snapshot_do, NULL);
+        Eo *settings_menu = elm_toolbar_item_menu_get(settings_it);
+        Eo *objs_type_it = elm_menu_item_add(settings_menu, NULL, NULL,
+              "Objects types display", NULL, NULL);
+        while (objs_types_strings[i])
+          {
+             Eo *it = elm_menu_item_add(settings_menu, objs_type_it, NULL,
+                   objs_types_strings[i], objs_type_changed, (void *)(uintptr_t)i);
+             Eo *rd = elm_radio_add(settings_menu);
+             elm_radio_state_value_set(rd, i);
+             if (!i) pub_widgets->objs_type_radio = rd;
+             else elm_radio_group_add(rd, pub_widgets->objs_type_radio);
+             elm_object_item_content_set(it, rd);
+             i++;
+          }
+        Eo *highlight_it = elm_menu_item_add(settings_menu, NULL, NULL,
+              "Hightlight", highlight_changed, NULL);
+        Eo *ck = elm_check_add(settings_menu);
+        elm_object_item_content_set(highlight_it, ck);
+        pub_widgets->highlight_ck = ck;
+     }
+
+   pub_widgets->save_load_bt = elm_toolbar_item_append(tb, "document-export", "Save", save_load_perform, NULL);
 
    freeze_pulse = elm_progressbar_add(main_win);
    pub_widgets->freeze_pulse = freeze_pulse;
@@ -189,7 +198,7 @@ gui_main_win_create(Eo *__main_parent)
    efl_gfx_visible_set(elm_panes1, EINA_TRUE);
    evas_object_size_hint_weight_set(elm_panes1, 1.000000, 1.000000);
    evas_object_size_hint_align_set(elm_panes1, -1.000000, -1.000000);
-   elm_box_pack_end(elm_box1, bar_box);
+   elm_box_pack_end(elm_box1, tb);
    elm_box_pack_end(elm_box1, elm_panes1);
    object_infos_list = elm_genlist_add(elm_panes1);
    pub_widgets->object_infos_list = object_infos_list;
@@ -405,112 +414,6 @@ gui_show_screenshot_win_create(Eo *__main_parent)
    evas_object_size_hint_weight_set(bg, 1.000000, 1.000000);
    efl_gfx_visible_set(bg, EINA_TRUE);
    elm_win_resize_object_add(win, bg);
-   efl_gfx_visible_set(win, EINA_TRUE);
-   efl_event_callback_add(win, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
-
-   return pub_widgets;
-}
-
-
-static void
-_config_cancel_button_clicked(void *data, const Efl_Event *event EINA_UNUSED)
-{
-   Gui_Config_Win_Widgets *wdgs = data;
-   efl_del(wdgs->win);
-}
-
-static void
-_config_open(void *data, const Efl_Event *event EINA_UNUSED)
-{
-   Eo *parent = data;
-   Gui_Config_Win_Widgets *wdgs = gui_config_win_create(parent);
-   gui_config_win_widgets_done(wdgs);
-}
-
-Gui_Config_Win_Widgets *
-gui_config_win_create(Eo *__main_parent)
-{
-   Gui_Config_Win_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
-
-   Eo *win;
-   Eo *elm_bg2;
-   Eo *elm_box2;
-   Eo *elm_box3;
-   Eo *options_box;
-   Eo *ok_button;
-   Eo *cancel_button;
-   Eo *objs_types_sel;
-   Eo *highlight_ck;
-
-   win = elm_win_add(__main_parent, "Win", ELM_WIN_BASIC);
-   pub_widgets->win = win;
-   elm_win_autodel_set(win, EINA_TRUE);
-   elm_widget_part_text_set(win, NULL, "Window");
-   efl_gfx_size_set(win, 347, 362);
-   evas_object_size_hint_weight_set(win, 1.000000, 1.000000);
-   evas_object_freeze_events_set(win, EINA_FALSE);
-   evas_object_repeat_events_set(win, EINA_FALSE);
-   elm_win_title_set(win, "Config");
-   elm_bg2 = elm_bg_add(win);
-   evas_object_size_hint_weight_set(elm_bg2, 1.000000, 1.000000);
-   efl_gfx_visible_set(elm_bg2, EINA_TRUE);
-
-   elm_box2 = elm_box_add(win);
-   elm_box_padding_set(elm_box2, 7, 0);
-   evas_object_size_hint_weight_set(elm_box2, 1.000000, 1.000000);
-   efl_gfx_visible_set(elm_box2, EINA_TRUE);
-   elm_win_resize_object_add(win, elm_bg2);
-   elm_win_resize_object_add(win, elm_box2);
-
-   elm_box3 = elm_box_add(elm_box2);
-   elm_box_padding_set(elm_box3, 7, 0);
-   evas_object_size_hint_align_set(elm_box3, -1.000000, -1.000000);
-   efl_gfx_visible_set(elm_box3, EINA_TRUE);
-   elm_box_horizontal_set(elm_box3, EINA_TRUE);
-   evas_object_size_hint_weight_set(elm_box3, 1.000000, 0.200000);
-
-   ok_button = efl_add(ELM_BUTTON_CLASS, elm_box3);
-   pub_widgets->ok_button = ok_button;
-   evas_object_size_hint_weight_set(ok_button, 1.000000, 1.000000);
-   efl_gfx_visible_set(ok_button, EINA_TRUE);
-   elm_obj_widget_part_text_set(ok_button, NULL, "Ok");
-   efl_event_callback_add(ok_button, EFL_UI_EVENT_CLICKED, config_ok_button_clicked, pub_widgets);
-
-   cancel_button = efl_add(ELM_BUTTON_CLASS, elm_box3);
-   pub_widgets->cancel_button = cancel_button;
-   evas_object_size_hint_weight_set(cancel_button, 1.000000, 1.000000);
-   efl_gfx_visible_set(cancel_button, EINA_TRUE);
-   elm_obj_widget_part_text_set(cancel_button, NULL, "Cancel");
-   efl_event_callback_add(cancel_button, EFL_UI_EVENT_CLICKED, _config_cancel_button_clicked, pub_widgets);
-   elm_box_pack_end(elm_box3, ok_button);
-   elm_box_pack_end(elm_box3, cancel_button);
-
-   options_box = elm_box_add(elm_box2);
-   evas_object_size_hint_align_set(options_box, -1.000000, -1.000000);
-   efl_gfx_visible_set(options_box, EINA_TRUE);
-   evas_object_size_hint_weight_set(options_box, 1.000000, 0.200000);
-
-   objs_types_sel = elm_hoversel_add(options_box);
-   evas_object_size_hint_weight_set(objs_types_sel, 1.000000, 0.000000);
-   evas_object_size_hint_align_set(objs_types_sel, -1.00000, -1.000000);
-   elm_hoversel_hover_parent_set(objs_types_sel, win);
-   elm_hoversel_auto_update_set(objs_types_sel, EINA_TRUE);
-   elm_hoversel_item_add(objs_types_sel, objs_types_strings[0], NULL, ELM_ICON_NONE, NULL, (void *)0);
-   elm_hoversel_item_add(objs_types_sel, objs_types_strings[1], NULL, ELM_ICON_NONE, NULL, (void *)1);
-   efl_gfx_visible_set(objs_types_sel, EINA_TRUE);
-   elm_box_pack_end(options_box, objs_types_sel);
-   pub_widgets->objs_types_sel = objs_types_sel;
-
-   highlight_ck = elm_check_add(options_box);
-   pub_widgets->highlight_ck = highlight_ck;
-   evas_object_size_hint_weight_set(highlight_ck, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(highlight_ck, -1.00000, -1.000000);
-   elm_object_text_set(highlight_ck, "Highlight");
-   elm_box_pack_end(options_box, highlight_ck);
-   efl_gfx_visible_set(highlight_ck, EINA_TRUE);
-
-   elm_box_pack_end(elm_box2, options_box);
-   elm_box_pack_end(elm_box2, elm_box3);
    efl_gfx_visible_set(win, EINA_TRUE);
    efl_event_callback_add(win, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
 
