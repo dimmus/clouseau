@@ -54,7 +54,7 @@ typedef struct
    int cid;
    int pid;
    Eina_Stringshare *name;
-   Eo *hs_item;
+   Eo *menu_item;
    Eina_List *screenshots; /* Only useful for snapshot save */
    Eina_Bool eo_init_done;
    Eina_Bool eolian_init_done;
@@ -324,7 +324,7 @@ _app_del(int cid)
    if (!ai) return;
    _apps = eina_list_remove(_apps, ai);
    eina_stringshare_del(ai->name);
-   if (ai->hs_item) efl_del(ai->hs_item);
+   if (ai->menu_item) efl_del(ai->menu_item);
    free(ai);
 }
 
@@ -527,11 +527,15 @@ end:
 static void
 _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
 {
-   char hs_name[100];
-   Eo *inwin = data;
-   Snapshot *s = _snapshot_open(ev);
+   char menu_name[100];
    Evas_Debug_Screenshot *shot;
+   Snapshot *s = NULL;
+   Eo *inwin = data;
    unsigned int idx = 0;
+
+   if (inwin) efl_del(inwin);
+
+   s = _snapshot_open(ev);
    if (!s) return;
 
    _clean(EINA_TRUE);
@@ -542,9 +546,8 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
    _klids_get_op = s->klids_op;
    _obj_info_op = s->obj_info_op;
    eina_debug_opcodes_register(session, ops, NULL);
-   if (inwin) efl_del(inwin);
-   snprintf(hs_name, 90, "%s [%d]", s->app_name, s->app_pid);
-   elm_object_text_set(_main_widgets->apps_selector, hs_name);
+   snprintf(menu_name, 90, "%s [%d]", s->app_name, s->app_pid);
+   elm_object_text_set(_main_widgets->apps_selector, menu_name);
 
    /* Prevent free of the buffer */
    while (idx < s->cur_len)
@@ -1009,11 +1012,13 @@ _snapshot_done_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
    return EINA_DEBUG_OK;
 }
 
-void
-snapshot_do(void *data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
+static void
+_snapshot_do(void *data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
 {
    void *buf;
+   Eo *inwin = data;
    int size;
+   if (inwin) efl_del(inwin);
    if (!_selected_app) return;
    _ui_freeze(EINA_TRUE);
    _snapshot = calloc(1, sizeof(*_snapshot));
@@ -1023,33 +1028,21 @@ snapshot_do(void *data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
    free(buf);
 }
 
-static void
-_config_objs_type_sel_selected(void *data EINA_UNUSED, const Efl_Event *event)
-{
-   efl_key_data_set(event->object, "show_type_item", event->info);
-}
-
 void
-gui_config_win_widgets_done(Gui_Config_Win_Widgets *wdgs)
+objs_type_changed(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   elm_win_modal_set(wdgs->win, EINA_TRUE);
-   elm_object_text_set(wdgs->objs_types_sel, objs_types_strings[_config->wdgs_show_type]);
-   efl_event_callback_add(wdgs->objs_types_sel, EFL_UI_EVENT_SELECTED, _config_objs_type_sel_selected, NULL);
-   elm_check_state_set(wdgs->highlight_ck, _config->highlight);
-}
-
-void
-config_ok_button_clicked(void *data, const Efl_Event *event EINA_UNUSED)
-{
-   Gui_Config_Win_Widgets *wdgs = data;
-   Eo *item = efl_key_data_get(wdgs->objs_types_sel, "show_type_item");
-   if (item)
-     {
-        _config->wdgs_show_type = (uintptr_t)elm_object_item_data_get(item);
-     }
-   _config->highlight = elm_check_state_get(wdgs->highlight_ck);
+   int type = (uintptr_t) data;
+   elm_radio_value_set(_main_widgets->objs_type_radio, type);
+   _config->wdgs_show_type = type;
    _config_save();
-   efl_del(wdgs->win);
+}
+
+void
+highlight_changed(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   _config->highlight = !_config->highlight;
+   elm_check_state_set(_main_widgets->highlight_ck, _config->highlight);
+   _config_save();
 }
 
 static Evas_Object *
@@ -1098,7 +1091,7 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
 }
 
 static void
-_hoversel_selected_app(void *data,
+_menu_selected_app(void *data,
       Evas_Object *obj, void *event_info)
 {
    const char *label = elm_object_item_part_text_get(event_info, NULL);
@@ -1120,13 +1113,15 @@ _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNU
         EXTRACT(buf, &pid, sizeof(int));
         if(pid != getpid())
           {
-             char hs_name[100];
+             char name[100];
              App_Info *ai = _app_add(cid, pid, buf);
-
-             snprintf(hs_name, 90, "%s [%d]", buf, pid);
-             ai->hs_item = elm_hoversel_item_add(_main_widgets->apps_selector,
-                   hs_name, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
-                   ai);
+             if (!ai->menu_item)
+               {
+                  snprintf(name, 90, "%s [%d]", buf, pid);
+                  ai->menu_item = elm_menu_item_add(_main_widgets->apps_selector_menu,
+                        NULL, "home", name, _menu_selected_app, ai);
+                  efl_wref_add(ai->menu_item, &ai->menu_item);
+               }
           }
         len = strlen(buf) + 1;
         buf += len;
@@ -1382,41 +1377,41 @@ _connection_type_change(Connection_Type conn_type)
      {
       case OFFLINE:
            {
-              efl_gfx_visible_set(_main_widgets->save_bt, EINA_FALSE);
-              elm_box_unpack(_main_widgets->bar_box, _main_widgets->save_bt);
-              elm_object_text_set(_main_widgets->load_button, "Load file...");
-              elm_object_disabled_set(_main_widgets->apps_selector, EINA_TRUE);
+              elm_object_item_text_set(_main_widgets->save_load_bt, "Load");
+              elm_menu_item_icon_name_set(_main_widgets->save_load_bt, "document-export");
+              elm_object_item_disabled_set(_main_widgets->reload_button, EINA_TRUE);
+              elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_TRUE);
               break;
            }
       case LOCAL_CONNECTION:
            {
-              efl_gfx_visible_set(_main_widgets->save_bt, EINA_TRUE);
-              elm_box_pack_end(_main_widgets->bar_box, _main_widgets->save_bt);
-              elm_object_text_set(_main_widgets->load_button, "Reload");
-              elm_object_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
+              elm_object_item_text_set(_main_widgets->save_load_bt, "Save");
+              elm_menu_item_icon_name_set(_main_widgets->save_load_bt, "document-import");
+              elm_object_item_disabled_set(_main_widgets->reload_button, EINA_FALSE);
+              elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
               _session = eina_debug_local_connect(EINA_TRUE);
               break;
            }
       case REMOTE_CONNECTION:
            {
-              efl_gfx_visible_set(_main_widgets->save_bt, EINA_TRUE);
-              elm_box_pack_end(_main_widgets->bar_box, _main_widgets->save_bt);
-              elm_object_text_set(_main_widgets->load_button, "Reload");
-              elm_object_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
+              elm_object_item_text_set(_main_widgets->save_load_bt, "Save");
+              elm_menu_item_icon_name_set(_main_widgets->save_load_bt, "document-import");
+              elm_object_item_disabled_set(_main_widgets->reload_button, EINA_FALSE);
+              elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
 #if 0
-         eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
-         Eina_List *script_lines = _parse_script(_selected_profile->script);
-         if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, script_lines))
-           {
-              fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
-           }
+              eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
+              Eina_List *script_lines = _parse_script(_selected_profile->script);
+              if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, script_lines))
+                {
+                   fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
+                }
 #endif
               break;
            }
       default: return;
      }
    if (_session) eina_debug_opcodes_register(_session, ops, _post_register_handle);
-   elm_object_text_set(_main_widgets->conn_selector, _conn_strs[conn_type]);
+   elm_object_item_text_set(_main_widgets->conn_selector, _conn_strs[conn_type]);
    _conn_type = conn_type;
 }
 
@@ -1447,9 +1442,10 @@ _item_realize(Obj_Info *info)
 }
 
 void
-jump_entry_changed(void *data EINA_UNUSED, const Efl_Event *event)
+jump_entry_changed(void *data, const Efl_Event *event)
 {
    Eo *en = event->object;
+   Eo *inwin = data;
    const char *ptr = elm_entry_entry_get(en);
    uint64_t id = 0;
    Eina_Bool err = EINA_FALSE;
@@ -1464,6 +1460,7 @@ jump_entry_changed(void *data EINA_UNUSED, const Efl_Event *event)
         else err = EINA_TRUE;
         ptr++;
      }
+   evas_object_hide(inwin);
    if (!err)
      {
         Obj_Info *info =  eina_hash_find(_objs_hash, &id);
@@ -1485,7 +1482,8 @@ _fs_activate(Eina_Bool is_save)
    evas_object_size_hint_weight_set
       (fs, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(fs, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_smart_callback_add(fs, "done", _snapshot_load, inwin);
+   evas_object_smart_callback_add(fs, "done",
+         is_save?_snapshot_do:_snapshot_load, inwin);
    evas_object_show(fs);
 
    elm_win_inwin_content_set(inwin, fs);
@@ -1493,15 +1491,10 @@ _fs_activate(Eina_Bool is_save)
 }
 
 void
-load_perform(void *data EINA_UNUSED, const Efl_Event *event EINA_UNUSED)
+reload_perform(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    switch (_conn_type)
      {
-      case OFFLINE:
-           {
-              _fs_activate(EINA_FALSE);
-              break;
-           }
       case LOCAL_CONNECTION:
       case REMOTE_CONNECTION:
            {
@@ -1516,15 +1509,30 @@ load_perform(void *data EINA_UNUSED, const Efl_Event *event EINA_UNUSED)
 }
 
 void
-conn_menu_show(void *data EINA_UNUSED, const Efl_Event *event EINA_UNUSED)
+save_load_perform(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   switch (_conn_type)
+     {
+      case OFFLINE:
+           {
+              _fs_activate(EINA_FALSE);
+              break;
+           }
+      case LOCAL_CONNECTION:
+      case REMOTE_CONNECTION:
+           {
+              _fs_activate(EINA_TRUE);
+              break;
+           }
+      default: break;
+     }
+}
+
+void
+conn_menu_show(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Eina_List *itr;
    Profile *p;
-   int x = 0, y = 0, h = 0;
-   efl_gfx_position_get(_main_widgets->conn_selector, &x, &y);
-   efl_gfx_size_get(_main_widgets->conn_selector, NULL, &h);
-   elm_menu_move(_main_widgets->conn_selector_menu, x, y + h);
-   efl_gfx_visible_set(_main_widgets->conn_selector_menu, EINA_TRUE);
 
    EINA_LIST_FOREACH(_profiles, itr, p)
      {
@@ -1619,6 +1627,8 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    eolian_directory_scan(EOLIAN_EO_DIR);
    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
    _main_widgets = gui_gui_get()->main_win;
+   elm_radio_value_set(_main_widgets->objs_type_radio, _config->wdgs_show_type);
+   elm_check_state_set(_main_widgets->highlight_ck, _config->highlight);
 
    for (i = 0; i < LAST_CONNECTION; i++)
      {
