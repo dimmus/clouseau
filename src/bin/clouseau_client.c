@@ -1107,6 +1107,19 @@ gl_exp_req(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_inf
 }
 
 static void
+gl_clk_double(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+{
+   Elm_Object_Item *glit = (Elm_Object_Item *)event_info;
+   if (elm_genlist_item_type_get(glit) == ELM_GENLIST_ITEM_TREE)
+     {
+        if (elm_genlist_item_expanded_get(glit))
+          elm_genlist_item_subitems_clear(glit);
+        else
+          elm_genlist_item_expanded_set(glit, EINA_TRUE);
+     }
+}
+
+static void
 gl_con_req(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
@@ -2223,6 +2236,8 @@ _main_list_create(Evas_Object *panes)
                                   "contracted", gl_con, gui->gl);
    evas_object_smart_callback_add(gui->gl,
                                   "selected", _gl_selected, gui);
+   evas_object_smart_callback_add(gui->gl,
+                                  "clicked,double", gl_clk_double, gui->gl);
 }
 
 static void
