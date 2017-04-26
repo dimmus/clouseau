@@ -540,12 +540,9 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
 
    _clean(EINA_TRUE);
 
-   Eina_Debug_Session *session = eina_debug_fake_session_create();
-
    _eoids_get_op = s->eoids_op;
    _klids_get_op = s->klids_op;
    _obj_info_op = s->obj_info_op;
-   eina_debug_opcodes_register(session, ops, NULL);
    snprintf(menu_name, 90, "%s [%d]", s->app_name, s->app_pid);
    elm_object_text_set(_main_widgets->apps_selector, menu_name);
 
@@ -553,7 +550,11 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
    while (idx < s->cur_len)
      {
         Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)(s->buffer + idx);
-        eina_debug_dispatch(session, s->buffer + idx);
+        void *payload = (s->buffer + idx) + sizeof(*hdr);
+        int size = hdr->size - sizeof(*hdr);
+        if (hdr->opcode == _eoids_get_op) _eoids_get(NULL, 0, payload, size);
+        else if (hdr->opcode == _klids_get_op) _klids_get(NULL, 0, payload, size);
+        else if (hdr->opcode == _obj_info_op) _obj_info_get(NULL, 0, payload, size);
         idx += hdr->size;
      }
    EINA_LIST_FREE(s->screenshots, shot)
@@ -565,7 +566,6 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
      }
    free(s->buffer);
    free(s);
-   eina_debug_session_terminate(session);
 }
 
 #if 0
