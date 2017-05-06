@@ -115,11 +115,10 @@ static const char *_conn_strs[] =
 
 typedef struct
 {
-   const char *file_name;
    const char *name;
    const char *command;
-   const char *script;
    /* Not eet */
+   const char *file_name;
    Eo *menu_item;
 } Profile;
 
@@ -241,7 +240,6 @@ _profile_eet_load()
 
    CFG_ADD_BASIC(name, EET_T_STRING);
    CFG_ADD_BASIC(command, EET_T_STRING);
-   CFG_ADD_BASIC(script, EET_T_STRING);
 
 #undef CFG_ADD_BASIC
 }
@@ -267,6 +265,21 @@ _profile_save(const Profile *p)
    eet_data_write(file, _profile_edd, _EET_ENTRY, p, EINA_TRUE);
    eet_close(file);
    _profiles = eina_list_append(_profiles, p);
+}
+
+static void
+_profile_remove(Profile *p)
+{
+   char path[1024];
+   if (!p) return;
+   if (p->menu_item) efl_del(p->menu_item);
+   sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), p->file_name);
+   remove(path);
+   _profiles = eina_list_remove(_profiles, p);
+   eina_stringshare_del(p->file_name);
+   eina_stringshare_del(p->name);
+   eina_stringshare_del(p->command);
+   free(p);
 }
 
 static void
@@ -382,7 +395,6 @@ _clean(Eina_Bool full)
    if (full)
      {
         int i = 0;
-        _selected_profile = NULL;
         _apps_free();
 
         while (ops[i].opcode_name)
@@ -1337,33 +1349,49 @@ _parse_script(const char *script)
 }
 #endif
 
-Eina_Bool
-new_profile_save_cb(void *data EINA_UNUSED, const Efl_Event *event)
+static void
+_profile_create_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
    Gui_New_Profile_Win_Widgets *wdgs = NULL;
    Profile *p = NULL;
    Eo *save_bt = event->object;
    wdgs = efl_key_data_get(save_bt, "_wdgs");
-   const char *name = elm_object_text_get(wdgs->new_profile_name);
-   const char *cmd = elm_object_text_get(wdgs->new_profile_command);
-   const char *script = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->new_profile_script));
-   if (!name || !*name) return EINA_TRUE;
-   if (!cmd || !*cmd) return EINA_TRUE;
+   const char *name = elm_object_text_get(wdgs->name_entry);
+   const char *cmd = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->command_entry));
+   if (!name || !*name) return;
+   if (!cmd || !*cmd) return;
    p = calloc(1, sizeof(*p));
    p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
    p->name = eina_stringshare_add(name);
    p->command = eina_stringshare_add(cmd);
-   p->script = eina_stringshare_add(script);
    _profile_save(p);
-   efl_del(wdgs->new_profile_win);
-   return EINA_TRUE;
+   efl_del(wdgs->inwin);
+}
+
+static void
+_profile_modify_cb(void *data, const Efl_Event *event)
+{
+   Profile *p = data;
+   Eo *save_bt = event->object;
+   Gui_New_Profile_Win_Widgets *wdgs = efl_key_data_get(save_bt, "_wdgs");
+   const char *name = elm_object_text_get(wdgs->name_entry);
+   const char *cmd = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->command_entry));
+   if (!name || !*name) return;
+   if (!cmd || !*cmd) return;
+   _profile_remove(p);
+   p = calloc(1, sizeof(*p));
+   p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
+   p->name = eina_stringshare_add(name);
+   p->command = eina_stringshare_add(cmd);
+   _profile_save(p);
+   efl_del(wdgs->inwin);
 }
 
 void
 gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs)
 {
-   efl_key_data_set(wdgs->new_profile_save_button, "_wdgs", wdgs);
-   efl_key_data_set(wdgs->new_profile_cancel_button, "_wdgs", wdgs);
+   efl_key_data_set(wdgs->save_button, "_wdgs", wdgs);
+   efl_key_data_set(wdgs->cancel_button, "_wdgs", wdgs);
 }
 
 static void
@@ -1372,21 +1400,23 @@ _connection_type_change(Connection_Type conn_type)
    if (_session) eina_debug_session_terminate(_session);
    _session = NULL;
    _clean(EINA_TRUE);
-   elm_object_text_set(_main_widgets->apps_selector, "Select App");
+   elm_object_item_text_set(_main_widgets->apps_selector, "Select App");
    switch (conn_type)
      {
       case OFFLINE:
            {
+              _selected_profile = NULL;
               elm_object_item_text_set(_main_widgets->save_load_bt, "Load");
-              elm_menu_item_icon_name_set(_main_widgets->save_load_bt, "document-export");
+              elm_toolbar_item_icon_set(_main_widgets->save_load_bt, "document-export");
               elm_object_item_disabled_set(_main_widgets->reload_button, EINA_TRUE);
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_TRUE);
               break;
            }
       case LOCAL_CONNECTION:
            {
+              _selected_profile = NULL;
               elm_object_item_text_set(_main_widgets->save_load_bt, "Save");
-              elm_menu_item_icon_name_set(_main_widgets->save_load_bt, "document-import");
+              elm_toolbar_item_icon_set(_main_widgets->save_load_bt, "document-import");
               elm_object_item_disabled_set(_main_widgets->reload_button, EINA_FALSE);
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
               _session = eina_debug_local_connect(EINA_TRUE);
@@ -1395,17 +1425,10 @@ _connection_type_change(Connection_Type conn_type)
       case REMOTE_CONNECTION:
            {
               elm_object_item_text_set(_main_widgets->save_load_bt, "Save");
-              elm_menu_item_icon_name_set(_main_widgets->save_load_bt, "document-import");
+              elm_toolbar_item_icon_set(_main_widgets->save_load_bt, "document-import");
               elm_object_item_disabled_set(_main_widgets->reload_button, EINA_FALSE);
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
-#if 0
-              eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
-              Eina_List *script_lines = _parse_script(_selected_profile->script);
-              if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, script_lines))
-                {
-                   fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
-                }
-#endif
+              _session = eina_debug_shell_remote_connect(_selected_profile->command);
               break;
            }
       default: return;
@@ -1428,6 +1451,26 @@ _menu_profile_selected(void *data,
 {
    _selected_profile = data;
    _connection_type_change(REMOTE_CONNECTION);
+}
+
+static void
+_menu_profile_modify(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Profile *p = data;
+   Gui_New_Profile_Win_Widgets *wdgs = gui_new_profile_win_create(_main_widgets->main_win);
+   gui_new_profile_win_create_done(wdgs);
+   efl_event_callback_add(wdgs->save_button, EFL_UI_EVENT_CLICKED, _profile_modify_cb, p);
+   elm_object_text_set(wdgs->name_entry, p->name);
+   elm_object_text_set(wdgs->command_entry, elm_entry_utf8_to_markup(p->command));
+}
+
+static void
+_menu_profile_delete(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Profile *p = data;
+   _profile_remove(p);
 }
 
 static void
@@ -1541,6 +1584,10 @@ conn_menu_show(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event
               _menu_remote_item, NULL, p->name,
               _menu_profile_selected, p);
         efl_wref_add(p->menu_item, &p->menu_item);
+        elm_menu_item_add(_main_widgets->conn_selector_menu,
+              p->menu_item, NULL, "Modify", _menu_profile_modify, p);
+        elm_menu_item_add(_main_widgets->conn_selector_menu,
+              p->menu_item, NULL, "Delete", _menu_profile_delete, p);
      }
 }
 
@@ -1548,8 +1595,9 @@ static void
 _profile_new_clicked(void *data EINA_UNUSED,
       Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   Gui_New_Profile_Win_Widgets *wdgs = gui_new_profile_win_create(NULL);
+   Gui_New_Profile_Win_Widgets *wdgs = gui_new_profile_win_create(_main_widgets->main_win);
    gui_new_profile_win_create_done(wdgs);
+   efl_event_callback_add(wdgs->save_button, EFL_UI_EVENT_CLICKED, _profile_create_cb, NULL);
 }
 
 EAPI_MAIN int

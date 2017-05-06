@@ -23,12 +23,11 @@ typedef struct
 
 typedef struct
 {
-   Eo *new_profile_win;
-   Eo *new_profile_cancel_button;
-   Eo *new_profile_save_button;
-   Eo *new_profile_name;
-   Eo *new_profile_command;
-   Eo *new_profile_script;
+   Eo *inwin;
+   Eo *cancel_button;
+   Eo *save_button;
+   Eo *name_entry;
+   Eo *command_entry;
 } Gui_New_Profile_Win_Widgets;
 
 typedef struct
