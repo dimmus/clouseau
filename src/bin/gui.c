@@ -33,8 +33,6 @@ extern void gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs);
 #endif
 
 extern void
-new_profile_save_cb(void *data, const Efl_Event *event);
-extern void
 screenshot_req_cb(void *data, const Efl_Event *event);
 extern void
 conn_menu_show(void *data, Evas_Object *obj, void *event_info);
@@ -216,127 +214,94 @@ gui_main_win_create(Eo *__main_parent)
    return pub_widgets;
 }
 
+static void
+_profile_cancel_cb(void *data, const Efl_Event *event EINA_UNUSED)
+{
+   Eo *inwin = data;
+   efl_del(inwin);
+}
+
 Gui_New_Profile_Win_Widgets *
 gui_new_profile_win_create(Eo *__main_parent)
 {
    Gui_New_Profile_Win_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
 
-   Eo *new_profile_win;
-   Eo *elm_bg4;
-   Eo *elm_box5;
-   Eo *elm_box4;
-   Eo *new_profile_cancel_button;
-   Eo *new_profile_save_button;
-   Eo *elm_box6;
-   Eo *elm_label3;
-   Eo *new_profile_name;
-   Eo *elm_label1;
-   Eo *new_profile_command;
-   Eo *elm_label2;
-   Eo *new_profile_script;
+   Eo *inwin;
+   Eo *box;
+   Eo *cancel_button;
+   Eo *save_button;
+   Eo *bts_box;
+   Eo *name_entry;
+   Eo *command_entry;
+   Eo *name_label;
+   Eo *command_label;
 
+   inwin = elm_win_inwin_add(__main_parent);
+   pub_widgets->inwin = inwin;
 
-   new_profile_win = elm_win_add(__main_parent, "Window", ELM_WIN_BASIC);
-   pub_widgets->new_profile_win = new_profile_win;
-   elm_win_autodel_set(new_profile_win, EINA_TRUE);
-   evas_object_size_hint_weight_set(new_profile_win, 1.000000, 1.000000);
-   efl_gfx_size_set(new_profile_win, 689, 390);
-   elm_win_title_set(new_profile_win, "New profile...");
-   elm_win_modal_set(new_profile_win, EINA_TRUE);
-   elm_bg4 = efl_add(ELM_BG_CLASS, new_profile_win);
-   evas_object_size_hint_weight_set(elm_bg4, 1.000000, 1.000000);
-   efl_gfx_visible_set(elm_bg4, EINA_TRUE);
-   elm_box5 = elm_box_add(new_profile_win);
-   elm_box_padding_set(elm_box5, 7, 0);
-   evas_object_size_hint_weight_set(elm_box5, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(elm_box5, -1.000000, -1.000000);
-   efl_gfx_size_set(elm_box5, 200, 200);
-   efl_gfx_visible_set(elm_box5, EINA_TRUE);
-   elm_win_resize_object_add(new_profile_win, elm_bg4);
-   elm_win_resize_object_add(new_profile_win, elm_box5);
-   elm_box4 = elm_box_add(elm_box5);
-   elm_box_padding_set(elm_box4, 7, 0);
-   evas_object_size_hint_weight_set(elm_box4, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(elm_box4, -1.000000, -1.000000);
-   efl_gfx_size_set(elm_box4, 200, 200);
-   efl_gfx_visible_set(elm_box4, EINA_TRUE);
-   elm_box_horizontal_set(elm_box4, EINA_TRUE);
-   new_profile_cancel_button = efl_add(ELM_BUTTON_CLASS, elm_box4);
-   pub_widgets->new_profile_cancel_button = new_profile_cancel_button;
-   evas_object_size_hint_weight_set(new_profile_cancel_button, 1.000000, 1.000000);
-   efl_gfx_visible_set(new_profile_cancel_button, EINA_TRUE);
-   efl_gfx_size_set(new_profile_cancel_button, 73, 30);
-   elm_obj_widget_part_text_set(new_profile_cancel_button, NULL, "Cancel");
-   new_profile_save_button = efl_add(ELM_BUTTON_CLASS, elm_box4);
-   pub_widgets->new_profile_save_button = new_profile_save_button;
-   evas_object_size_hint_weight_set(new_profile_save_button, 1.000000, 1.000000);
-   efl_gfx_visible_set(new_profile_save_button, EINA_TRUE);
-   efl_gfx_size_set(new_profile_save_button, 73, 30);
-   elm_obj_widget_part_text_set(new_profile_save_button, NULL, "Save");
-   efl_event_callback_add(new_profile_save_button, EFL_UI_EVENT_CLICKED, new_profile_save_cb, NULL);
-   elm_box_pack_end(elm_box4, new_profile_save_button);
-   elm_box_pack_end(elm_box4, new_profile_cancel_button);
-   elm_box6 = elm_box_add(elm_box5);
-   elm_box_padding_set(elm_box6, 7, 0);
-   evas_object_size_hint_weight_set(elm_box6, 1.000000, 1.000000);
-   evas_object_size_hint_align_set(elm_box6, -1.000000, -1.000000);
-   efl_gfx_size_set(elm_box6, 200, 200);
-   efl_gfx_visible_set(elm_box6, EINA_TRUE);
-   elm_box_horizontal_set(elm_box6, EINA_TRUE);
-   elm_label3 = efl_add(ELM_LABEL_CLASS, elm_box6);
-   efl_gfx_visible_set(elm_label3, EINA_TRUE);
-   efl_gfx_size_set(elm_label3, 60, 30);
-   evas_object_size_hint_align_set(elm_label3, 1.000000, -1.000000);
-   elm_obj_widget_part_text_set(elm_label3, NULL, "Name: ");
-   evas_object_size_hint_weight_set(elm_label3, 0.000000, 1.000000);
-   new_profile_name = efl_add(ELM_ENTRY_CLASS, elm_box6);
-   pub_widgets->new_profile_name = new_profile_name;
-   evas_object_size_hint_align_set(new_profile_name, -1.000000, -1.000000);
-   efl_gfx_visible_set(new_profile_name, EINA_TRUE);
-   efl_gfx_size_set(new_profile_name, 65, 35);
-   elm_obj_entry_scrollable_set(new_profile_name, EINA_TRUE);
-   elm_obj_entry_single_line_set(new_profile_name, EINA_TRUE);
-   evas_object_size_hint_weight_set(new_profile_name, 4.000000, 1.000000);
-   elm_obj_entry_editable_set(new_profile_name, EINA_TRUE);
-   elm_obj_widget_part_text_set(new_profile_name, NULL, "");
-   elm_box_pack_end(elm_box6, elm_label3);
-   elm_box_pack_end(elm_box6, new_profile_name);
-   elm_label1 = efl_add(ELM_LABEL_CLASS, elm_box5);
-   evas_object_size_hint_weight_set(elm_label1, 1.000000, 1.000000);
-   efl_gfx_visible_set(elm_label1, EINA_TRUE);
-   efl_gfx_size_set(elm_label1, 115, 30);
-   efl_gfx_position_set(elm_label1, 847, 0);
-   elm_obj_widget_part_text_set(elm_label1, NULL, "Command: ");
-   evas_object_size_hint_align_set(elm_label1, 0.000000, 2.000000);
-   new_profile_command = efl_add(ELM_ENTRY_CLASS, elm_box5);
-   pub_widgets->new_profile_command = new_profile_command;
-   elm_obj_entry_scrollable_set(new_profile_command, EINA_TRUE);
-   evas_object_size_hint_align_set(new_profile_command, -1.000000, -1.000000);
-   efl_gfx_visible_set(new_profile_command, EINA_TRUE);
-   efl_gfx_size_set(new_profile_command, 65, 35);
-   elm_obj_entry_single_line_set(new_profile_command, EINA_TRUE);
-   evas_object_size_hint_weight_set(new_profile_command, 1.000000, 2.000000);
-   elm_label2 = efl_add(ELM_LABEL_CLASS, elm_box5);
-   evas_object_size_hint_weight_set(elm_label2, 1.000000, 1.000000);
-   efl_gfx_visible_set(elm_label2, EINA_TRUE);
-   efl_gfx_size_set(elm_label2, 60, 30);
-   evas_object_size_hint_align_set(elm_label2, 0.000000, 1.000000);
-   elm_obj_widget_part_text_set(elm_label2, NULL, "Script: ");
-   new_profile_script = efl_add(ELM_ENTRY_CLASS, elm_box5);
-   pub_widgets->new_profile_script = new_profile_script;
-   elm_obj_entry_scrollable_set(new_profile_script, EINA_TRUE);
-   evas_object_size_hint_align_set(new_profile_script, -1.000000, -1.000000);
-   efl_gfx_visible_set(new_profile_script, EINA_TRUE);
-   efl_gfx_size_set(new_profile_script, 65, 35);
-   evas_object_size_hint_weight_set(new_profile_script, 1.000000, 8.000000);
-   elm_box_pack_end(elm_box5, elm_box6);
-   elm_box_pack_end(elm_box5, elm_label1);
-   elm_box_pack_end(elm_box5, new_profile_command);
-   elm_box_pack_end(elm_box5, elm_label2);
-   elm_box_pack_end(elm_box5, new_profile_script);
-   elm_box_pack_end(elm_box5, elm_box4);
-   efl_gfx_visible_set(new_profile_win, EINA_TRUE);
-   efl_event_callback_add(new_profile_win, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
+   box = elm_box_add(inwin);
+   evas_object_size_hint_align_set(box, -1.000000, -1.000000);
+   evas_object_size_hint_weight_set(box, 1.000000, 1.000000);
+   efl_gfx_visible_set(box, EINA_TRUE);
+   elm_win_inwin_activate(inwin);
+   elm_win_inwin_content_set(inwin, box);
+
+   name_label = efl_add(ELM_LABEL_CLASS, box);
+   elm_object_text_set(name_label, "Name:");
+   evas_object_size_hint_align_set(name_label, 0, -1);
+   evas_object_size_hint_weight_set(name_label, 1, 1);
+   efl_gfx_visible_set(name_label, EINA_TRUE);
+   name_entry = efl_add(ELM_ENTRY_CLASS, box);
+   pub_widgets->name_entry = name_entry;
+   evas_object_size_hint_align_set(name_entry, -1, -1);
+   evas_object_size_hint_weight_set(name_entry, 1, 1);
+   elm_entry_scrollable_set(name_entry, EINA_TRUE);
+   elm_entry_single_line_set(name_entry, EINA_TRUE);
+   elm_entry_editable_set(name_entry, EINA_TRUE);
+   elm_object_text_set(name_entry, "");
+   efl_gfx_visible_set(name_entry, EINA_TRUE);
+   elm_box_pack_end(box, name_label);
+   elm_box_pack_end(box, name_entry);
+
+   command_label = efl_add(ELM_LABEL_CLASS, box);
+   evas_object_size_hint_align_set(command_label, 0, -1);
+   evas_object_size_hint_weight_set(command_label, 1, 1);
+   efl_gfx_visible_set(command_label, EINA_TRUE);
+   elm_object_text_set(command_label, "Command:");
+   command_entry = efl_add(ELM_ENTRY_CLASS, box);
+   pub_widgets->command_entry = command_entry;
+   elm_obj_entry_scrollable_set(command_entry, EINA_TRUE);
+   elm_obj_entry_single_line_set(command_entry, EINA_FALSE);
+   evas_object_size_hint_align_set(command_entry, -1, -1);
+   evas_object_size_hint_weight_set(command_entry, 1, 2);
+   efl_gfx_visible_set(command_entry, EINA_TRUE);
+   elm_box_pack_end(box, command_label);
+   elm_box_pack_end(box, command_entry);
+
+   bts_box = elm_box_add(box);
+   elm_box_padding_set(bts_box, 7, 0);
+   evas_object_size_hint_align_set(bts_box, -1, -1);
+   evas_object_size_hint_weight_set(bts_box, 1, 1);
+   efl_gfx_visible_set(bts_box, EINA_TRUE);
+   elm_box_horizontal_set(bts_box, EINA_TRUE);
+   elm_box_pack_end(box, bts_box);
+
+   save_button = efl_add(ELM_BUTTON_CLASS, bts_box);
+   pub_widgets->save_button = save_button;
+   evas_object_size_hint_weight_set(save_button, 1.000000, 1.000000);
+   elm_object_text_set(save_button, "Save");
+   efl_gfx_visible_set(save_button, EINA_TRUE);
+   elm_box_pack_end(bts_box, save_button);
+
+   cancel_button = efl_add(ELM_BUTTON_CLASS, bts_box);
+   pub_widgets->cancel_button = cancel_button;
+   evas_object_size_hint_weight_set(cancel_button, 1.000000, 1.000000);
+   efl_gfx_visible_set(cancel_button, EINA_TRUE);
+   elm_object_text_set(cancel_button, "Cancel");
+   efl_event_callback_add(cancel_button, EFL_UI_EVENT_CLICKED, _profile_cancel_cb, inwin);
+   elm_box_pack_end(bts_box, cancel_button);
+
+   efl_event_callback_add(inwin, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
 
    return pub_widgets;
 }
