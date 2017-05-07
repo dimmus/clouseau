@@ -4,6 +4,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 project(CLOUSEAU)
 
+set(DEBUG_COMMON_DEFINITIONS -DEFL_EO_API_SUPPORT -DEFL_BETA_API_SUPPORT)
+add_definitions(${DEBUG_COMMON_DEFINITIONS})
+
 find_package(Efl REQUIRED)
 find_package(Eina REQUIRED)
 find_package(Eet REQUIRED)
@@ -16,3 +19,4 @@ find_package(Evas REQUIRED)
 find_package(Edebug REQUIRED)
 
 add_subdirectory(src/bin)
+add_subdirectory(src/lib)
