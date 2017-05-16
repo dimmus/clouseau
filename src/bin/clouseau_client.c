@@ -580,40 +580,6 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
    free(s);
 }
 
-#if 0
-static Eina_List *_pending = NULL;
-
-static void
-_consume(int opcode)
-{
-   if (!_pending) return;
-   _pending_request *req;
-   Eina_List *itr;
-   EINA_LIST_FOREACH(_pending, itr, req)
-     {
-        if (*(req->opcode) != EINA_DEBUG_OPCODE_INVALID &&
-           (opcode == EINA_DEBUG_OPCODE_INVALID || *(req->opcode) == opcode))
-          {
-             eina_debug_session_send(_session, _selected_app, *(req->opcode), req->buffer, req->size);
-             _pending = eina_list_remove_list(_pending, itr);
-             free(req->buffer);
-             free(req);
-             return;
-          }
-     }
-}
-
-static void
-_pending_add(int *opcode, void *buffer, int size)
-{
-   _pending_request *req = calloc(1, sizeof(*req));
-   req->opcode = opcode;
-   req->buffer = buffer;
-   req->size = size;
-   _pending = eina_list_append(_pending, req);
-}
-#endif
-
 static void
 _obj_info_expand_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
@@ -1323,31 +1289,6 @@ _post_register_handle(Eina_Bool flag)
    eina_debug_session_dispatch_override(_session, _disp_cb);
    eina_debug_session_send(_session, 0, _cl_stat_reg_op, NULL, 0);
 }
-
-#if 0
-static Eina_List *
-_parse_script(const char *script)
-{
-   Eina_List *lines = NULL;
-   while (script && *script)
-     {
-        char *tmp = strchr(script, '\n');
-        Eina_Stringshare *line;
-        if (tmp)
-          {
-             line = eina_stringshare_add_length(script, tmp - script);
-             script = tmp + 1;
-          }
-        else
-          {
-             line = eina_stringshare_add(script);
-             script = NULL;
-          }
-        lines = eina_list_append(lines, line);
-     }
-   return lines;
-}
-#endif
 
 static void
 _profile_create_cb(void *data EINA_UNUSED, const Efl_Event *event)
