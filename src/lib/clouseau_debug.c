@@ -133,7 +133,7 @@ clouseau_debug_init(void)
 {
    eina_init();
 
-   eina_debug_opcodes_register(NULL, _debug_ops, NULL);
+   eina_debug_opcodes_register(NULL, _debug_ops, NULL, NULL);
 
    printf("%s - In\n", __FUNCTION__);
    return EINA_TRUE;

@@ -1,9 +1,9 @@
 set(CMAKE_BUILD_TYPE Debug)
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(
-   ${EINA_INCLUDE_DIRS}
+   ${CMAKE_CURRENT_BINARY_DIR}
    ${EO_INCLUDE_DIRS}
+   ${EINA_INCLUDE_DIRS}
    )
 
 add_library(clouseau_debug SHARED clouseau_debug.c)
@@ -13,4 +13,8 @@ target_link_libraries(clouseau_debug
    ${EO_LIBRARIES}
    )
 
+INSTALL(FILES Clouseau.h DESTINATION include)
+
 INSTALL(TARGETS clouseau_debug LIBRARY DESTINATION lib)
+
+add_subdirectory(extensions)
