@@ -383,59 +383,36 @@ end:
 }
 
 static Snapshot *
-_snapshot_open(const char *in_file)
+_snapshot_buffer_parse(char *buffer, int size)
 {
-   FILE *fp = fopen(in_file, "r");
-   void *eet_buffer = NULL;
    Snapshot *s = NULL;
    int eet_size = 0;
-   if (!fp) return NULL;
 
-   if (fread(&eet_size, sizeof(int), 1, fp) != 1)
-     {
-        printf("Read size from %s failed\n", in_file);
-        goto end;
-     }
+   if (size < eet_size) return NULL;
+
+   memcpy(&eet_size, buffer, sizeof(int));
+   buffer += sizeof(int);
+
    _snapshot_eet_load();
-   eet_buffer = malloc(eet_size);
-   if ((int)fread(eet_buffer, 1, eet_size, fp) != eet_size)
-     {
-        printf("Read EET buffer from %s failed\n", in_file);
-        goto end;
-     }
 
-   s = eet_data_descriptor_decode(_snapshot_edd, eet_buffer, eet_size);
+   s = eet_data_descriptor_decode(_snapshot_edd, buffer, eet_size);
+   buffer += eet_size;
 
-   if (s->cur_len)
-     {
-        s->buffer = malloc(s->cur_len);
-        if (fread(s->buffer, 1, s->cur_len, fp) != s->cur_len)
-          {
-             printf("Read snapshot buffer from %s failed\n", in_file);
-             free(s->buffer);
-             s->buffer = NULL;
-             goto end;
-          }
-     }
+   if (s->cur_len) s->buffer = buffer;
 
-end:
-   if (fp) fclose(fp);
-   if (eet_buffer) free(eet_buffer);
    return s;
 }
 
 static void
-_snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
+_snapshot_load(Clouseau_Extension *ext, char *buffer, int size)
 {
    Evas_Debug_Screenshot *shot;
-   Clouseau_Extension *ext = data;
-   Snapshot *s = NULL;
    unsigned int idx = 0;
 
    if (!ext) return;
-   Instance *inst = ext->data;
 
-   s = _snapshot_open(ev);
+   Instance *inst = ext->data;
+   Snapshot *s = _snapshot_buffer_parse(buffer, size);
    if (!s) return;
 
    _session_changed(ext);
@@ -449,7 +426,7 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
      {
         Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)(s->buffer + idx);
         void *payload = (s->buffer + idx) + sizeof(*hdr);
-        int size = hdr->size - sizeof(*hdr);
+        size = hdr->size - sizeof(*hdr);
         if (hdr->opcode == _eoids_get_op) _eoids_get((Eina_Debug_Session *)ext, -1, payload, size);
         else if (hdr->opcode == _klids_get_op) _klids_get((Eina_Debug_Session *)ext, -1, payload, size);
         else if (hdr->opcode == _obj_info_op) _obj_info_get((Eina_Debug_Session *)ext, -1, payload, size);
@@ -462,8 +439,57 @@ _snapshot_load(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
         info->screenshots = eina_list_append(info->screenshots, shot);
         if (info->glitem) elm_genlist_item_update(info->glitem);
      }
-   free(s->buffer);
    free(s);
+   free(buffer);
+}
+
+static int
+_file_get(const char *filename, char **buffer_out)
+{
+   char *file_data = NULL;
+   int file_size;
+   FILE *fp = fopen(filename, "r");
+   if (!fp)
+     {
+        printf("Can not open file: \"%s\".\n", filename);
+        return -1;
+     }
+
+   fseek(fp, 0, SEEK_END);
+   file_size = ftell(fp);
+   if (file_size <= 0)
+     {
+        fclose(fp);
+        if (file_size < 0) printf("Can not ftell file: \"%s\".\n", filename);
+        return -1;
+     }
+   rewind(fp);
+   file_data = (char *) calloc(1, file_size);
+   if (!file_data)
+     {
+        fclose(fp);
+        printf("Calloc failed\n");
+        return -1;
+     }
+   int res = fread(file_data, 1, file_size, fp);
+   if (!res)
+     {
+        free(file_data);
+        file_data = NULL;
+        if (!feof(fp)) printf("fread failed\n");
+     }
+   fclose(fp);
+   if (file_data && buffer_out) *buffer_out = file_data;
+   return file_size;
+}
+
+static void
+_snapshot_load_from_fs(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
+{
+   char *buffer = NULL;
+   int size = _file_get(ev, &buffer);
+   if (size <= 0) return;
+   _snapshot_load(data, buffer, size);
 }
 
 static void
@@ -1217,7 +1243,7 @@ _fs_activate(Clouseau_Extension *ext, Eina_Bool is_save)
    evas_object_size_hint_align_set(fs, EVAS_HINT_FILL, EVAS_HINT_FILL);
    evas_object_smart_callback_add(fs, "done", _inwin_del, inwin);
    evas_object_smart_callback_add(fs, "done",
-         is_save?_snapshot_do:_snapshot_load, ext);
+         is_save?_snapshot_do:_snapshot_load_from_fs, ext);
    evas_object_show(fs);
 
    elm_win_inwin_content_set(inwin, fs);
@@ -1306,6 +1332,7 @@ extension_start(Clouseau_Extension *ext, Eo *parent)
    ext->data = inst;
    ext->session_changed_cb = _session_changed;
    ext->app_changed_cb = _app_changed;
+   ext->import_data_cb = _snapshot_load;
 
    inst->classes_hash_by_id = eina_hash_pointer_new(NULL);
    inst->classes_hash_by_name = eina_hash_string_small_new(NULL);

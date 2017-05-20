@@ -88,6 +88,7 @@ static Connection_Type _conn_type = OFFLINE;
 static Eina_Debug_Session *_session = NULL;
 static Eina_List *_apps = NULL;
 static App_Info *_selected_app = NULL;
+static Eina_Stringshare *_offline_filename = NULL;
 
 static Eet_Data_Descriptor *_profile_edd = NULL, *_config_edd = NULL;
 static Eina_List *_profiles = NULL;
@@ -671,20 +672,20 @@ _extension_delete(Clouseau_Extension *ext)
    free(ext);
 }
 
-static void
+static Clouseau_Extension *
 _extension_instantiate(Extension_Config *cfg)
 {
    Eina_List *itr, *itr2;
    Clouseau_Extension *ext;
    char path[1024];
-   if (!cfg->ready) return;
+   if (!cfg->ready) return NULL;
 
    EINA_LIST_FOREACH_SAFE(_extensions, itr, itr2, ext) _extension_delete(ext);
 
    ext = calloc(1, sizeof(*ext));
 
    sprintf(path, "%s/clouseau/extensions", efreet_config_home_get());
-   if (!_mkdir(path)) return;
+   if (!_mkdir(path)) return NULL;
 
    ext->path_to_config = eina_stringshare_add(path);
    ext->ext_cfg = cfg;
@@ -694,7 +695,7 @@ _extension_instantiate(Extension_Config *cfg)
      {
         printf("Error in extension_init function of %s\n", cfg->name);
         free(ext);
-        return;
+        return NULL;
      }
    _extensions = eina_list_append(_extensions, ext);
 
@@ -702,6 +703,8 @@ _extension_instantiate(Extension_Config *cfg)
 
    _session_populate();
    _app_populate();
+
+   return ext;
 }
 
 static void
@@ -712,11 +715,104 @@ _extension_view(void *data,
    _extension_instantiate(cfg);
 }
 
+static int
+_file_get(const char *filename, char **buffer_out)
+{
+   char *file_data = NULL;
+   int file_size;
+   FILE *fp = fopen(filename, "r");
+   if (!fp)
+     {
+        printf("Can not open file: \"%s\".\n", filename);
+        return -1;
+     }
+
+   fseek(fp, 0, SEEK_END);
+   file_size = ftell(fp);
+   if (file_size <= 0)
+     {
+        fclose(fp);
+        if (file_size < 0) printf("Can not ftell file: \"%s\".\n", filename);
+        return -1;
+     }
+   rewind(fp);
+   file_data = (char *) calloc(1, file_size);
+   if (!file_data)
+     {
+        fclose(fp);
+        printf("Calloc failed\n");
+        return -1;
+     }
+   int res = fread(file_data, 1, file_size, fp);
+   if (!res)
+     {
+        free(file_data);
+        file_data = NULL;
+        if (!feof(fp)) printf("fread failed\n");
+     }
+   fclose(fp);
+   if (file_data && buffer_out) *buffer_out = file_data;
+   return file_size;
+}
+
+static void
+_extension_offline_load(void *data, Evas_Object *obj,
+      void *event_info EINA_UNUSED)
+{
+   Extension_Config *cfg = data;
+   Clouseau_Extension *ext = _extension_instantiate(cfg);
+   char *buffer = NULL;
+   int size = _file_get(_offline_filename, &buffer);
+   if (size <= 0) return;
+
+   while (obj && strcmp(efl_class_name_get(obj), "Elm.Inwin"))
+      obj = efl_parent_get(obj);
+   if (obj) efl_del(obj);
+
+   _ui_freeze(ext, EINA_TRUE);
+   if (ext->import_data_cb) ext->import_data_cb(ext, buffer, size);
+   _ui_freeze(ext, EINA_FALSE);
+}
+
+static void
+_extensions_cfgs_inwin_create()
+{
+   Eina_List *itr;
+   Extension_Config *ext_cfg;
+   Eo *inwin = _inwin_create();
+   elm_object_style_set(inwin, "minimal");
+
+   Eo *box = elm_box_add(inwin);
+   evas_object_size_hint_weight_set(box, 1, 1);
+   evas_object_size_hint_align_set(box, -1, -1);
+   efl_gfx_visible_set(box, EINA_TRUE);
+
+   Eo *label = efl_add(ELM_LABEL_CLASS, box);
+   elm_object_text_set(label, "Choose an extension to open the file:");
+   evas_object_size_hint_align_set(label, 0, -1);
+   evas_object_size_hint_weight_set(label, 1, 1);
+   efl_gfx_visible_set(label, EINA_TRUE);
+   elm_box_pack_end(box, label);
+
+   Eo *list = elm_list_add(inwin);
+   elm_list_mode_set(list, ELM_LIST_EXPAND);
+   evas_object_size_hint_weight_set(list, 1, 1);
+   evas_object_size_hint_align_set(list, -1, -1);
+   EINA_LIST_FOREACH(_config->extensions_cfgs, itr, ext_cfg)
+     {
+        if (ext_cfg->ready)
+           elm_list_item_append(list, ext_cfg->name, NULL, NULL, _extension_offline_load, ext_cfg);
+     }
+   evas_object_show(list);
+   elm_box_pack_end(box, list);
+   elm_win_inwin_content_set(inwin, box);
+   elm_win_inwin_activate(inwin);
+}
+
 EAPI_MAIN int
 elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 {
    Connection_Type conn_type = OFFLINE;
-   const char *offline_filename = NULL;
    Eina_List *itr;
    Extension_Config *ext_cfg;
    int i, long_index = 0, opt;
@@ -732,11 +828,12 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
           {"help",      no_argument,        0, 'h'},
           {"local",     no_argument,        0, 'l'},
           {"remote",    required_argument,  0, 'r'},
+          {"file",      required_argument,  0, 'f'},
           {0, 0, 0, 0}
      };
    while ((opt = getopt_long(argc, argv,"hlr:f:", long_options, &long_index )) != -1)
      {
-        if (conn_type != OFFLINE || offline_filename)
+        if (conn_type != OFFLINE || _offline_filename)
           {
              printf("You cannot use more than one option at a time\n");
              help = EINA_TRUE;
@@ -759,6 +856,12 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
                         }
                       break;
                    }
+           case 'f':
+                   {
+                      conn_type = OFFLINE;
+                      _offline_filename = eina_stringshare_add(optarg);
+                      break;
+                   }
            case 'h': help = EINA_TRUE; break;
            default: help = EINA_TRUE;
         }
@@ -769,6 +872,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         printf("       --help/-h Print that help\n");
         printf("       --local/-l Create a local connection\n");
         printf("       --remote/-r Create a remote connection by using the given profile name\n");
+        printf("       --file/-f Run in offline mode and load the given file\n");
         return 0;
      }
 
@@ -799,10 +903,13 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
               NULL, NULL, ext_cfg->name, _extension_view, ext_cfg);
         if (!ext_cfg->ready) elm_object_item_disabled_set(it, EINA_TRUE);
      }
-   if (eina_list_count(_config->extensions_cfgs) == 1)
-      _extension_instantiate(eina_list_data_get(_config->extensions_cfgs));
 
    _connection_type_change(conn_type);
+
+   if (conn_type == OFFLINE && _offline_filename)
+     {
+        _extensions_cfgs_inwin_create();
+     }
 
    elm_run();
 
