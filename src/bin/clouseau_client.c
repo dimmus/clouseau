@@ -277,6 +277,14 @@ _configs_load()
         _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
      }
 
+   snprintf(path, sizeof(path), INSTALL_PREFIX"/lib/libclouseau_evlog.so");
+   if (!_ext_cfg_find_by_path(path))
+     {
+        ext_cfg = calloc(1, sizeof(*ext_cfg));
+        ext_cfg->lib_path = eina_stringshare_add(path);
+        _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
+     }
+
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, ext_cfg)
      {
         ext_cfg->module = eina_module_new(ext_cfg->lib_path);
