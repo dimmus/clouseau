@@ -16,7 +16,6 @@ typedef struct _Evlog_Cpu_Freq   Evlog_Cpu_Freq;
 
 struct _Evlog
 {
-   FILE            *file;
    double           first_timestamp;
    double           last_timestamp;
    int              state_uniq;
@@ -242,7 +241,7 @@ _evlog_thread_slot_find(Evlog *evlog, unsigned long long thread)
      {
         if (evlog->threads[i].id == thread) return i;
      }
-   return 0;
+   return i;
 }
 
 static void
@@ -326,49 +325,44 @@ _evlog_event_read(Evlog *evlog, void *ptr, void *end)
    return data;
 }
 
-static Eina_Bool
-_evlog_block_read(Evlog *evlog)
+static int
+_evlog_block_read(Evlog *evlog, char *buffer, int size)
 {
    int i;
-   unsigned int header[3];
+   unsigned int *header = (unsigned int *)buffer;
    Eina_Bool bigendian = EINA_FALSE;
 
-   if (fread(header, 12, 1, evlog->file) != 1) return EINA_FALSE;
+   if (size < 12) return -1;
+   size -= 12;
+
    if      (header[0] == 0x0ffee211) bigendian = EINA_FALSE;
    else if (header[0] == 0x11e2fe0f) bigendian = EINA_TRUE;
-   else return EINA_FALSE;
+   else return -1;
    if (!bigendian)
      {
         unsigned int blocksize = header[1];
         //unsigned int overflow = header[2];
-        void *buf = malloc(blocksize);
-        if (buf)
-          {
-             char *ptr, *end;
-
-             if (fread(buf, blocksize, 1, evlog->file) != 1)
-               {
-                  free(buf);
-                  return EINA_FALSE;
-               }
-             ptr = buf;
-             end = ptr + blocksize;
-             while ((ptr = _evlog_event_read(evlog, ptr, end)));
-             free(buf);
-          }
+        void *buf = buffer + 12;
+        char *ptr, *end;
+        if ((unsigned int)size < blocksize) return -1;
+        ptr = buf;
+        end = ptr + blocksize;
+        while ((ptr = _evlog_event_read(evlog, ptr, end)));
         for (i = 0; i < evlog->cpucores; i++)
           {
              _evlog_thread_cpu_freq(evlog, evlog->last_timestamp,
                                    i, evlog->cpumhzlast[i]);
           }
+        return blocksize + 12;
      }
    else
      {
         // XXX: handle bigendian
      }
-   return EINA_TRUE;
+   return -1;
 }
 
+#if 0
 static Evlog *
 _evlog_open(const char *file)
 {
@@ -380,7 +374,7 @@ _evlog_open(const char *file)
         free(evlog);
         return EINA_FALSE;
      }
-   while (_evlog_block_read(evlog));
+   while (_evlog_block_read(evlog, NULL, 0));
    return evlog;
 }
 
@@ -388,9 +382,9 @@ static void
 _evlog_free(Evlog *evlog)
 {
    // XXX free other stuff
-   fclose(evlog->file);
    free(evlog);
 }
+#endif
 
 static Eina_Bool
 _can_see(double t0, double t1, double tmin, double t0in, double t1in)
@@ -549,7 +543,7 @@ _create_cpufreq_states(Inf *inf)
    elm_grid_size_set(inf->grid.cpufreq, LEN * RES, cpucores);
 }
 
-static Evas_Object *
+static void
 _fill_cpufreq_states(Inf *inf)
 {
    Evas_Object *o, *oo;
@@ -564,7 +558,6 @@ _fill_cpufreq_states(Inf *inf)
    evas_object_color_set(oo, 16, 16, 16, 255);
    elm_grid_pack(o, oo, 0, 0, len * RES, evlog->cpucores * 4);
    evas_object_show(oo);
-   return o;
 }
 
 static void
@@ -923,7 +916,7 @@ _fill_log_table(Inf *inf)
    Evlog *evlog = inf->evlog;
    Eo *o;
    char buf[256];
-   int i, y;
+   int i, y = 2;
 
    _fill_cpufreq_states(inf);
    _fill_log_states(inf);
@@ -1410,6 +1403,28 @@ _evlog_view_add(Inf *inf)
    return sc;
 }
 
+static void
+_evlog_import(Clouseau_Extension *ext, char *buffer, int size)
+{
+   Evlog *evlog = calloc(1, sizeof(Evlog));
+   Inf *inf = ext->data;
+   char *p = buffer;
+   int consumed = -1;
+   while (size && (consumed = _evlog_block_read(evlog, p, size)) != -1)
+     {
+        p += consumed;
+        size -= consumed;
+     }
+   free(buffer);
+   if (size)
+     {
+        free(evlog);
+        return;
+     }
+   inf->evlog = evlog;
+   _fill_log_table(inf);
+}
+
 static Eo *
 _ui_get(Clouseau_Extension *ext, Eo *parent)
 {
@@ -1426,6 +1441,7 @@ _ui_get(Clouseau_Extension *ext, Eo *parent)
    evas_object_show(box);
 
    zoom_slider = elm_slider_add(box);
+   inf->zoom_slider = zoom_slider;
    evas_object_data_set(zoom_slider, "inf", inf);
    elm_slider_min_max_set(zoom_slider, 1.0, 1000.0);
    elm_slider_step_set(zoom_slider, 0.1);
@@ -1463,6 +1479,7 @@ extension_start(Clouseau_Extension *ext, Eo *parent)
    ext->data = inf;
 //   ext->session_changed_cb = _session_changed;
 //   ext->app_changed_cb = _app_changed;
+   ext->import_data_cb = _evlog_import;
 
    ext->ui_object = _ui_get(ext, parent);
    return !!ext->ui_object;
