@@ -24,6 +24,8 @@
 
 #define _EET_ENTRY "config"
 
+#define _SNAPSHOT_EET_ENTRY "Clouseau_Snapshot"
+
 static int _cl_stat_reg_op = EINA_DEBUG_OPCODE_INVALID;
 
 static Gui_Main_Win_Widgets *_main_widgets = NULL;
@@ -74,6 +76,7 @@ struct _Extension_Config
    const char *lib_path;
    Eina_Module *module;
    const char *name;
+   const char *nickname;
    Ext_Start_Cb start_fn;
    Ext_Stop_Cb stop_fn;
    Eina_Bool ready : 1;
@@ -84,13 +87,27 @@ typedef struct
    Eina_List *extensions_cfgs;
 } Config;
 
+typedef struct
+{
+   const char *nickname;
+   void *data;
+   int data_count;
+   int version;
+} Extension_Snapshot;
+
+typedef struct
+{
+   const char *app_name;
+   int app_pid;
+   Eina_List *ext_snapshots; /* List of Extension_Snapshot */
+} Snapshot;
+
 static Connection_Type _conn_type = OFFLINE;
 static Eina_Debug_Session *_session = NULL;
 static Eina_List *_apps = NULL;
 static App_Info *_selected_app = NULL;
-static Eina_Stringshare *_offline_filename = NULL;
 
-static Eet_Data_Descriptor *_profile_edd = NULL, *_config_edd = NULL;
+static Eet_Data_Descriptor *_profile_edd = NULL, *_config_edd = NULL, *_snapshot_edd = NULL;
 static Eina_List *_profiles = NULL;
 static Config *_config = NULL;
 static Eina_List *_extensions = NULL;
@@ -209,6 +226,26 @@ _profile_remove(Profile *p)
    free(p);
 }
 
+static void
+_snapshot_eet_load()
+{
+   Eet_Data_Descriptor *ext_edd;
+   if (_snapshot_edd) return;
+   Eet_Data_Descriptor_Class eddc;
+
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Extension_Snapshot);
+   ext_edd = eet_data_descriptor_stream_new(&eddc);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(ext_edd, Extension_Snapshot, "nickname", nickname, EET_T_STRING);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(ext_edd, Extension_Snapshot, "data_count", data_count, EET_T_INT);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(ext_edd, Extension_Snapshot, "version", version, EET_T_INT);
+
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Snapshot);
+   _snapshot_edd = eet_data_descriptor_stream_new(&eddc);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(_snapshot_edd, Snapshot, "app_name", app_name, EET_T_STRING);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(_snapshot_edd, Snapshot, "app_pid", app_pid, EET_T_INT);
+   EET_DATA_DESCRIPTOR_ADD_LIST(_snapshot_edd, Snapshot, "ext_snapshots", ext_snapshots, ext_edd);
+}
+
 static Eo *
 _inwin_create(void)
 {
@@ -231,6 +268,18 @@ _ext_cfg_find_by_path(const char *path)
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, cfg)
      {
         if (!strcmp(cfg->lib_path, path)) return cfg;
+     }
+   return NULL;
+}
+
+static Extension_Config *
+_ext_cfg_find_by_nickname(const char *nick)
+{
+   Extension_Config *cfg;
+   Eina_List *itr;
+   EINA_LIST_FOREACH(_config->extensions_cfgs, itr, cfg)
+     {
+        if (!strcmp(cfg->nickname, nick)) return cfg;
      }
    return NULL;
 }
@@ -304,6 +353,14 @@ _configs_load()
              continue;
           }
         ext_cfg->name = name_fn();
+        const char *(*nickname_fn)(void) = eina_module_symbol_get(ext_cfg->module, "extension_nickname_get");
+        if (!nickname_fn)
+          {
+             printf("Can not find extension_nickname_get function for %s\n", ext_cfg->name);
+             ext_cfg->nickname = ext_cfg->lib_path;
+             continue;
+          }
+        ext_cfg->nickname = nickname_fn();
         Ext_Start_Cb start_fn = eina_module_symbol_get(ext_cfg->module, "extension_start");
         if (!start_fn)
           {
@@ -383,6 +440,7 @@ _app_populate()
              ext->app_changed_cb(ext);
           }
      }
+   elm_object_item_disabled_set(_main_widgets->save_load_bt, !sel_app_id);
 }
 
 static void
@@ -565,6 +623,7 @@ _connection_type_change(Connection_Type conn_type)
         ext->app_id = 0;
      }
    eina_debug_session_terminate(_session);
+   _session = NULL;
    _apps_free();
    _cl_stat_reg_op = EINA_DEBUG_OPCODE_INVALID;
    elm_object_item_text_set(_main_widgets->apps_selector, "Select App");
@@ -597,6 +656,18 @@ _connection_type_change(Connection_Type conn_type)
    elm_object_item_text_set(_main_widgets->conn_selector, _conn_strs[conn_type]);
    _conn_type = conn_type;
    _session_populate();
+   if (_session)
+     {
+        elm_object_item_text_set(_main_widgets->save_load_bt, "Save");
+        elm_toolbar_item_icon_set(_main_widgets->save_load_bt, "document-import");
+        elm_object_item_disabled_set(_main_widgets->save_load_bt, EINA_TRUE);
+     }
+   else
+     {
+        elm_object_item_text_set(_main_widgets->save_load_bt, "Load");
+        elm_toolbar_item_icon_set(_main_widgets->save_load_bt, "document-export");
+        elm_object_item_disabled_set(_main_widgets->save_load_bt, EINA_FALSE);
+     }
 }
 
 static void
@@ -756,26 +827,29 @@ _file_get(const char *filename, char **buffer_out)
 }
 
 static void
-_extension_offline_load(void *data, Evas_Object *obj,
+_extension_file_import(void *data, Evas_Object *obj,
       void *event_info EINA_UNUSED)
 {
    Extension_Config *cfg = data;
    Clouseau_Extension *ext = _extension_instantiate(cfg);
    char *buffer = NULL;
-   int size = _file_get(_offline_filename, &buffer);
-   if (size <= 0) return;
+   int size = 0;
+   const char *filename = efl_key_data_get(obj, "_filename");
 
    while (obj && strcmp(efl_class_name_get(obj), "Elm.Inwin"))
       obj = efl_parent_get(obj);
    if (obj) efl_del(obj);
 
+   size = _file_get(filename, &buffer);
+   if (size <= 0) return;
+
    _ui_freeze(ext, EINA_TRUE);
-   if (ext->import_data_cb) ext->import_data_cb(ext, buffer, size);
+   if (ext->import_data_cb) ext->import_data_cb(ext, buffer, size, -1);
    _ui_freeze(ext, EINA_FALSE);
 }
 
 static void
-_extensions_cfgs_inwin_create()
+_extensions_cfgs_inwin_create(const char *filename)
 {
    Eina_List *itr;
    Extension_Config *ext_cfg;
@@ -798,15 +872,142 @@ _extensions_cfgs_inwin_create()
    elm_list_mode_set(list, ELM_LIST_EXPAND);
    evas_object_size_hint_weight_set(list, 1, 1);
    evas_object_size_hint_align_set(list, -1, -1);
+   efl_key_data_set(list, "_filename", filename);
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, ext_cfg)
      {
         if (ext_cfg->ready)
-           elm_list_item_append(list, ext_cfg->name, NULL, NULL, _extension_offline_load, ext_cfg);
+          {
+             elm_list_item_append(list, ext_cfg->name, NULL, NULL,
+                   _extension_file_import, ext_cfg);
+          }
      }
    evas_object_show(list);
    elm_box_pack_end(box, list);
    elm_win_inwin_content_set(inwin, box);
    elm_win_inwin_activate(inwin);
+}
+
+static void
+_export_to_file(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
+{
+   const char *filename = ev;
+   _snapshot_eet_load();
+   FILE *fp = fopen(filename, "w");
+   if (fp)
+     {
+        Snapshot s;
+        Extension_Snapshot *e_s;
+        Clouseau_Extension *e;
+        Eina_List *itr;
+        char *eet_buf;
+        int eet_size = 0;
+
+        s.app_name = _selected_app->name;
+        s.app_pid = _selected_app->pid;
+        s.ext_snapshots = NULL;
+        EINA_LIST_FOREACH(_extensions, itr, e)
+          {
+             if (e->export_data_cb)
+               {
+                  int data_count = 0;
+                  int version = 1;
+                  void *data = e->export_data_cb(e, &data_count, &version);
+                  if (!data) continue;
+                  e_s = alloca(sizeof(*e_s));
+                  e_s->nickname = e->ext_cfg->nickname;
+                  e_s->data = data;
+                  e_s->data_count = data_count;
+                  e_s->version = version;
+                  s.ext_snapshots = eina_list_append(s.ext_snapshots, e_s);
+               }
+          }
+
+        eet_buf = eet_data_descriptor_encode(_snapshot_edd, &s, &eet_size);
+        fwrite(&eet_size, sizeof(int), 1, fp);
+        fwrite(eet_buf, 1, eet_size, fp);
+
+        EINA_LIST_FREE(s.ext_snapshots, e_s)
+          {
+             fwrite(e_s->data, 1, e_s->data_count, fp);
+             free(e_s->data);
+          }
+        fclose(fp);
+     }
+}
+
+static void
+_file_import(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
+{
+   const char *filename = ev;
+   FILE *fp = fopen(filename, "r");
+   void *eet_buf;
+   Snapshot *s;
+   int eet_size;
+   if (!fp) return;
+   _snapshot_eet_load();
+   fread(&eet_size, sizeof(int), 1, fp);
+   eet_buf = malloc(eet_size);
+   fread(eet_buf, 1, eet_size, fp);
+   s = eet_data_descriptor_decode(_snapshot_edd, eet_buf, eet_size);
+   if (s)
+     {
+        Extension_Snapshot *e_s;
+        char name[100];
+        EINA_LIST_FREE(s->ext_snapshots, e_s)
+          {
+             void *data = malloc(e_s->data_count);
+             fread(data, 1, e_s->data_count, fp);
+             Extension_Config *e_cfg = _ext_cfg_find_by_nickname(e_s->nickname);
+             if (e_cfg)
+               {
+                  Clouseau_Extension *e = _extension_instantiate(e_cfg);
+                  if (e->import_data_cb)
+                     e->import_data_cb(e, data, e_s->data_count, e_s->version);
+               }
+             free(data);
+             free(e_s);
+          }
+        snprintf(name, sizeof(name) - 1, "%s [%d]", s->app_name, s->app_pid);
+        elm_object_item_text_set(_main_widgets->apps_selector, name);
+        free(s);
+     }
+   else
+      _extensions_cfgs_inwin_create(eina_stringshare_add(filename));
+   if (fp) fclose(fp);
+}
+
+static void
+_inwin_del(void *data, Evas_Object *obj EINA_UNUSED, void *ev EINA_UNUSED)
+{
+   Eo *inwin = data;
+   efl_del(inwin);
+}
+
+static void
+_fs_activate(Eina_Bool is_save)
+{
+   Eo *inwin = _inwin_create();
+   Eo *fs = elm_fileselector_add(inwin);
+
+   elm_fileselector_is_save_set(fs, is_save);
+   elm_fileselector_path_set(fs, getenv("HOME"));
+   evas_object_size_hint_weight_set
+      (fs, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_size_hint_align_set(fs, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   evas_object_smart_callback_add(fs, "done", _inwin_del, inwin);
+   evas_object_smart_callback_add(fs, "done",
+         is_save?_export_to_file:_file_import, NULL);
+   evas_object_show(fs);
+
+   elm_win_inwin_content_set(inwin, fs);
+   elm_win_inwin_activate(inwin);
+}
+
+void
+save_load_perform(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   if (_session) _fs_activate(EINA_TRUE);
+   else _fs_activate(EINA_FALSE);
 }
 
 EAPI_MAIN int
@@ -815,6 +1016,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
    Connection_Type conn_type = OFFLINE;
    Eina_List *itr;
    Extension_Config *ext_cfg;
+   Eina_Stringshare *offline_filename = NULL;
    int i, long_index = 0, opt;
    Eina_Bool help = EINA_FALSE;
 
@@ -833,7 +1035,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
      };
    while ((opt = getopt_long(argc, argv,"hlr:f:", long_options, &long_index )) != -1)
      {
-        if (conn_type != OFFLINE || _offline_filename)
+        if (conn_type != OFFLINE || offline_filename)
           {
              printf("You cannot use more than one option at a time\n");
              help = EINA_TRUE;
@@ -859,7 +1061,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
            case 'f':
                    {
                       conn_type = OFFLINE;
-                      _offline_filename = eina_stringshare_add(optarg);
+                      offline_filename = eina_stringshare_add(optarg);
                       break;
                    }
            case 'h': help = EINA_TRUE; break;
@@ -906,14 +1108,11 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 
    _connection_type_change(conn_type);
 
-   if (conn_type == OFFLINE && _offline_filename)
-     {
-        _extensions_cfgs_inwin_create();
-     }
+   if (conn_type == OFFLINE && offline_filename)
+      _file_import(NULL, NULL, (void *)offline_filename);
 
    elm_run();
 
-   _connection_type_change(OFFLINE);
    eina_shutdown();
    return 0;
 }

@@ -40,17 +40,17 @@ typedef struct
 
 typedef struct
 {
-   Eina_Stringshare *out_file;
+   void *buffer;
+   int cur_len;
+   int max_len;
+} Snapshot_Buffer;
 
-   Eina_List *screenshots;
-
-   char *buffer;
-   unsigned int max_len;
-   unsigned int cur_len;
-
-   int klids_op;
-   int eoids_op;
-   int obj_info_op;
+typedef struct
+{
+   Snapshot_Buffer klids_buf;
+   Snapshot_Buffer eoids_buf;
+   Snapshot_Buffer obj_infos_buf;
+   Snapshot_Buffer screenshots_buf;
 } Snapshot;
 
 typedef struct
@@ -62,7 +62,7 @@ typedef struct
 typedef struct
 {
    Gui_Win_Widgets *wdgs;
-   Snapshot *snapshot;
+   Snapshot snapshot;
    Obj_Info *selected_obj;
    Eina_Hash *classes_hash_by_id;
    Eina_Hash *classes_hash_by_name;
@@ -76,7 +76,6 @@ typedef struct
    Eina_Bool clouseau_init_done;
 } Instance;
 
-static Eet_Data_Descriptor *_snapshot_edd = NULL;
 static Eet_Data_Descriptor *_config_edd = NULL;
 static Config *_config = NULL;
 
@@ -185,6 +184,10 @@ _app_changed(Clouseau_Extension *ext)
 {
    static int app_id = -1;
    Instance *inst = ext->data;
+   Snapshot *s = &(inst->snapshot);
+
+   elm_genlist_clear(inst->wdgs->objects_list);
+   elm_genlist_clear(inst->wdgs->object_infos_list);
    if (inst->objs_list_tree)
      {
         _objs_tree_free(inst->objs_list_tree);
@@ -194,58 +197,41 @@ _app_changed(Clouseau_Extension *ext)
    eina_hash_free_buckets(inst->classes_hash_by_id);
    eina_hash_free_buckets(inst->classes_hash_by_name);
 
-   elm_genlist_clear(inst->wdgs->objects_list);
-   elm_genlist_clear(inst->wdgs->object_infos_list);
    eina_hash_free_buckets(inst->objs_hash);
 
+   s->klids_buf.cur_len = 0;
+   s->eoids_buf.cur_len = 0;
+   s->obj_infos_buf.cur_len = 0;
+   s->screenshots_buf.cur_len = 0;
    if (app_id != ext->app_id)
      {
         inst->eo_init_done = EINA_FALSE;
         inst->eolian_init_done = EINA_FALSE;
         inst->evas_init_done = EINA_FALSE;
         inst->clouseau_init_done = EINA_FALSE;
-        if (ext->app_id)
-           eina_debug_session_send(ext->session, ext->app_id, _module_init_op, "eo", 3);
      }
-   else
-     {
-        if (ext->app_id)
-           eina_debug_session_send(ext->session, ext->app_id, _klids_get_op, NULL, 0);
-     }
+   if (ext->app_id)
+      eina_debug_session_send(ext->session, ext->app_id, _module_init_op, "eo", 3);
    app_id = ext->app_id;
    if (app_id)
      {
         elm_object_item_disabled_set(inst->wdgs->reload_button, EINA_FALSE);
-        elm_object_item_disabled_set(inst->wdgs->save_load_bt, EINA_FALSE);
      }
 }
 
 static void
-_snapshot_buffer_append(Clouseau_Extension *ext, void *buffer)
+_snapshot_buffer_append(Snapshot_Buffer *sb, void *buffer)
 {
-   Instance *inst = ext->data;
-   Snapshot *s = inst->snapshot;
    Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
-   unsigned int size = hdr->size;
-   if (s->max_len < s->cur_len + size)
+   int size = hdr->size;
+   if (sb->max_len < sb->cur_len + size)
      {
         /* Realloc with addition of 1MB+size */
-        s->max_len += size + 1000000;
-        s->buffer = realloc(s->buffer, s->max_len);
+        sb->max_len += size + 1000000;
+        sb->buffer = realloc(sb->buffer, sb->max_len);
      }
-   memcpy(s->buffer + s->cur_len, buffer, size);
-   s->cur_len += size;
-}
-
-static Eina_Bool
-_snapshot_is_candidate(void *buffer)
-{
-   Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
-   if (hdr->opcode == _eoids_get_op ||
-         hdr->opcode == _klids_get_op ||
-         hdr->opcode == _obj_info_op ||
-         hdr->opcode == _win_screenshot_op) return EINA_TRUE;
-   else return EINA_FALSE;
+   memcpy((char *)sb->buffer + sb->cur_len, buffer, size);
+   sb->cur_len += size;
 }
 
 Eina_Debug_Error
@@ -254,15 +240,18 @@ _disp_cb(Eina_Debug_Session *session, void *buffer)
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
    if (!ext) return EINA_DEBUG_OK;
    Instance *inst = ext->data;
-   if (inst->snapshot && _snapshot_is_candidate(buffer))
+   if (inst)
      {
-        _snapshot_buffer_append(ext, buffer);
+        Snapshot *s = &inst->snapshot;
+        Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
+        Snapshot_Buffer *sb = NULL;
+        if (hdr->opcode == _eoids_get_op) sb = &(s->eoids_buf);
+        else if (hdr->opcode == _klids_get_op) sb = &(s->klids_buf);
+        else if (hdr->opcode == _obj_info_op) sb = &(s->obj_infos_buf);
+        else if (hdr->opcode == _win_screenshot_op) sb = &(s->screenshots_buf);
+        if (sb) _snapshot_buffer_append(sb, buffer);
      }
-   else
-     {
-        return inst->old_disp_cb(session, buffer);
-     }
-   return EINA_DEBUG_OK;
+   return inst->old_disp_cb(session, buffer);
 }
 
 static void
@@ -291,205 +280,48 @@ _session_changed(Clouseau_Extension *ext)
         inst->old_disp_cb = eina_debug_session_dispatch_get(ext->session);
         eina_debug_session_dispatch_override(ext->session, _disp_cb);
         eina_debug_opcodes_register(ext->session, _ops, _post_register_handle, ext);
-
-        elm_object_item_text_set(inst->wdgs->save_load_bt, "Save");
-        elm_toolbar_item_icon_set(inst->wdgs->save_load_bt, "document-import");
-        elm_object_item_disabled_set(inst->wdgs->save_load_bt, EINA_TRUE);
-     }
-   else
-     {
-        elm_object_item_text_set(inst->wdgs->save_load_bt, "Load");
-        elm_toolbar_item_icon_set(inst->wdgs->save_load_bt, "document-export");
-        elm_object_item_disabled_set(inst->wdgs->save_load_bt, EINA_FALSE);
      }
    elm_object_item_disabled_set(inst->wdgs->reload_button, EINA_TRUE);
 }
 
-static void
-_snapshot_eet_load()
-{
-   if (_snapshot_edd) return;
-   Eet_Data_Descriptor_Class eddc;
-   Evas_Debug_Screenshot s;
-
-   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Evas_Debug_Screenshot);
-   Eet_Data_Descriptor *evas_shot_edd = eet_data_descriptor_stream_new(&eddc);
-
-#define SHOT_ADD_BASIC(member, eet_type)\
-   EET_DATA_DESCRIPTOR_ADD_BASIC\
-   (evas_shot_edd, Evas_Debug_Screenshot, # member, member, eet_type)
-
-   SHOT_ADD_BASIC(obj, EET_T_ULONG_LONG);
-   SHOT_ADD_BASIC(w, EET_T_INT);
-   SHOT_ADD_BASIC(h, EET_T_INT);
-   eet_data_descriptor_element_add(evas_shot_edd,
-                                   "img", EET_T_CHAR, EET_G_VAR_ARRAY,
-                                   (char *)(&(s.img)) - (char *)(&s),
-                                   (char *)(&(s.img_size)) - (char *)(&s),
-                                   NULL, NULL);
-   SHOT_ADD_BASIC(tm_sec, EET_T_INT);
-   SHOT_ADD_BASIC(tm_min, EET_T_INT);
-   SHOT_ADD_BASIC(tm_hour, EET_T_INT);
-
-#undef SHOT_ADD_BASIC
-
-   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Snapshot);
-   _snapshot_edd = eet_data_descriptor_stream_new(&eddc);
-
-#define SNP_ADD_BASIC(member, eet_type)\
-   EET_DATA_DESCRIPTOR_ADD_BASIC\
-   (_snapshot_edd, Snapshot, # member, member, eet_type)
-
-   SNP_ADD_BASIC(cur_len, EET_T_INT);
-   SNP_ADD_BASIC(eoids_op, EET_T_INT);
-   SNP_ADD_BASIC(klids_op, EET_T_INT);
-   SNP_ADD_BASIC(obj_info_op, EET_T_INT);
-   EET_DATA_DESCRIPTOR_ADD_LIST(_snapshot_edd, Snapshot,
-         "screenshots", screenshots, evas_shot_edd);
-
-#undef SNP_ADD_BASIC
-}
-
-static Eina_Bool
-_snapshot_save(Clouseau_Extension *ext)
-{
-   Instance *inst = ext->data;
-   Snapshot *s = inst->snapshot;
-   FILE *fp = fopen(s->out_file, "w");
-   void *out_buf = NULL;
-   int out_size = 0;
-   Eina_Bool ret = EINA_FALSE;
-
-   if (!fp)
-     {
-        printf("Can not open file: \"%s\".\n", s->out_file);
-        return EINA_FALSE;
-     }
-   if (!ext->app_id) goto end;
-   _snapshot_eet_load();
-   s->eoids_op = _eoids_get_op;
-   s->klids_op = _klids_get_op;
-   s->obj_info_op = _obj_info_op;
-   s->screenshots = inst->screenshots;
-   out_buf = eet_data_descriptor_encode(_snapshot_edd, s, &out_size);
-   fwrite(&out_size, sizeof(int), 1, fp);
-   fwrite(out_buf, 1, out_size, fp);
-   printf("Snapshot buffer size %d max %d\n", s->cur_len, s->max_len);
-   fwrite(s->buffer, 1, s->cur_len, fp);
-   ret = EINA_TRUE;
-end:
-   fclose(fp);
-   return ret;
-}
-
-static Snapshot *
-_snapshot_buffer_parse(char *buffer, int size)
-{
-   Snapshot *s = NULL;
-   int eet_size = 0;
-
-   if (size < eet_size) return NULL;
-
-   memcpy(&eet_size, buffer, sizeof(int));
-   buffer += sizeof(int);
-
-   _snapshot_eet_load();
-
-   s = eet_data_descriptor_decode(_snapshot_edd, buffer, eet_size);
-   buffer += eet_size;
-
-   if (s->cur_len) s->buffer = buffer;
-
-   return s;
-}
 
 static void
-_snapshot_load(Clouseau_Extension *ext, char *buffer, int size)
+_snapshot_load(Clouseau_Extension *ext, void *buffer, int size, int version EINA_UNUSED)
 {
-   Evas_Debug_Screenshot *shot;
-   unsigned int idx = 0;
-
+   char *buf = buffer;
+   int klids_op, eoids_op, obj_info_op, screenshot_op;
    if (!ext) return;
 
-   Instance *inst = ext->data;
-   Snapshot *s = _snapshot_buffer_parse(buffer, size);
-   if (!s) return;
+#define EXTRACT(_buf, pval, sz) \
+     { \
+        memcpy(pval, _buf, sz); \
+        _buf += sz; \
+     }
+   EXTRACT(buf, &klids_op, sizeof(int));
+   EXTRACT(buf, &eoids_op, sizeof(int));
+   EXTRACT(buf, &obj_info_op, sizeof(int));
+   EXTRACT(buf, &screenshot_op, sizeof(int));
+#undef EXTRACT
 
    _session_changed(ext);
 
-   _eoids_get_op = s->eoids_op;
-   _klids_get_op = s->klids_op;
-   _obj_info_op = s->obj_info_op;
-
-   /* Prevent free of the buffer */
-   while (idx < s->cur_len)
+   while (size > 0)
      {
-        Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)(s->buffer + idx);
-        void *payload = (s->buffer + idx) + sizeof(*hdr);
-        size = hdr->size - sizeof(*hdr);
-        if (hdr->opcode == _eoids_get_op) _eoids_get((Eina_Debug_Session *)ext, -1, payload, size);
-        else if (hdr->opcode == _klids_get_op) _klids_get((Eina_Debug_Session *)ext, -1, payload, size);
-        else if (hdr->opcode == _obj_info_op) _obj_info_get((Eina_Debug_Session *)ext, -1, payload, size);
-        idx += hdr->size;
+        Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buf;
+        void *payload = buf + sizeof(*hdr);
+        int psize = hdr->size - sizeof(*hdr);
+        if (hdr->opcode == eoids_op)
+           _eoids_get((Eina_Debug_Session *)ext, -1, payload, psize);
+        else if (hdr->opcode == klids_op)
+           _klids_get((Eina_Debug_Session *)ext, -1, payload, psize);
+        else if (hdr->opcode == obj_info_op)
+           _obj_info_get((Eina_Debug_Session *)ext, -1, payload, psize);
+        else if (hdr->opcode == screenshot_op)
+           _win_screenshot_get((Eina_Debug_Session *)ext, -1, payload, psize);
+        else return;
+        buf += hdr->size;
+        size -= hdr->size;
      }
-   EINA_LIST_FREE(s->screenshots, shot)
-     {
-        Obj_Info *info = eina_hash_find(inst->objs_hash, &(shot->obj));
-        if (!info) continue;
-        info->screenshots = eina_list_append(info->screenshots, shot);
-        if (info->glitem) elm_genlist_item_update(info->glitem);
-     }
-   free(s);
-   free(buffer);
-}
-
-static int
-_file_get(const char *filename, char **buffer_out)
-{
-   char *file_data = NULL;
-   int file_size;
-   FILE *fp = fopen(filename, "r");
-   if (!fp)
-     {
-        printf("Can not open file: \"%s\".\n", filename);
-        return -1;
-     }
-
-   fseek(fp, 0, SEEK_END);
-   file_size = ftell(fp);
-   if (file_size <= 0)
-     {
-        fclose(fp);
-        if (file_size < 0) printf("Can not ftell file: \"%s\".\n", filename);
-        return -1;
-     }
-   rewind(fp);
-   file_data = (char *) calloc(1, file_size);
-   if (!file_data)
-     {
-        fclose(fp);
-        printf("Calloc failed\n");
-        return -1;
-     }
-   int res = fread(file_data, 1, file_size, fp);
-   if (!res)
-     {
-        free(file_data);
-        file_data = NULL;
-        if (!feof(fp)) printf("fread failed\n");
-     }
-   fclose(fp);
-   if (file_data && buffer_out) *buffer_out = file_data;
-   return file_size;
-}
-
-static void
-_snapshot_load_from_fs(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
-{
-   char *buffer = NULL;
-   int size = _file_get(ev, &buffer);
-   if (size <= 0) return;
-   _snapshot_load(data, buffer, size);
 }
 
 static void
@@ -761,8 +593,6 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
         eina_debug_session_send_to_thread(ext->session, ext->app_id, info->thread_id,
               _obj_highlight_op, &(info->obj), sizeof(uint64_t));
      }
-   eina_debug_session_send_to_thread(ext->session, ext->app_id, info->thread_id,
-         _obj_info_op, &(info->obj), sizeof(uint64_t));
    if (info->eolian_info) _obj_info_realize(ext, info->eolian_info);
 }
 
@@ -809,8 +639,18 @@ static Eina_Debug_Error
 _win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
       void *buffer, int size)
 {
-   Clouseau_Extension *ext = eina_debug_session_data_get(session);
-   Instance *inst = ext->data;
+   Clouseau_Extension *ext = NULL;
+   Instance *inst = NULL;
+   if (src == -1)
+     {
+        ext = (Clouseau_Extension *)session;
+        session = NULL;
+     }
+   else
+     {
+        ext = eina_debug_session_data_get(session);
+     }
+   inst = ext->data;
    Evas_Debug_Screenshot *s = evas_debug_screenshot_decode(buffer, size);
    if (!s) return EINA_DEBUG_ERROR;
    Obj_Info *info = eina_hash_find(inst->objs_hash, &(s->obj));
@@ -895,49 +735,43 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
      }
 }
 
-static void *
-_eoids_request_prepare(Clouseau_Extension *ext, int *size)
-{
-   uint64_t obj_kl = 0, canvas_kl = 0;
-   Instance *inst = ext->data;
-   Class_Info *info = eina_hash_find(inst->classes_hash_by_name,
-         _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Elm.Widget");
-   if (info) obj_kl = info->id;
-   info = eina_hash_find(inst->classes_hash_by_name, "Efl.Canvas");
-   if (info) canvas_kl = info->id;
-   return eo_debug_eoids_request_prepare(size, obj_kl, canvas_kl, NULL);
-}
-
 static Eina_Debug_Error
 _snapshot_done_cb(Eina_Debug_Session *session, int src EINA_UNUSED,
       void *buffer EINA_UNUSED, int size EINA_UNUSED)
 {
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
-   Instance *inst = ext->data;
-   Snapshot *s = inst->snapshot;
-   if (!s) return EINA_DEBUG_OK;
-   _snapshot_save(ext);
-   free(s->buffer);
-   free(s);
-   inst->snapshot = NULL;
    ext->ui_freeze_cb(ext, EINA_FALSE);
    return EINA_DEBUG_OK;
 }
 
-static void
-_snapshot_do(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
+static void *
+_snapshot_save(Clouseau_Extension *ext, int *size, int *version)
 {
-   void *buf;
-   Clouseau_Extension *ext = data;
-   int size;
-   if (!ext || !ext->app_id) return;
    Instance *inst = ext->data;
-   ext->ui_freeze_cb(ext, EINA_TRUE);
-   inst->snapshot = calloc(1, sizeof(Snapshot));
-   inst->snapshot->out_file = eina_stringshare_add(ev);
-   buf = _eoids_request_prepare(ext, &size);
-   eina_debug_session_send(ext->session, ext->app_id, _snapshot_do_op, buf, size);
-   free(buf);
+   Snapshot *s = &(inst->snapshot);
+   void *buffer = malloc(4 * sizeof(int) +
+         s->klids_buf.cur_len + s->eoids_buf.cur_len +
+         s->obj_infos_buf.cur_len + s->screenshots_buf.cur_len);
+   char *tmp = buffer;
+
+#define STORE(_buf, pval, sz) \
+{ \
+   memcpy(_buf, pval, sz); \
+   _buf += sz; \
+}
+   STORE(tmp, &_klids_get_op, sizeof(int));
+   STORE(tmp, &_eoids_get_op, sizeof(int));
+   STORE(tmp, &_obj_info_op, sizeof(int));
+   STORE(tmp, &_win_screenshot_op, sizeof(int));
+   STORE(tmp, s->klids_buf.buffer, s->klids_buf.cur_len);
+   STORE(tmp, s->eoids_buf.buffer, s->eoids_buf.cur_len);
+   STORE(tmp, s->obj_infos_buf.buffer, s->obj_infos_buf.cur_len);
+   STORE(tmp, s->screenshots_buf.buffer, s->screenshots_buf.cur_len);
+#undef STORE
+
+   *version = 1;
+   *size = tmp - (char *)buffer;
+   return buffer;
 }
 
 void
@@ -1014,10 +848,12 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
 static Eina_Debug_Error
 _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
 {
+   const char *obj_kl_name = NULL, *canvas_kl_name = NULL;
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
    if (size <= 0) return EINA_DEBUG_ERROR;
    if (!ext) return EINA_DEBUG_OK;
    Instance *inst = ext->data;
+   char *buf;
    Eina_Bool ret = !!((char *)buffer)[size - 1];
 
    if (!ret)
@@ -1049,7 +885,15 @@ _module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
         eina_debug_session_send(session, src, _module_init_op, "clouseau", 9);
         return EINA_DEBUG_OK;
      }
-   eina_debug_session_send(session, src, _klids_get_op, NULL, 0);
+   ext->ui_freeze_cb(ext, EINA_TRUE);
+
+   obj_kl_name = _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Elm.Widget";
+   canvas_kl_name = "Efl.Canvas";
+   size = strlen(obj_kl_name) + 1 + strlen(canvas_kl_name) + 1;
+   buf = alloca(size);
+   memcpy(buf, obj_kl_name, strlen(obj_kl_name) + 1);
+   memcpy(buf + strlen(obj_kl_name) + 1, canvas_kl_name, strlen(canvas_kl_name) + 1);
+   eina_debug_session_send(session, src, _snapshot_do_op, buf, size);
    return EINA_DEBUG_OK;
 }
 
@@ -1067,8 +911,6 @@ _klid_walk(void *data, uint64_t kl, char *name)
 static Eina_Debug_Error
 _klids_get(Eina_Debug_Session *session, int src, void *buffer, int size)
 {
-   uint64_t obj_kl = 0, canvas_kl = 0;
-   void *buf;
    Clouseau_Extension *ext = NULL;
    Instance *inst = NULL;
    if (src == -1)
@@ -1082,14 +924,7 @@ _klids_get(Eina_Debug_Session *session, int src, void *buffer, int size)
      }
    inst = ext->data;
    eo_debug_klids_extract(buffer, size, _klid_walk, inst);
-   Class_Info *info = eina_hash_find(inst->classes_hash_by_name,
-         _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Elm.Widget");
-   if (info) obj_kl = info->id;
-   info = eina_hash_find(inst->classes_hash_by_name, "Efl.Canvas");
-   if (info) canvas_kl = info->id;
-   buf = eo_debug_eoids_request_prepare(&size, obj_kl, canvas_kl, NULL);
-   eina_debug_session_send_to_thread(session, src, 0xFFFFFFFF, _eoids_get_op, buf, size);
-   free(buf);
+
    return EINA_DEBUG_OK;
 }
 
@@ -1223,33 +1058,6 @@ jump_to_ptr_inwin_show(void *data EINA_UNUSED, Evas_Object *obj, void *event_inf
    elm_win_inwin_activate(inwin);
 }
 
-static void
-_inwin_del(void *data, Evas_Object *obj EINA_UNUSED, void *ev EINA_UNUSED)
-{
-   Eo *inwin = data;
-   efl_del(inwin);
-}
-
-static void
-_fs_activate(Clouseau_Extension *ext, Eina_Bool is_save)
-{
-   Eo *inwin = ext->inwin_create_cb();
-   Eo *fs = elm_fileselector_add(inwin);
-
-   elm_fileselector_is_save_set(fs, is_save);
-   elm_fileselector_path_set(fs, getenv("HOME"));
-   evas_object_size_hint_weight_set
-      (fs, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(fs, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_smart_callback_add(fs, "done", _inwin_del, inwin);
-   evas_object_smart_callback_add(fs, "done",
-         is_save?_snapshot_do:_snapshot_load_from_fs, ext);
-   evas_object_show(fs);
-
-   elm_win_inwin_content_set(inwin, fs);
-   elm_win_inwin_activate(inwin);
-}
-
 void
 reload_perform(void *data EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
@@ -1260,14 +1068,6 @@ reload_perform(void *data EINA_UNUSED, Evas_Object *obj, void *event_info EINA_U
         if (!ext->app_id) return;
         _app_changed(ext);
      }
-}
-
-void
-save_load_perform(void *data EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
-{
-   Clouseau_Extension *ext = _ext_get(obj);
-   if (ext->session) _fs_activate(ext, EINA_TRUE);
-   else _fs_activate(ext, EINA_FALSE);
 }
 
 static Eo *
@@ -1321,6 +1121,12 @@ extension_name_get()
    return "Objects introspection";
 }
 
+EAPI const char *
+extension_nickname_get()
+{
+   return "objs_intro";
+}
+
 EAPI Eina_Bool
 extension_start(Clouseau_Extension *ext, Eo *parent)
 {
@@ -1333,11 +1139,14 @@ extension_start(Clouseau_Extension *ext, Eo *parent)
    ext->session_changed_cb = _session_changed;
    ext->app_changed_cb = _app_changed;
    ext->import_data_cb = _snapshot_load;
+   ext->export_data_cb = _snapshot_save;
 
    inst->classes_hash_by_id = eina_hash_pointer_new(NULL);
    inst->classes_hash_by_name = eina_hash_string_small_new(NULL);
 
    inst->objs_hash = eina_hash_pointer_new(NULL);
+
+   memset(&(inst->snapshot), 0, sizeof(inst->snapshot));
 
    eolian_directory_scan(EOLIAN_EO_DIR);
 

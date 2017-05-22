@@ -35,7 +35,8 @@ typedef struct _Clouseau_Extension Clouseau_Extension;
 typedef Eo *(*Ui_Get_Cb)(Clouseau_Extension *ext, Eo *parent);
 typedef void (*Session_Changed_Cb)(Clouseau_Extension *ext);
 typedef void (*App_Changed_Cb)(Clouseau_Extension *ext);
-typedef void (*Import_Data_Cb)(Clouseau_Extension *ext, char *buffer, int size);
+typedef void (*Import_Data_Cb)(Clouseau_Extension *ext, void *buffer, int size, int version);
+typedef void *(*Export_Data_Cb)(Clouseau_Extension *ext, int *size, int *version);
 
 typedef Eo *(*Inwin_Create_Cb)();
 typedef void (*Ui_Freeze_Cb)(Clouseau_Extension *ext, Eina_Bool freeze);
@@ -50,6 +51,7 @@ struct _Clouseau_Extension
    Session_Changed_Cb session_changed_cb; /* Function called when the session changed */
    App_Changed_Cb app_changed_cb;         /* Function called when the app changed */
    Import_Data_Cb import_data_cb;         /* Function called when data has to be imported */
+   Export_Data_Cb export_data_cb;         /* Function called when data has to be exported */
    Inwin_Create_Cb inwin_create_cb;       /* Function to call to create a Inwin */
    Ui_Freeze_Cb ui_freeze_cb;             /* Function to call to freeze/thaw the UI */
    void *data;                            /* Data allocated and managed by the extension */

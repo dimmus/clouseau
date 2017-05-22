@@ -11,6 +11,7 @@ typedef struct
    Eo *conn_selector_menu;
    Eo *apps_selector;
    Eo *apps_selector_menu;
+   Eo *save_load_bt;
    Eo *ext_selector_menu;
    Eo *freeze_pulse;
    Eo *freeze_inwin;
