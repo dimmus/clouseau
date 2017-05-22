@@ -18,6 +18,8 @@ extern void gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs);
 
 extern void
 conn_menu_show(void *data, Evas_Object *obj, void *event_info);
+extern void
+save_load_perform(void *data, Evas_Object *obj, void *event_info);
 
 static void
 _pubs_free_cb(void *data, const Efl_Event *event EINA_UNUSED)
@@ -69,6 +71,8 @@ gui_main_win_create(Eo *__main_parent)
    elm_toolbar_item_menu_set(pub_widgets->apps_selector, EINA_TRUE);
 
    pub_widgets->apps_selector_menu = elm_toolbar_item_menu_get(pub_widgets->apps_selector);
+
+   pub_widgets->save_load_bt = elm_toolbar_item_append(tb, "document-export", "Save", save_load_perform, NULL);
 
    ext_selector = elm_toolbar_item_append(tb, "system-reboot", "Extensions", NULL, NULL);
    elm_toolbar_item_menu_set(ext_selector, EINA_TRUE);

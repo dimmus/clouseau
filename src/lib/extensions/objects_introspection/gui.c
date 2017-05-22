@@ -33,8 +33,6 @@ screenshot_req_cb(void *data, const Efl_Event *event);
 extern void
 reload_perform(void *data, Evas_Object *obj, void *event_info);
 extern void
-save_load_perform(void *data, Evas_Object *obj, void *event_info);
-extern void
 take_screenshot_button_clicked(void *data, const Efl_Event *event);
 extern void
 show_screenshot_button_clicked(void *data, const Efl_Event *event);
@@ -107,8 +105,6 @@ gui_win_create(Eo *__main_parent)
         elm_object_item_content_set(highlight_it, ck);
         pub_widgets->highlight_ck = ck;
      }
-
-   pub_widgets->save_load_bt = elm_toolbar_item_append(tb, "document-export", "Save", save_load_perform, NULL);
 
    panes = efl_add(ELM_PANES_CLASS, box);
    elm_obj_panes_content_right_size_set(panes, 0.600000);

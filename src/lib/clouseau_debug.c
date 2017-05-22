@@ -36,11 +36,45 @@ static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
 static int _snapshot_objs_get_op = EINA_DEBUG_OPCODE_INVALID;
 
+typedef struct
+{
+   Eina_List *kls_strs;
+   uint64_t *kls;
+   int nb_kls;
+} _KlIds_Walk_Data;
+
+static Eina_Bool
+_klids_walk_cb(void *_data, Efl_Class *kl)
+{
+   _KlIds_Walk_Data *data = _data;
+   const char *kl_name = efl_class_name_get(kl), *kls_str;
+   Eina_List *itr;
+
+   EINA_LIST_FOREACH(data->kls_strs, itr, kls_str)
+     {
+        if (!strcmp(kl_name, kls_str))
+          {
+             int i;
+             for (i = 0; i < data->nb_kls; i++)
+               {
+                  if (!data->kls[i])
+                    {
+                       data->kls[i] = (uint64_t)kl;
+                       return EINA_TRUE;
+                    }
+               }
+          }
+     }
+   return EINA_TRUE;
+}
+
 static Eina_Debug_Error
 _snapshot_do_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
 {
+   static Eina_Bool (*foo)(Eo_Debug_Class_Iterator_Cb, void *) = NULL;
    char *buf = alloca(sizeof(Eina_Debug_Packet_Header) + size);
    Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buf;
+   char *tmp;
 
    hdr->size = sizeof(Eina_Debug_Packet_Header);
    hdr->cid = srcid;
@@ -48,8 +82,27 @@ _snapshot_do_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
    hdr->opcode = _klids_get_op;
    eina_debug_dispatch(session, buf);
 
+   _KlIds_Walk_Data data;
+   data.kls_strs = NULL;
+   tmp = buffer;
+   while (size > 0)
+     {
+        data.kls_strs = eina_list_append(data.kls_strs, tmp);
+        size -= strlen(tmp) + 1;
+        tmp += strlen(tmp) + 1;
+     }
+   data.nb_kls = eina_list_count(data.kls_strs);
+   size = data.nb_kls * sizeof(uint64_t);
+   if (data.nb_kls)
+     {
+        data.kls = alloca(size);
+        memset(data.kls, 0, size);
+        if (!foo) foo = dlsym(RTLD_DEFAULT, "eo_debug_classes_iterate");
+        foo(_klids_walk_cb, &data);
+     }
+
    hdr->size = sizeof(Eina_Debug_Packet_Header) + size;
-   if (size) memcpy(buf + sizeof(Eina_Debug_Packet_Header), buffer, size);
+   if (size) memcpy(buf + sizeof(Eina_Debug_Packet_Header), data.kls, size);
    hdr->thread_id = 0xFFFFFFFF;
    hdr->opcode = _snapshot_objs_get_op;
    eina_debug_dispatch(session, buf);

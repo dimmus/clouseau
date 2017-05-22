@@ -10,7 +10,6 @@ typedef struct
    Eo *reload_button;
    Eo *objs_type_radio;
    Eo *highlight_ck;
-   Eo *save_load_bt;
    Eo *object_infos_list;
    Eo *objects_list;
 } Gui_Win_Widgets;

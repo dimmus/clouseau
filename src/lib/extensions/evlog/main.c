@@ -1404,7 +1404,7 @@ _evlog_view_add(Inf *inf)
 }
 
 static void
-_evlog_import(Clouseau_Extension *ext, char *buffer, int size)
+_evlog_import(Clouseau_Extension *ext, void *buffer, int size, int version EINA_UNUSED)
 {
    Evlog *evlog = calloc(1, sizeof(Evlog));
    Inf *inf = ext->data;
@@ -1466,6 +1466,12 @@ EAPI const char *
 extension_name_get()
 {
    return "Event log";
+}
+
+EAPI const char *
+extension_nickname_get()
+{
+   return "evlog";
 }
 
 EAPI Eina_Bool
