@@ -992,7 +992,7 @@ _add_log_state_object(Evas_Object *main, Evas_Object *grid, Event *ev)
 
    o = elm_layout_add(main);
    oe = elm_layout_edje_get(o);
-   elm_layout_file_set(o, "./evlog.edj", "state");
+   elm_layout_file_set(o, EVLOG_EDJ, "state");
    i = 0;
    for (s = ev->event; *s; s++)
      {
@@ -1038,7 +1038,7 @@ _add_log_event_object(Evas_Object *main, Evas_Object *grid, Event *ev)
 
    o = elm_layout_add(main);
    oe = elm_layout_edje_get(o);
-   elm_layout_file_set(o, "./evlog.edj", "range");
+   elm_layout_file_set(o, EVLOG_EDJ, "range");
    i = 0;
    for (s = ev->event; *s; s++)
      {
@@ -1075,7 +1075,7 @@ _add_log_cpuused_object(Evas_Object *main, Evas_Object *grid, Event *ev)
 
    o = elm_layout_add(main);
    oe = elm_layout_edje_get(o);
-   elm_layout_file_set(o, "./evlog.edj", "cpuused");
+   elm_layout_file_set(o, EVLOG_EDJ, "cpuused");
    if (ev->n <= 33)
      {
         col[0] = (ev->n * 255) / 33;
@@ -1110,7 +1110,7 @@ _add_log_frame_object(Evas_Object *main, Evas_Object *grid, Event *ev)
    char buf[512];
 
    o = elm_layout_add(main);
-   elm_layout_file_set(o, "./evlog.edj", "frame");
+   elm_layout_file_set(o, EVLOG_EDJ, "frame");
    elm_grid_pack(grid, o, ev->t0 * RES, ev->n, 0, 1);
    snprintf(buf, sizeof(buf), "%s - %1.5fms", ev->event, ev->t0 * 1000.0);
    elm_object_tooltip_text_set(o, buf);
@@ -1128,7 +1128,7 @@ _add_log_event_event_object(Evas_Object *main, Evas_Object *grid, Event *ev)
 
    o = elm_layout_add(main);
    oe = elm_layout_edje_get(o);
-   elm_layout_file_set(o, "./evlog.edj", "event");
+   elm_layout_file_set(o, EVLOG_EDJ, "event");
    i = 0;
    max = 0;
    for (s = ev->event; *s; s++)
@@ -1174,7 +1174,7 @@ _add_log_cpufreq_object(Evas_Object *parent, Evas_Object *grid, Event *ev, int m
 
    o = elm_layout_add(parent);
    oe = elm_layout_edje_get(o);
-   elm_layout_file_set(o, "./evlog.edj", "cpufreq");
+   elm_layout_file_set(o, EVLOG_EDJ, "cpufreq");
 
    n = (ev->n2 * 100) / mhzmax;
    if (n <= 33)

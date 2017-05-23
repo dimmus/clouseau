@@ -2,7 +2,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 LIST(APPEND SOURCES clouseau_client.c gui.c)
 
-add_definitions(-DEFL_EO_API_SUPPORT -DGUI_IMAGES_PATH="${CMAKE_HOME_DIRECTORY}/data/images")
+add_definitions(-DEFL_EO_API_SUPPORT -DGUI_IMAGES_PATH="${CMAKE_INSTALL_PREFIX}/data/images")
 add_definitions(-DINSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 
 link_directories (${PC_LIBELEMENTARY_LIBRARY_DIRS})
