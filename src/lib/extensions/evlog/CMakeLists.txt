@@ -1,6 +1,6 @@
 set(CMAKE_BUILD_TYPE Debug)
 
-add_definitions(-DEFL_EO_API_SUPPORT -DGUI_IMAGES_PATH="${CMAKE_HOME_DIRECTORY}/data/images")
+add_definitions(-DEFL_EO_API_SUPPORT -DEVLOG_EDJ="${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME_LOWER}/clouseau_evlog.edj")
 
 set(EOLIAN_INCLUDE_FLAG -I \"${EOLIAN_EO_DIR}/eo-1\" -I${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -26,3 +26,4 @@ target_link_libraries(clouseau_evlog
    )
 
 INSTALL(TARGETS clouseau_evlog LIBRARY DESTINATION lib)
+
