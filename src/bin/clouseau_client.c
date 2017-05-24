@@ -434,6 +434,7 @@ _app_populate()
    int sel_app_id = _selected_app?_selected_app->cid:0;
    EINA_LIST_FOREACH(_extensions, itr, ext)
      {
+        if (!ext->app_changed_cb) continue;
         if (ext->app_id != sel_app_id)
           {
              ext->app_id = sel_app_id;
@@ -445,14 +446,14 @@ _app_populate()
 
 static void
 _menu_selected_app(void *data,
-      Evas_Object *obj, void *event_info)
+      Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Eina_List *itr;
    Clouseau_Extension *ext;
    const char *label = elm_object_item_part_text_get(event_info, NULL);
 
    _selected_app = data;
-   elm_object_text_set(obj, label);
+   elm_object_item_text_set(_main_widgets->apps_selector, label);
 
    EINA_LIST_FOREACH(_extensions, itr, ext) _app_populate();
 }
@@ -846,6 +847,7 @@ _extension_file_import(void *data, Evas_Object *obj,
    _ui_freeze(ext, EINA_TRUE);
    if (ext->import_data_cb) ext->import_data_cb(ext, buffer, size, -1);
    _ui_freeze(ext, EINA_FALSE);
+   free(buffer);
 }
 
 static void
