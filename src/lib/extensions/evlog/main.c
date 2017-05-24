@@ -81,6 +81,10 @@ typedef struct
    Eo *zoom_slider;
    Eo *scroller;
    Eo *table;
+   Eo *record_icon;
+   Eo *record_button;
+   Ecore_Timer *record_get_timer;
+   Eo *refresh_interval_entry;
    struct {
       Evas_Object *state;
       Evas_Object *cpufreq;
@@ -101,6 +105,19 @@ typedef struct
 #define ROUND(x) ((x + (ROUND_AMOUNT - 1)) / ROUND_AMOUNT) * ROUND_AMOUNT;
 
 static void _fill_begin(Inf *inf);
+
+static int _record_on_op = EINA_DEBUG_OPCODE_INVALID;
+static int _record_off_op = EINA_DEBUG_OPCODE_INVALID;
+static int _record_get_op = EINA_DEBUG_OPCODE_INVALID;
+
+static Eina_Debug_Error _record_get_cb(Eina_Debug_Session *, int, void *, int);
+
+static const Eina_Debug_Opcode _ops[] = {
+       {"cpufreq/on", &_record_on_op, NULL},
+       {"cpufreq/off", &_record_off_op, NULL},
+       {"evlog/get", &_record_get_op, &_record_get_cb},
+       {NULL, NULL, NULL}
+};
 
 static void
 _evlog_state_event_register(Evlog *evlog, Evlog_Event *ev)
@@ -295,7 +312,7 @@ _evlog_event_read(Evlog *evlog, void *ptr, void *end)
    const char *eventstr = NULL, *detailstr = NULL;
    Eina_Evlog_Item item;
 
-   if ((dataend - data) < sizeof(Eina_Evlog_Item)) return NULL;
+   if ((unsigned int)(dataend - data) < sizeof(Eina_Evlog_Item)) return NULL;
 
    memcpy(&item, data, sizeof(Eina_Evlog_Item));
 
@@ -325,66 +342,27 @@ _evlog_event_read(Evlog *evlog, void *ptr, void *end)
    return data;
 }
 
-static int
+static Eina_Bool
 _evlog_block_read(Evlog *evlog, char *buffer, int size)
 {
+   char *ptr, *end;
    int i;
-   unsigned int *header = (unsigned int *)buffer;
-   Eina_Bool bigendian = EINA_FALSE;
 
-   if (size < 12) return -1;
-   size -= 12;
+   /* The first 4 bytes correspond to the overflow.
+    * It is not used so we pass it. */
+   if (size < 4) return EINA_FALSE;
+   size -= 4;
 
-   if      (header[0] == 0x0ffee211) bigendian = EINA_FALSE;
-   else if (header[0] == 0x11e2fe0f) bigendian = EINA_TRUE;
-   else return -1;
-   if (!bigendian)
+   ptr = buffer + 4;
+   end = ptr + size;
+   while ((ptr = _evlog_event_read(evlog, ptr, end)));
+   for (i = 0; i < evlog->cpucores; i++)
      {
-        unsigned int blocksize = header[1];
-        //unsigned int overflow = header[2];
-        void *buf = buffer + 12;
-        char *ptr, *end;
-        if ((unsigned int)size < blocksize) return -1;
-        ptr = buf;
-        end = ptr + blocksize;
-        while ((ptr = _evlog_event_read(evlog, ptr, end)));
-        for (i = 0; i < evlog->cpucores; i++)
-          {
-             _evlog_thread_cpu_freq(evlog, evlog->last_timestamp,
-                                   i, evlog->cpumhzlast[i]);
-          }
-        return blocksize + 12;
+        _evlog_thread_cpu_freq(evlog, evlog->last_timestamp,
+              i, evlog->cpumhzlast[i]);
      }
-   else
-     {
-        // XXX: handle bigendian
-     }
-   return -1;
+   return EINA_TRUE;
 }
-
-#if 0
-static Evlog *
-_evlog_open(const char *file)
-{
-   Evlog *evlog = calloc(1, sizeof(Evlog));
-   if (!evlog) return NULL;
-   evlog->file = fopen(file, "rb");
-   if (!evlog->file)
-     {
-        free(evlog);
-        return EINA_FALSE;
-     }
-   while (_evlog_block_read(evlog, NULL, 0));
-   return evlog;
-}
-
-static void
-_evlog_free(Evlog *evlog)
-{
-   // XXX free other stuff
-   free(evlog);
-}
-#endif
 
 static Eina_Bool
 _can_see(double t0, double t1, double tmin, double t0in, double t1in)
@@ -1406,60 +1384,177 @@ _evlog_view_add(Inf *inf)
 static void
 _evlog_import(Clouseau_Extension *ext, void *buffer, int size, int version EINA_UNUSED)
 {
-   Evlog *evlog = calloc(1, sizeof(Evlog));
    Inf *inf = ext->data;
-   char *p = buffer;
-   int consumed = -1;
-   while (size && (consumed = _evlog_block_read(evlog, p, size)) != -1)
+   Eina_Bool ret;
+
+   if (!inf->evlog) inf->evlog = calloc(1, sizeof(Evlog));
+   ret = _evlog_block_read(inf->evlog, buffer, size);
+   if (!ret)
      {
-        p += consumed;
-        size -= consumed;
+        free(inf->evlog);
+        inf->evlog = NULL;
      }
-   free(buffer);
-   if (size)
+   else _fill_log_table(inf);
+}
+
+static Eina_Debug_Error
+_record_get_cb(Eina_Debug_Session *session, int cid EINA_UNUSED, void *buffer, int size)
+{
+   Clouseau_Extension *ext = eina_debug_session_data_get(session);
+   _evlog_import(ext, buffer, size, -1);
+   return EINA_DEBUG_OK;
+}
+
+static Eina_Bool
+_record_request_cb(void *data)
+{
+   Clouseau_Extension *ext = data;
+   eina_debug_session_send(ext->session, ext->app_id, _record_get_op, NULL, 0);
+   return EINA_TRUE;
+}
+
+static void
+_process_recording(void *data, Evas_Object *bt EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Clouseau_Extension *ext = data;
+   Inf *inf = ext->data;
+   const char *icon_name = elm_icon_standard_get(inf->record_icon);
+   if (!strcmp(icon_name, "media-record"))
      {
-        free(evlog);
-        return;
+        const char *interval_str = elm_entry_entry_get(inf->refresh_interval_entry);
+        double interval = atof(interval_str);
+        if (!interval)
+          {
+             interval = 0.2;
+             elm_entry_entry_set(inf->refresh_interval_entry, "0.2");
+          }
+        eina_debug_session_send(ext->session, ext->app_id, _record_on_op, NULL, 0);
+        elm_icon_standard_set(inf->record_icon, "media-playback-stop");
+        inf->record_get_timer = ecore_timer_add(interval, _record_request_cb, ext);
      }
-   inf->evlog = evlog;
-   _fill_log_table(inf);
+   else
+     {
+        eina_debug_session_send(ext->session, ext->app_id, _record_off_op, NULL, 0);
+        elm_icon_standard_set(inf->record_icon, "media-record");
+        ecore_timer_del(inf->record_get_timer);
+        inf->record_get_timer = NULL;
+     }
+}
+
+static void
+_evlog_clear(void *data, Evas_Object *bt EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Clouseau_Extension *ext = data;
+   Inf *inf = ext->data;
+   int i;
+   elm_grid_clear(inf->grid.state, EINA_TRUE);
+   elm_grid_clear(inf->grid.cpufreq, EINA_TRUE);
+   for (i = 0; inf->evlog && i < inf->evlog->thread_num; i++)
+      elm_grid_clear(inf->grid.thread[i], EINA_TRUE);
+   elm_grid_clear(inf->grid.over, EINA_TRUE);
+   free(inf->evlog);
+   inf->evlog = NULL;
 }
 
 static Eo *
 _ui_get(Clouseau_Extension *ext, Eo *parent)
 {
-   Eo *box;
-   Eo *zoom_slider;
-   Eo *view;
+   Eo *view, *bar_box, *o, *o2;
    Inf *inf = ext->data;
 
-   box = elm_box_add(parent);
-   inf->main = box;
-   evas_object_size_hint_weight_set(box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(box, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_box_horizontal_set(box, EINA_FALSE);
-   evas_object_show(box);
+   inf->main = o = elm_box_add(parent);
+   evas_object_size_hint_weight_set(o, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+   evas_object_size_hint_align_set(o, EVAS_HINT_FILL, EVAS_HINT_FILL);
+   elm_box_horizontal_set(o, EINA_FALSE);
+   evas_object_show(o);
 
-   zoom_slider = elm_slider_add(box);
-   inf->zoom_slider = zoom_slider;
-   evas_object_data_set(zoom_slider, "inf", inf);
-   elm_slider_min_max_set(zoom_slider, 1.0, 1000.0);
-   elm_slider_step_set(zoom_slider, 0.1);
-   elm_slider_value_set(zoom_slider, 50.0);
-   elm_object_text_set(zoom_slider, "Zoom");
-   elm_slider_unit_format_set(zoom_slider, "%1.1f");
-   evas_object_size_hint_weight_set(zoom_slider, EVAS_HINT_EXPAND, 0.0);
-   evas_object_size_hint_align_set(zoom_slider, EVAS_HINT_FILL, 0.0);
-   elm_box_pack_end(box, zoom_slider);
-   evas_object_show(zoom_slider);
+   bar_box = o = elm_box_add(inf->main);
+   evas_object_size_hint_align_set(o, EVAS_HINT_FILL, 0);
+   elm_box_horizontal_set(o, EINA_TRUE);
+   elm_box_pack_end(inf->main, o);
+   evas_object_show(o);
 
-   view = _evlog_view_add(ext->data);
+   o = elm_icon_add(bar_box);
+   elm_icon_standard_set(o, "edit-delete");
+   evas_object_show(o);
+
+   o2 = elm_button_add(bar_box);
+   elm_object_part_content_set(o2, "icon", o);
+   elm_box_pack_end(bar_box, o2);
+   efl_gfx_visible_set(o2, EINA_TRUE);
+   evas_object_smart_callback_add(o2, "clicked", _evlog_clear, ext);
+
+   inf->record_icon = o = elm_icon_add(bar_box);
+   elm_icon_standard_set(o, "media-record");
+   evas_object_show(o);
+
+   inf->record_button = o = elm_button_add(bar_box);
+   elm_object_part_content_set(o, "icon", inf->record_icon);
+   elm_box_pack_end(bar_box, o);
+   efl_gfx_visible_set(o, EINA_TRUE);
+   evas_object_smart_callback_add(o, "clicked", _process_recording, ext);
+
+   o = elm_separator_add(bar_box);
+   elm_box_pack_end(bar_box, o);
+   efl_gfx_visible_set(o, EINA_TRUE);
+
+   o = elm_label_add(bar_box);
+   elm_object_text_set(o, "Refresh interval (in seconds):");
+   elm_box_pack_end(bar_box, o);
+   efl_gfx_visible_set(o, EINA_TRUE);
+
+   inf->refresh_interval_entry = o = elm_entry_add(bar_box);
+   elm_entry_single_line_set(o, EINA_TRUE);
+   elm_object_text_set(o, "0.2");
+   elm_box_pack_end(bar_box, o);
+   efl_gfx_visible_set(o, EINA_TRUE);
+
+   inf->zoom_slider = o = elm_slider_add(inf->main);
+   evas_object_data_set(o, "inf", inf);
+   elm_slider_min_max_set(o, 1.0, 1000.0);
+   elm_slider_step_set(o, 0.1);
+   elm_slider_value_set(o, 50.0);
+   elm_object_text_set(o, "Zoom");
+   elm_slider_unit_format_set(o, "%1.1f");
+   evas_object_size_hint_weight_set(o, EVAS_HINT_EXPAND, 0.0);
+   evas_object_size_hint_align_set(o, EVAS_HINT_FILL, 0.0);
+   elm_box_pack_end(inf->main, o);
+   evas_object_show(o);
+
+   view = _evlog_view_add(inf);
    evas_object_size_hint_weight_set(view, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(view, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_box_pack_end(box, view);
+   elm_box_pack_end(inf->main, view);
    evas_object_show(view);
 
-   return box;
+   return inf->main;
+}
+
+static void
+_app_changed(Clouseau_Extension *ext)
+{
+   Inf *inf = ext->data;
+   elm_object_disabled_set(inf->record_button, EINA_FALSE);
+   _evlog_clear(ext, NULL, NULL);
+}
+
+static void
+_session_changed(Clouseau_Extension *ext)
+{
+   int i = 0;
+   Inf *inf = ext->data;
+   _app_changed(ext);
+   while (_ops[i].opcode_name)
+     {
+        if (_ops[i].opcode_id) *(_ops[i].opcode_id) = EINA_DEBUG_OPCODE_INVALID;
+        i++;
+     }
+   if (ext->session)
+     {
+        eina_debug_session_data_set(ext->session, ext);
+        eina_debug_opcodes_register(ext->session, _ops, NULL, NULL);
+     }
+   elm_object_disabled_set(inf->record_button, EINA_TRUE);
 }
 
 EAPI const char *
@@ -1483,8 +1578,8 @@ extension_start(Clouseau_Extension *ext, Eo *parent)
 
    inf = calloc(1, sizeof(Inf));
    ext->data = inf;
-//   ext->session_changed_cb = _session_changed;
-//   ext->app_changed_cb = _app_changed;
+   ext->session_changed_cb = _session_changed;
+   ext->app_changed_cb = _app_changed;
    ext->import_data_cb = _evlog_import;
 
    ext->ui_object = _ui_get(ext, parent);
