@@ -23,7 +23,7 @@ typedef struct
    Eo *cancel_button;
    Eo *save_button;
    Eo *name_entry;
-   Eo *command_entry;
+   Eo *port_entry;
 } Gui_New_Profile_Win_Widgets;
 
 Gui_Main_Win_Widgets *gui_main_win_create(Eo *parent);

@@ -56,7 +56,7 @@ static const char *_conn_strs[] =
 typedef struct
 {
    const char *name;
-   const char *command;
+   int port;
    /* Not eet */
    const char *file_name;
    Eo *menu_item;
@@ -183,7 +183,7 @@ _profile_eet_load()
    (_profile_edd, Profile, # member, member, eet_type)
 
    CFG_ADD_BASIC(name, EET_T_STRING);
-   CFG_ADD_BASIC(command, EET_T_STRING);
+   CFG_ADD_BASIC(port, EET_T_INT);
 
 #undef CFG_ADD_BASIC
 }
@@ -222,7 +222,6 @@ _profile_remove(Profile *p)
    _profiles = eina_list_remove(_profiles, p);
    eina_stringshare_del(p->file_name);
    eina_stringshare_del(p->name);
-   eina_stringshare_del(p->command);
    free(p);
 }
 
@@ -541,13 +540,13 @@ _profile_create_cb(void *data EINA_UNUSED, const Efl_Event *event)
    Eo *save_bt = event->object;
    wdgs = efl_key_data_get(save_bt, "_wdgs");
    const char *name = elm_object_text_get(wdgs->name_entry);
-   const char *cmd = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->command_entry));
+   const char *port_str = elm_object_text_get(wdgs->port_entry);
    if (!name || !*name) return;
-   if (!cmd || !*cmd) return;
+   if (!port_str || !*port_str) return;
    p = calloc(1, sizeof(*p));
    p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
    p->name = eina_stringshare_add(name);
-   p->command = eina_stringshare_add(cmd);
+   p->port = atoi(port_str);
    _profile_save(p);
    efl_del(wdgs->inwin);
 }
@@ -559,14 +558,14 @@ _profile_modify_cb(void *data, const Efl_Event *event)
    Eo *save_bt = event->object;
    Gui_New_Profile_Win_Widgets *wdgs = efl_key_data_get(save_bt, "_wdgs");
    const char *name = elm_object_text_get(wdgs->name_entry);
-   const char *cmd = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->command_entry));
+   const char *port_str = elm_object_text_get(wdgs->port_entry);
    if (!name || !*name) return;
-   if (!cmd || !*cmd) return;
+   if (!port_str || !*port_str) return;
    _profile_remove(p);
    p = calloc(1, sizeof(*p));
    p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
    p->name = eina_stringshare_add(name);
-   p->command = eina_stringshare_add(cmd);
+   p->port = atoi(port_str);
    _profile_save(p);
    efl_del(wdgs->inwin);
 }
@@ -602,7 +601,7 @@ _session_populate()
                 }
            case REMOTE_CONNECTION:
                 {
-                   ext->session = eina_debug_shell_remote_connect(_selected_profile->command);
+                   ext->session = eina_debug_remote_connect(_selected_profile->port);
                    eina_debug_session_dispatch_override(ext->session, _disp_cb);
                    if (ext->session_changed_cb) ext->session_changed_cb(ext);
                    break;
@@ -647,7 +646,7 @@ _connection_type_change(Connection_Type conn_type)
       case REMOTE_CONNECTION:
            {
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
-              _session = eina_debug_shell_remote_connect(_selected_profile->command);
+              _session = eina_debug_remote_connect(_selected_profile->port);
               eina_debug_session_dispatch_override(_session, _disp_cb);
               break;
            }
@@ -690,12 +689,14 @@ static void
 _menu_profile_modify(void *data,
       Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
+   char port_str[16];
    Profile *p = data;
    Gui_New_Profile_Win_Widgets *wdgs = gui_new_profile_win_create(_main_widgets->main_win);
    gui_new_profile_win_create_done(wdgs);
    efl_event_callback_add(wdgs->save_button, EFL_UI_EVENT_CLICKED, _profile_modify_cb, p);
    elm_object_text_set(wdgs->name_entry, p->name);
-   elm_object_text_set(wdgs->command_entry, elm_entry_utf8_to_markup(p->command));
+   sprintf(port_str, "%d", p->port);
+   elm_object_text_set(wdgs->port_entry, port_str);
 }
 
 static void
