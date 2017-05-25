@@ -130,9 +130,9 @@ gui_new_profile_win_create(Eo *__main_parent)
    Eo *save_button;
    Eo *bts_box;
    Eo *name_entry;
-   Eo *command_entry;
+   Eo *port_entry;
    Eo *name_label;
-   Eo *command_label;
+   Eo *port_label;
 
    inwin = elm_win_inwin_add(__main_parent);
    pub_widgets->inwin = inwin;
@@ -161,20 +161,20 @@ gui_new_profile_win_create(Eo *__main_parent)
    elm_box_pack_end(box, name_label);
    elm_box_pack_end(box, name_entry);
 
-   command_label = efl_add(ELM_LABEL_CLASS, box);
-   evas_object_size_hint_align_set(command_label, 0, -1);
-   evas_object_size_hint_weight_set(command_label, 1, 1);
-   efl_gfx_visible_set(command_label, EINA_TRUE);
-   elm_object_text_set(command_label, "Command:");
-   command_entry = efl_add(ELM_ENTRY_CLASS, box);
-   pub_widgets->command_entry = command_entry;
-   elm_obj_entry_scrollable_set(command_entry, EINA_TRUE);
-   elm_obj_entry_single_line_set(command_entry, EINA_FALSE);
-   evas_object_size_hint_align_set(command_entry, -1, -1);
-   evas_object_size_hint_weight_set(command_entry, 1, 2);
-   efl_gfx_visible_set(command_entry, EINA_TRUE);
-   elm_box_pack_end(box, command_label);
-   elm_box_pack_end(box, command_entry);
+   port_label = efl_add(ELM_LABEL_CLASS, box);
+   evas_object_size_hint_align_set(port_label, 0, -1);
+   evas_object_size_hint_weight_set(port_label, 1, 1);
+   efl_gfx_visible_set(port_label, EINA_TRUE);
+   elm_object_text_set(port_label, "Port:");
+   port_entry = efl_add(ELM_ENTRY_CLASS, box);
+   pub_widgets->port_entry = port_entry;
+   elm_entry_scrollable_set(port_entry, EINA_TRUE);
+   elm_entry_single_line_set(port_entry, EINA_TRUE);
+   evas_object_size_hint_align_set(port_entry, -1, -1);
+   evas_object_size_hint_weight_set(port_entry, 1, 1);
+   efl_gfx_visible_set(port_entry, EINA_TRUE);
+   elm_box_pack_end(box, port_label);
+   elm_box_pack_end(box, port_entry);
 
    bts_box = elm_box_add(box);
    elm_box_padding_set(bts_box, 7, 0);
