@@ -43,6 +43,7 @@ gui_main_win_create(Eo *__main_parent)
    main_win = elm_win_add(__main_parent, "Window", ELM_WIN_BASIC);
    pub_widgets->main_win = main_win;
    elm_win_autodel_set(main_win, EINA_TRUE);
+   elm_win_title_set(main_win, "Clouseau");
    efl_gfx_size_set(main_win, 478, 484);
 
    bg = efl_add(ELM_BG_CLASS, main_win);
