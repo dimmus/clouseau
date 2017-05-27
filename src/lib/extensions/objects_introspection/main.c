@@ -1,16 +1,13 @@
 #include <Eina.h>
 #include <Eolian.h>
 
-#include <Eolian_Debug.h>
-#include <Eo_Debug.h>
-#include <Evas_Debug.h>
+#include "../../Clouseau_Debug.h"
 
 #include "../../Clouseau.h"
 #include "gui.h"
 
 #define _EET_ENTRY "config"
 
-static int _module_init_op = EINA_DEBUG_OPCODE_INVALID;
 static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _klids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
@@ -70,10 +67,6 @@ typedef struct
    Eina_List *objs_list_tree;
    Eina_List *screenshots;
    Eina_Debug_Dispatch_Cb old_disp_cb;
-   Eina_Bool eo_init_done;
-   Eina_Bool eolian_init_done;
-   Eina_Bool evas_init_done;
-   Eina_Bool clouseau_init_done;
 } Instance;
 
 static Eet_Data_Descriptor *_config_edd = NULL;
@@ -87,7 +80,6 @@ static Elm_Genlist_Item_Class *_obj_func_info_itc = NULL;
 
 static Evas_Object * _obj_info_tootip(void *, Evas_Object *, Evas_Object *, void *);
 
-static Eina_Debug_Error _module_initted_cb(Eina_Debug_Session *, int, void *, int);
 static Eina_Debug_Error _eoids_get(Eina_Debug_Session *, int, void *, int);
 static Eina_Debug_Error _klids_get(Eina_Debug_Session *, int, void *, int);
 static Eina_Debug_Error _obj_info_get(Eina_Debug_Session *, int, void *, int);
@@ -96,14 +88,13 @@ static Eina_Debug_Error _win_screenshot_get(Eina_Debug_Session *, int, void *, i
 
 static const Eina_Debug_Opcode _ops[] =
 {
-     {"module/init",            &_module_init_op, &_module_initted_cb},
      {"Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
      {"Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
      {"Evas/object/highlight",  &_obj_highlight_op, NULL},
      {"Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
      {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
-     {"Clouseau/snapshot_do",   &_snapshot_do_op, NULL},
-     {"Clouseau/snapshot_done", &_snapshot_done_op, &_snapshot_done_cb},
+     {"Clouseau/Snapshot/start",&_snapshot_do_op, NULL},
+     {"Clouseau/Snapshot/done", &_snapshot_done_op, &_snapshot_done_cb},
      {NULL, NULL, NULL}
 };
 
@@ -180,6 +171,20 @@ _objs_tree_free(Eina_List *parents)
 }
 
 static void
+_app_snapshot_request(Clouseau_Extension *ext)
+{
+   const char *obj_kl_name = _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Elm.Widget";
+   const char *canvas_kl_name = "Efl.Canvas";
+   int size = strlen(obj_kl_name) + 1 + strlen(canvas_kl_name) + 1;
+   char *buf = alloca(size);
+
+   ext->ui_freeze_cb(ext, EINA_TRUE);
+   memcpy(buf, obj_kl_name, strlen(obj_kl_name) + 1);
+   memcpy(buf + strlen(obj_kl_name) + 1, canvas_kl_name, strlen(canvas_kl_name) + 1);
+   eina_debug_session_send(ext->session, ext->app_id, _snapshot_do_op, buf, size);
+}
+
+static void
 _app_changed(Clouseau_Extension *ext)
 {
    static int app_id = -1;
@@ -203,19 +208,11 @@ _app_changed(Clouseau_Extension *ext)
    s->eoids_buf.cur_len = 0;
    s->obj_infos_buf.cur_len = 0;
    s->screenshots_buf.cur_len = 0;
-   if (app_id != ext->app_id)
-     {
-        inst->eo_init_done = EINA_FALSE;
-        inst->eolian_init_done = EINA_FALSE;
-        inst->evas_init_done = EINA_FALSE;
-        inst->clouseau_init_done = EINA_FALSE;
-     }
-   if (ext->app_id)
-      eina_debug_session_send(ext->session, ext->app_id, _module_init_op, "eo", 3);
    app_id = ext->app_id;
    if (app_id)
      {
         elm_object_item_disabled_set(inst->wdgs->reload_button, EINA_FALSE);
+        _app_snapshot_request(ext);
      }
 }
 
@@ -260,7 +257,7 @@ _post_register_handle(void *data, Eina_Bool flag)
    Clouseau_Extension *ext = data;
    if(!flag) return;
    if (ext->app_id)
-      eina_debug_session_send(ext->session, ext->app_id, _module_init_op, "eo", 3);
+      _app_snapshot_request(ext);
 }
 
 static void
@@ -447,12 +444,12 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
         if(full)
           {
              char c_type[_MAX_LABEL];
-             _eolian_type_to_string(eolian_parameter_type_get(param->etype), c_type);
+             _eolian_type_to_string(eolian_parameter_type_get(param->eparam), c_type);
              buffer_size += snprintf(buffer + buffer_size,
                    _MAX_LABEL - buffer_size, "%s ", c_type);
           }
         buffer_size += snprintf(buffer + buffer_size,
-              _MAX_LABEL - buffer_size, "%s: ", eolian_parameter_name_get(param->etype));
+              _MAX_LABEL - buffer_size, "%s: ", eolian_parameter_name_get(param->eparam));
         buffer_size += _eolian_value_to_string(&(param->value),
               buffer + buffer_size,  _MAX_LABEL - buffer_size);
         if(full)
@@ -843,58 +840,6 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
       return box;
    }
    return NULL;
-}
-
-static Eina_Debug_Error
-_module_initted_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
-{
-   const char *obj_kl_name = NULL, *canvas_kl_name = NULL;
-   Clouseau_Extension *ext = eina_debug_session_data_get(session);
-   if (size <= 0) return EINA_DEBUG_ERROR;
-   if (!ext) return EINA_DEBUG_OK;
-   Instance *inst = ext->data;
-   char *buf;
-   Eina_Bool ret = !!((char *)buffer)[size - 1];
-
-   if (!ret)
-     {
-        printf("Error loading module %s in the target\n", (char *)buffer);
-     }
-   if (!strcmp(buffer, "eo")) inst->eo_init_done = ret;
-   if (!strcmp(buffer, "eolian")) inst->eolian_init_done = ret;
-   if (!strcmp(buffer, "evas")) inst->evas_init_done = ret;
-   if (!strcmp(buffer, "clouseau")) inst->clouseau_init_done = ret;
-
-   if (!inst->eo_init_done)
-     {
-        eina_debug_session_send(session, src, _module_init_op, "eo", 3);
-        return EINA_DEBUG_OK;
-     }
-   if (!inst->eolian_init_done)
-     {
-        eina_debug_session_send(session, src, _module_init_op, "eolian", 7);
-        return EINA_DEBUG_OK;
-     }
-   if (!inst->evas_init_done)
-     {
-        eina_debug_session_send(session, src, _module_init_op, "evas", 5);
-        return EINA_DEBUG_OK;
-     }
-   if (!inst->clouseau_init_done)
-     {
-        eina_debug_session_send(session, src, _module_init_op, "clouseau", 9);
-        return EINA_DEBUG_OK;
-     }
-   ext->ui_freeze_cb(ext, EINA_TRUE);
-
-   obj_kl_name = _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Elm.Widget";
-   canvas_kl_name = "Efl.Canvas";
-   size = strlen(obj_kl_name) + 1 + strlen(canvas_kl_name) + 1;
-   buf = alloca(size);
-   memcpy(buf, obj_kl_name, strlen(obj_kl_name) + 1);
-   memcpy(buf + strlen(obj_kl_name) + 1, canvas_kl_name, strlen(canvas_kl_name) + 1);
-   eina_debug_session_send(session, src, _snapshot_do_op, buf, size);
-   return EINA_DEBUG_OK;
 }
 
 static void

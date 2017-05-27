@@ -461,7 +461,7 @@ static Eina_Debug_Error
 _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
-   while (size)
+   while (size > 0)
      {
         int cid, pid, len;
         EXTRACT(buf, &cid, sizeof(int));
