@@ -24,10 +24,10 @@ typedef struct
    Eo *save_button;
    Eo *name_entry;
    Eo *port_entry;
-} Gui_New_Profile_Win_Widgets;
+} Gui_Remote_Port_Win_Widgets;
 
 Gui_Main_Win_Widgets *gui_main_win_create(Eo *parent);
 
-Gui_New_Profile_Win_Widgets *gui_new_profile_win_create(Eo *parent);
+Gui_Remote_Port_Win_Widgets *gui_remote_port_win_create(Eo *parent);
 
 #endif

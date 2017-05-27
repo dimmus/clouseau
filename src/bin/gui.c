@@ -14,12 +14,12 @@
 #include "elm_interface_fileselector.h"
 #include "gui.h"
 
-extern void gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs);
-
 extern void
 conn_menu_show(void *data, Evas_Object *obj, void *event_info);
 extern void
 save_load_perform(void *data, Evas_Object *obj, void *event_info);
+extern void
+remote_port_entry_changed(void *data, const Efl_Event *event);
 
 static void
 _pubs_free_cb(void *data, const Efl_Event *event EINA_UNUSED)
@@ -63,7 +63,7 @@ gui_main_win_create(Eo *__main_parent)
    evas_object_size_hint_align_set(tb, -1, 0);
    elm_toolbar_menu_parent_set(tb, main_win);
 
-   pub_widgets->conn_selector = elm_toolbar_item_append(tb, "call-start", "Connection", conn_menu_show, NULL);
+   pub_widgets->conn_selector = elm_toolbar_item_append(tb, "call-start", "Connection", NULL, NULL);
    elm_toolbar_item_menu_set(pub_widgets->conn_selector, EINA_TRUE);
 
    pub_widgets->conn_selector_menu = elm_toolbar_item_menu_get(pub_widgets->conn_selector);
@@ -113,92 +113,26 @@ gui_main_win_create(Eo *__main_parent)
    return pub_widgets;
 }
 
-static void
-_profile_cancel_cb(void *data, const Efl_Event *event EINA_UNUSED)
+Gui_Remote_Port_Win_Widgets *
+gui_remote_port_win_create(Eo *__main_parent)
 {
-   Eo *inwin = data;
-   efl_del(inwin);
-}
-
-Gui_New_Profile_Win_Widgets *
-gui_new_profile_win_create(Eo *__main_parent)
-{
-   Gui_New_Profile_Win_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
+   Gui_Remote_Port_Win_Widgets *pub_widgets = calloc(1, sizeof(*pub_widgets));
 
    Eo *inwin;
-   Eo *box;
-   Eo *cancel_button;
-   Eo *save_button;
-   Eo *bts_box;
-   Eo *name_entry;
-   Eo *port_entry;
-   Eo *name_label;
-   Eo *port_label;
+   Eo *entry;
 
    inwin = elm_win_inwin_add(__main_parent);
    pub_widgets->inwin = inwin;
 
-   box = elm_box_add(inwin);
-   evas_object_size_hint_align_set(box, -1.000000, -1.000000);
-   evas_object_size_hint_weight_set(box, 1.000000, 1.000000);
-   efl_gfx_visible_set(box, EINA_TRUE);
+   entry = elm_entry_add(inwin);
+   elm_entry_scrollable_set(entry, EINA_TRUE);
+   elm_entry_single_line_set(entry, EINA_TRUE);
+   elm_object_part_text_set(entry, "guide", "Port to connect to remote device");
+   efl_event_callback_add(entry, ELM_ENTRY_EVENT_ACTIVATED, remote_port_entry_changed, inwin);
+   evas_object_show(entry);
+
+   elm_win_inwin_content_set(inwin, entry);
    elm_win_inwin_activate(inwin);
-   elm_win_inwin_content_set(inwin, box);
-
-   name_label = efl_add(ELM_LABEL_CLASS, box);
-   elm_object_text_set(name_label, "Name:");
-   evas_object_size_hint_align_set(name_label, 0, -1);
-   evas_object_size_hint_weight_set(name_label, 1, 1);
-   efl_gfx_visible_set(name_label, EINA_TRUE);
-   name_entry = efl_add(ELM_ENTRY_CLASS, box);
-   pub_widgets->name_entry = name_entry;
-   evas_object_size_hint_align_set(name_entry, -1, -1);
-   evas_object_size_hint_weight_set(name_entry, 1, 1);
-   elm_entry_scrollable_set(name_entry, EINA_TRUE);
-   elm_entry_single_line_set(name_entry, EINA_TRUE);
-   elm_entry_editable_set(name_entry, EINA_TRUE);
-   elm_object_text_set(name_entry, "");
-   efl_gfx_visible_set(name_entry, EINA_TRUE);
-   elm_box_pack_end(box, name_label);
-   elm_box_pack_end(box, name_entry);
-
-   port_label = efl_add(ELM_LABEL_CLASS, box);
-   evas_object_size_hint_align_set(port_label, 0, -1);
-   evas_object_size_hint_weight_set(port_label, 1, 1);
-   efl_gfx_visible_set(port_label, EINA_TRUE);
-   elm_object_text_set(port_label, "Port:");
-   port_entry = efl_add(ELM_ENTRY_CLASS, box);
-   pub_widgets->port_entry = port_entry;
-   elm_entry_scrollable_set(port_entry, EINA_TRUE);
-   elm_entry_single_line_set(port_entry, EINA_TRUE);
-   evas_object_size_hint_align_set(port_entry, -1, -1);
-   evas_object_size_hint_weight_set(port_entry, 1, 1);
-   efl_gfx_visible_set(port_entry, EINA_TRUE);
-   elm_box_pack_end(box, port_label);
-   elm_box_pack_end(box, port_entry);
-
-   bts_box = elm_box_add(box);
-   elm_box_padding_set(bts_box, 7, 0);
-   evas_object_size_hint_align_set(bts_box, -1, -1);
-   evas_object_size_hint_weight_set(bts_box, 1, 1);
-   efl_gfx_visible_set(bts_box, EINA_TRUE);
-   elm_box_horizontal_set(bts_box, EINA_TRUE);
-   elm_box_pack_end(box, bts_box);
-
-   save_button = efl_add(ELM_BUTTON_CLASS, bts_box);
-   pub_widgets->save_button = save_button;
-   evas_object_size_hint_weight_set(save_button, 1.000000, 1.000000);
-   elm_object_text_set(save_button, "Save");
-   efl_gfx_visible_set(save_button, EINA_TRUE);
-   elm_box_pack_end(bts_box, save_button);
-
-   cancel_button = efl_add(ELM_BUTTON_CLASS, bts_box);
-   pub_widgets->cancel_button = cancel_button;
-   evas_object_size_hint_weight_set(cancel_button, 1.000000, 1.000000);
-   efl_gfx_visible_set(cancel_button, EINA_TRUE);
-   elm_object_text_set(cancel_button, "Cancel");
-   efl_event_callback_add(cancel_button, EFL_UI_EVENT_CLICKED, _profile_cancel_cb, inwin);
-   elm_box_pack_end(bts_box, cancel_button);
 
    efl_event_callback_add(inwin, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
 

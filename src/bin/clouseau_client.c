@@ -55,15 +55,6 @@ static const char *_conn_strs[] =
 
 typedef struct
 {
-   const char *name;
-   int port;
-   /* Not eet */
-   const char *file_name;
-   Eo *menu_item;
-} Profile;
-
-typedef struct
-{
    Eina_Debug_Session *session;
    void *buffer;
 } Dispatcher_Info;
@@ -107,13 +98,11 @@ static Eina_Debug_Session *_session = NULL;
 static Eina_List *_apps = NULL;
 static App_Info *_selected_app = NULL;
 
-static Eet_Data_Descriptor *_profile_edd = NULL, *_config_edd = NULL, *_snapshot_edd = NULL;
-static Eina_List *_profiles = NULL;
+static Eet_Data_Descriptor *_config_edd = NULL, *_snapshot_edd = NULL;
 static Config *_config = NULL;
 static Eina_List *_extensions = NULL;
 
-static Eo *_menu_remote_item = NULL;
-static Profile *_selected_profile = NULL;
+static int _selected_port = -1;
 
 static Eina_Debug_Error _clients_info_added_cb(Eina_Debug_Session *, int, void *, int);
 static Eina_Debug_Error _clients_info_deleted_cb(Eina_Debug_Session *, int, void *, int);
@@ -167,62 +156,6 @@ _config_save()
    Eet_File *file = eet_open(path, EET_FILE_MODE_WRITE);
    eet_data_write(file, _config_edd, _EET_ENTRY, _config, EINA_TRUE);
    eet_close(file);
-}
-
-static void
-_profile_eet_load()
-{
-   if (_profile_edd) return;
-   Eet_Data_Descriptor_Class eddc;
-
-   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Profile);
-   _profile_edd = eet_data_descriptor_stream_new(&eddc);
-
-#define CFG_ADD_BASIC(member, eet_type)\
-   EET_DATA_DESCRIPTOR_ADD_BASIC\
-   (_profile_edd, Profile, # member, member, eet_type)
-
-   CFG_ADD_BASIC(name, EET_T_STRING);
-   CFG_ADD_BASIC(port, EET_T_INT);
-
-#undef CFG_ADD_BASIC
-}
-
-static Profile *
-_profile_find(const char *name)
-{
-   Eina_List *itr;
-   Profile *p;
-   EINA_LIST_FOREACH(_profiles, itr, p)
-      if (p->name == name || !strcmp(p->name, name)) return p;
-   return NULL;
-}
-
-static void
-_profile_save(const Profile *p)
-{
-   char path[1024];
-   if (!p) return;
-   sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), p->file_name);
-   Eet_File *file = eet_open(path, EET_FILE_MODE_WRITE);
-   _profile_eet_load();
-   eet_data_write(file, _profile_edd, _EET_ENTRY, p, EINA_TRUE);
-   eet_close(file);
-   _profiles = eina_list_append(_profiles, p);
-}
-
-static void
-_profile_remove(Profile *p)
-{
-   char path[1024];
-   if (!p) return;
-   if (p->menu_item) efl_del(p->menu_item);
-   sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), p->file_name);
-   if (remove(path) == -1) perror("Remove");
-   _profiles = eina_list_remove(_profiles, p);
-   eina_stringshare_del(p->file_name);
-   eina_stringshare_del(p->name);
-   free(p);
 }
 
 static void
@@ -287,23 +220,11 @@ static void
 _configs_load()
 {
    Extension_Config *ext_cfg;
-   char path[1024], *filename;
+   Eina_List *itr;
+   char path[1024];
+
    sprintf(path, "%s/clouseau", efreet_config_home_get());
    if (!_mkdir(path)) return;
-   sprintf(path, "%s/clouseau/profiles", efreet_config_home_get());
-   if (!_mkdir(path)) return;
-   Eina_List *files = ecore_file_ls(path), *itr;
-   if (files) _profile_eet_load();
-
-   EINA_LIST_FOREACH(files, itr, filename)
-     {
-        sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), filename);
-        Eet_File *file = eet_open(path, EET_FILE_MODE_READ);
-        Profile *p = eet_data_read(file, _profile_edd, _EET_ENTRY);
-        p->file_name = eina_stringshare_add(filename);
-        eet_close(file);
-        _profiles = eina_list_append(_profiles, p);
-     }
 
    sprintf(path, "%s/clouseau/config", efreet_config_home_get());
    _config_eet_load();
@@ -533,51 +454,6 @@ _post_register_handle(void *data EINA_UNUSED, Eina_Bool flag)
 }
 
 static void
-_profile_create_cb(void *data EINA_UNUSED, const Efl_Event *event)
-{
-   Gui_New_Profile_Win_Widgets *wdgs = NULL;
-   Profile *p = NULL;
-   Eo *save_bt = event->object;
-   wdgs = efl_key_data_get(save_bt, "_wdgs");
-   const char *name = elm_object_text_get(wdgs->name_entry);
-   const char *port_str = elm_object_text_get(wdgs->port_entry);
-   if (!name || !*name) return;
-   if (!port_str || !*port_str) return;
-   p = calloc(1, sizeof(*p));
-   p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
-   p->name = eina_stringshare_add(name);
-   p->port = atoi(port_str);
-   _profile_save(p);
-   efl_del(wdgs->inwin);
-}
-
-static void
-_profile_modify_cb(void *data, const Efl_Event *event)
-{
-   Profile *p = data;
-   Eo *save_bt = event->object;
-   Gui_New_Profile_Win_Widgets *wdgs = efl_key_data_get(save_bt, "_wdgs");
-   const char *name = elm_object_text_get(wdgs->name_entry);
-   const char *port_str = elm_object_text_get(wdgs->port_entry);
-   if (!name || !*name) return;
-   if (!port_str || !*port_str) return;
-   _profile_remove(p);
-   p = calloc(1, sizeof(*p));
-   p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
-   p->name = eina_stringshare_add(name);
-   p->port = atoi(port_str);
-   _profile_save(p);
-   efl_del(wdgs->inwin);
-}
-
-void
-gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs)
-{
-   efl_key_data_set(wdgs->save_button, "_wdgs", wdgs);
-   efl_key_data_set(wdgs->cancel_button, "_wdgs", wdgs);
-}
-
-static void
 _session_populate()
 {
    Eina_List *itr;
@@ -601,7 +477,7 @@ _session_populate()
                 }
            case REMOTE_CONNECTION:
                 {
-                   ext->session = eina_debug_remote_connect(_selected_profile->port);
+                   ext->session = eina_debug_remote_connect(_selected_port);
                    eina_debug_session_dispatch_override(ext->session, _disp_cb);
                    if (ext->session_changed_cb) ext->session_changed_cb(ext);
                    break;
@@ -631,13 +507,13 @@ _connection_type_change(Connection_Type conn_type)
      {
       case OFFLINE:
            {
-              _selected_profile = NULL;
+              _selected_port = -1;
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_TRUE);
               break;
            }
       case LOCAL_CONNECTION:
            {
-              _selected_profile = NULL;
+              _selected_port = -1;
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
               _session = eina_debug_local_connect(EINA_TRUE);
               eina_debug_session_dispatch_override(_session, _disp_cb);
@@ -646,7 +522,7 @@ _connection_type_change(Connection_Type conn_type)
       case REMOTE_CONNECTION:
            {
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
-              _session = eina_debug_remote_connect(_selected_profile->port);
+              _session = eina_debug_remote_connect(_selected_port);
               eina_debug_session_dispatch_override(_session, _disp_cb);
               break;
            }
@@ -670,70 +546,25 @@ _connection_type_change(Connection_Type conn_type)
      }
 }
 
+void
+remote_port_entry_changed(void *data, const Efl_Event *event)
+{
+   Eo *inwin = data;
+   const char *ptr = elm_entry_entry_get(event->object);
+   _selected_port = atoi(ptr);
+   _connection_type_change(REMOTE_CONNECTION);
+   efl_del(inwin);
+}
+
 static void
 _menu_selected_conn(void *data,
       Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   _connection_type_change((uintptr_t)data);
-}
-
-static void
-_menu_profile_selected(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   _selected_profile = data;
-   _connection_type_change(REMOTE_CONNECTION);
-}
-
-static void
-_menu_profile_modify(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   char port_str[16];
-   Profile *p = data;
-   Gui_New_Profile_Win_Widgets *wdgs = gui_new_profile_win_create(_main_widgets->main_win);
-   gui_new_profile_win_create_done(wdgs);
-   efl_event_callback_add(wdgs->save_button, EFL_UI_EVENT_CLICKED, _profile_modify_cb, p);
-   elm_object_text_set(wdgs->name_entry, p->name);
-   sprintf(port_str, "%d", p->port);
-   elm_object_text_set(wdgs->port_entry, port_str);
-}
-
-static void
-_menu_profile_delete(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Profile *p = data;
-   _profile_remove(p);
-}
-
-void
-conn_menu_show(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Eina_List *itr;
-   Profile *p;
-
-   EINA_LIST_FOREACH(_profiles, itr, p)
-     {
-        if (p->menu_item) continue;
-        p->menu_item = elm_menu_item_add(_main_widgets->conn_selector_menu,
-              _menu_remote_item, NULL, p->name,
-              _menu_profile_selected, p);
-        efl_wref_add(p->menu_item, &p->menu_item);
-        elm_menu_item_add(_main_widgets->conn_selector_menu,
-              p->menu_item, NULL, "Modify", _menu_profile_modify, p);
-        elm_menu_item_add(_main_widgets->conn_selector_menu,
-              p->menu_item, NULL, "Delete", _menu_profile_delete, p);
-     }
-}
-
-static void
-_profile_new_clicked(void *data EINA_UNUSED,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Gui_New_Profile_Win_Widgets *wdgs = gui_new_profile_win_create(_main_widgets->main_win);
-   gui_new_profile_win_create_done(wdgs);
-   efl_event_callback_add(wdgs->save_button, EFL_UI_EVENT_CLICKED, _profile_create_cb, NULL);
+   Connection_Type ctype = (uintptr_t)data;
+   if (ctype == REMOTE_CONNECTION)
+      gui_remote_port_win_create(_main_widgets->main_win);
+   else
+      _connection_type_change(ctype);
 }
 
 static void
@@ -1053,12 +884,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
            case 'r':
                    {
                       conn_type = REMOTE_CONNECTION;
-                      _selected_profile = _profile_find(optarg);
-                      if (!_selected_profile)
-                        {
-                           printf("Profile %s not found\n", optarg);
-                           help = EINA_TRUE;
-                        }
+                      _selected_port = atoi(optarg);
                       break;
                    }
            case 'f':
@@ -1076,7 +902,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         printf("Usage: %s [-h/--help] [-v/--verbose] [options]\n", argv[0]);
         printf("       --help/-h Print that help\n");
         printf("       --local/-l Create a local connection\n");
-        printf("       --remote/-r Create a remote connection by using the given profile name\n");
+        printf("       --remote/-r Create a remote connection by using the given port\n");
         printf("       --file/-f Run in offline mode and load the given file\n");
         return 0;
      }
@@ -1086,20 +912,9 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 
    for (i = 0; i < LAST_CONNECTION; i++)
      {
-        if (i == REMOTE_CONNECTION)
-          {
-             _menu_remote_item = elm_menu_item_add(_main_widgets->conn_selector_menu,
-                   NULL, NULL, _conn_strs[i], NULL, NULL);
-             elm_menu_item_add(_main_widgets->conn_selector_menu,
-                   _menu_remote_item, NULL, "New profile...",
-                   _profile_new_clicked, NULL);
-          }
-        else
-          {
-             elm_menu_item_add(_main_widgets->conn_selector_menu,
-                   NULL, NULL, _conn_strs[i],
-                   _menu_selected_conn, (void *)(uintptr_t)i);
-          }
+        elm_menu_item_add(_main_widgets->conn_selector_menu,
+              NULL, NULL, _conn_strs[i],
+              _menu_selected_conn, (void *)(uintptr_t)i);
      }
 
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, ext_cfg)
