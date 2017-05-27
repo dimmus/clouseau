@@ -109,9 +109,9 @@ static Eina_Debug_Error _clients_info_deleted_cb(Eina_Debug_Session *, int, void
 
 static const Eina_Debug_Opcode _ops[] =
 {
-     {"daemon/observer/client/register", &_cl_stat_reg_op, NULL},
-     {"daemon/observer/slave_added", NULL, _clients_info_added_cb},
-     {"daemon/observer/slave_deleted", NULL, _clients_info_deleted_cb},
+     {"Daemon/Client/register_observer", &_cl_stat_reg_op, NULL},
+     {"Daemon/Client/added", NULL, _clients_info_added_cb},
+     {"Daemon/Client/deleted", NULL, _clients_info_deleted_cb},
      {NULL, NULL, NULL}
 };
 
