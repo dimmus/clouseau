@@ -8,6 +8,12 @@
 
 #define _EET_ENTRY "config"
 
+#define STORE(_buf, pval, sz) \
+{ \
+   memcpy(_buf, pval, sz); \
+   _buf += sz; \
+}
+
 static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _klids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
@@ -27,7 +33,6 @@ typedef struct
    uint64_t obj;
    uint64_t parent;
    uint64_t kl_id;
-   int thread_id;
    Eina_List *children;
    Eina_List *screenshots;
    Eo *glitem;
@@ -80,11 +85,11 @@ static Elm_Genlist_Item_Class *_obj_func_info_itc = NULL;
 
 static Evas_Object * _obj_info_tootip(void *, Evas_Object *, Evas_Object *, void *);
 
-static Eina_Debug_Error _eoids_get(Eina_Debug_Session *, int, void *, int);
-static Eina_Debug_Error _klids_get(Eina_Debug_Session *, int, void *, int);
-static Eina_Debug_Error _obj_info_get(Eina_Debug_Session *, int, void *, int);
-static Eina_Debug_Error _snapshot_done_cb(Eina_Debug_Session *, int, void *, int);
-static Eina_Debug_Error _win_screenshot_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _eoids_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _klids_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _obj_info_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _snapshot_done_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _win_screenshot_get(Eina_Debug_Session *, int, void *, int);
 
 static const Eina_Debug_Opcode _ops[] =
 {
@@ -231,11 +236,11 @@ _snapshot_buffer_append(Snapshot_Buffer *sb, void *buffer)
    sb->cur_len += size;
 }
 
-Eina_Debug_Error
+Eina_Bool
 _disp_cb(Eina_Debug_Session *session, void *buffer)
 {
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
-   if (!ext) return EINA_DEBUG_OK;
+   if (!ext) return EINA_TRUE;
    Instance *inst = ext->data;
    if (inst)
      {
@@ -529,7 +534,7 @@ _obj_info_realize(Clouseau_Extension *ext, Eolian_Debug_Object_Information *e_in
      }
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _obj_info_get(Eina_Debug_Session *session, int src, void *buffer, int size)
 {
    Clouseau_Extension *ext = NULL;
@@ -547,7 +552,7 @@ _obj_info_get(Eina_Debug_Session *session, int src, void *buffer, int size)
    Eolian_Debug_Object_Information *e_info =
       eolian_debug_object_information_decode(buffer, size);
    Obj_Info *o_info = eina_hash_find(inst->objs_hash, &(e_info->obj));
-   if (!o_info) return EINA_DEBUG_OK;
+   if (!o_info) return EINA_TRUE;
 
    if (o_info->eolian_info)
       eolian_debug_object_information_free(o_info->eolian_info);
@@ -555,7 +560,7 @@ _obj_info_get(Eina_Debug_Session *session, int src, void *buffer, int size)
 
    if (o_info == inst->selected_obj) _obj_info_realize(ext, e_info);
 
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 static void
@@ -587,7 +592,7 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
    elm_genlist_clear(inst->wdgs->object_infos_list);
    if (_config->highlight)
      {
-        eina_debug_session_send_to_thread(ext->session, ext->app_id, info->thread_id,
+        eina_debug_session_send(ext->session, ext->app_id,
               _obj_highlight_op, &(info->obj), sizeof(uint64_t));
      }
    if (info->eolian_info) _obj_info_realize(ext, info->eolian_info);
@@ -632,7 +637,7 @@ _objs_item_label_get(void *data, Evas_Object *obj,
    return strdup(buf);
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
       void *buffer, int size)
 {
@@ -649,13 +654,13 @@ _win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED
      }
    inst = ext->data;
    Evas_Debug_Screenshot *s = evas_debug_screenshot_decode(buffer, size);
-   if (!s) return EINA_DEBUG_ERROR;
+   if (!s) return EINA_FALSE;
    Obj_Info *info = eina_hash_find(inst->objs_hash, &(s->obj));
-   if (!info) return EINA_DEBUG_OK;
+   if (!info) return EINA_TRUE;
    info->screenshots = eina_list_append(info->screenshots, s);
    inst->screenshots = eina_list_append(inst->screenshots, s);
    if (info->glitem) elm_genlist_item_update(info->glitem);
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 void
@@ -663,9 +668,10 @@ take_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
 {
    Obj_Info *info = efl_key_data_get(event->object, "__info_node");
    Clouseau_Extension *ext = _ext_get(event->object);
+
    if (!ext || !ext->app_id) return;
 
-   eina_debug_session_send_to_thread(ext->session, ext->app_id, info->thread_id,
+   eina_debug_session_send(ext->session, ext->app_id,
          _win_screenshot_op, &(info->obj), sizeof(uint64_t));
 }
 
@@ -732,13 +738,13 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
      }
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _snapshot_done_cb(Eina_Debug_Session *session, int src EINA_UNUSED,
       void *buffer EINA_UNUSED, int size EINA_UNUSED)
 {
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
    ext->ui_freeze_cb(ext, EINA_FALSE);
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 static void *
@@ -751,11 +757,6 @@ _snapshot_save(Clouseau_Extension *ext, int *size, int *version)
          s->obj_infos_buf.cur_len + s->screenshots_buf.cur_len);
    char *tmp = buffer;
 
-#define STORE(_buf, pval, sz) \
-{ \
-   memcpy(_buf, pval, sz); \
-   _buf += sz; \
-}
    STORE(tmp, &_klids_get_op, sizeof(int));
    STORE(tmp, &_eoids_get_op, sizeof(int));
    STORE(tmp, &_obj_info_op, sizeof(int));
@@ -764,7 +765,6 @@ _snapshot_save(Clouseau_Extension *ext, int *size, int *version)
    STORE(tmp, s->eoids_buf.buffer, s->eoids_buf.cur_len);
    STORE(tmp, s->obj_infos_buf.buffer, s->obj_infos_buf.cur_len);
    STORE(tmp, s->screenshots_buf.buffer, s->screenshots_buf.cur_len);
-#undef STORE
 
    *version = 1;
    *size = tmp - (char *)buffer;
@@ -853,7 +853,7 @@ _klid_walk(void *data, uint64_t kl, char *name)
    eina_hash_add(inst->classes_hash_by_name, info->name, info);
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _klids_get(Eina_Debug_Session *session, int src, void *buffer, int size)
 {
    Clouseau_Extension *ext = NULL;
@@ -870,7 +870,7 @@ _klids_get(Eina_Debug_Session *session, int src, void *buffer, int size)
    inst = ext->data;
    eo_debug_klids_extract(buffer, size, _klid_walk, inst);
 
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 static void
@@ -884,14 +884,13 @@ _eoid_walk(void *data, uint64_t obj, uint64_t kl_id, uint64_t parent)
    *objs = eina_list_append(*objs, info);
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _eoids_get(Eina_Debug_Session *session, int src, void *buffer, int size)
 {
    Eina_List *objs = NULL, *l;
    Clouseau_Extension *ext = NULL;
    Instance *inst = NULL;
    Obj_Info *info;
-   int thread_id;
    if (src == -1)
      {
         ext = (Clouseau_Extension *)session;
@@ -903,11 +902,10 @@ _eoids_get(Eina_Debug_Session *session, int src, void *buffer, int size)
      }
    inst = ext->data;
 
-   eo_debug_eoids_extract(buffer, size, _eoid_walk, &objs, &thread_id);
+   eo_debug_eoids_extract(buffer, size, _eoid_walk, &objs);
 
    EINA_LIST_FOREACH(objs, l, info)
      {
-        info->thread_id = thread_id;
         eina_hash_add(inst->objs_hash, &(info->obj), info);
      }
 
@@ -937,7 +935,7 @@ _eoids_get(Eina_Debug_Session *session, int src, void *buffer, int size)
           }
      }
 
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 static void
