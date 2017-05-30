@@ -51,12 +51,36 @@
    _buf += sz; \
 }
 
+#define WRAPPER_TO_XFER_MAIN_LOOP(foo) \
+static void \
+_intern_main_loop ## foo(void *data) \
+{ \
+   Main_Loop_Info *info = data; \
+   _main_loop ## foo(info->session, info->srcid, info->buffer, info->size); \
+   free(info->buffer); \
+   free(info); \
+} \
+static Eina_Bool \
+foo(Eina_Debug_Session *session, int srcid, void *buffer, int size) \
+{ \
+   Main_Loop_Info *info = calloc(1, sizeof(*info)); \
+   info->session = session; \
+   info->srcid = srcid; \
+   info->size = size; \
+   if (info->size) \
+     { \
+        info->buffer = malloc(info->size); \
+        memcpy(info->buffer, buffer, info->size); \
+     } \
+   ecore_main_loop_thread_safe_call_async(_intern_main_loop ## foo, info); \
+   return EINA_TRUE; \
+}
+
 static int _snapshot_start_op = EINA_DEBUG_OPCODE_INVALID;
 static int _snapshot_done_op = EINA_DEBUG_OPCODE_INVALID;
 static int _klids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
-static int _snapshot_objs_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_highlight_op = EINA_DEBUG_OPCODE_INVALID;
 static int _win_screenshot_op = EINA_DEBUG_OPCODE_INVALID;
 
@@ -66,6 +90,14 @@ enum {
    HIGHLIGHT_B = 128,
    HIGHLIGHT_A = 255
 };
+
+typedef struct
+{
+   Eina_Debug_Session *session;
+   int srcid;
+   void *buffer;
+   unsigned int size;
+} Main_Loop_Info;
 
 typedef struct
 {
@@ -497,7 +529,7 @@ _class_buffer_fill(Eo *obj, const Eolian_Class *ekl, char *buf)
    return size;
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size EINA_UNUSED)
 {
    uint64_t ptr64;
@@ -540,10 +572,10 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
    eina_debug_session_send(session, srcid, _obj_info_op, buf, size_curr);
 
 end:
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *filters, int size)
 {
    static Eina_Bool (*foo)(Eo_Debug_Object_Iterator_Cb, void *) = NULL;
@@ -551,7 +583,6 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *filters,
    Eo *obj;
    Eina_List *itr;
    _EoIds_Walk_Data data;
-   int thread_id = eina_debug_thread_id_get();
 
    data.objs_to_fetch = NULL;
    data.kls = filters;
@@ -559,9 +590,8 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *filters,
    if (!foo) foo = dlsym(RTLD_DEFAULT, "eo_debug_objects_iterate");
    foo(_eoids_walk_cb, &data);
 
-   size = sizeof(int) + eina_list_count(data.objs_to_fetch) * 3 * sizeof(uint64_t);
+   size = eina_list_count(data.objs_to_fetch) * 3 * sizeof(uint64_t);
    buf = tmp = malloc(size);
-   STORE(tmp, &thread_id, sizeof(int));
    EINA_LIST_FOREACH(data.objs_to_fetch, itr, obj)
    {
       Eo *parent;
@@ -587,19 +617,17 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *filters,
         _obj_info_req_cb(session, srcid, &u64, sizeof(uint64_t));
      }
    eina_list_free(data.objs_to_fetch);
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
-static Eina_Debug_Error
-_snapshot_start_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+static void
+_main_loop_snapshot_start_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
 {
    static Eina_Bool (*foo)(Eo_Debug_Class_Iterator_Cb, void *) = NULL;
-   char *buf = alloca(sizeof(Eina_Debug_Packet_Header) + size);
-   char *all_kls_buf = malloc(10000);
-   Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buf;
+   char *all_kls_buf;
    char *tmp;
-
    _KlIds_Walk_Data data;
+
    data.kls_strs = NULL;
    tmp = buffer;
    while (size > 0)
@@ -610,25 +638,26 @@ _snapshot_start_cb(Eina_Debug_Session *session, int srcid, void *buffer, int siz
      }
    data.nb_kls = eina_list_count(data.kls_strs);
    size = data.nb_kls * sizeof(uint64_t);
-   data.kls = alloca(size);
-   memset(data.kls, 0, size);
-   data.current = all_kls_buf;
+   if (size)
+     {
+        data.kls = alloca(size);
+        memset(data.kls, 0, size);
+     }
+   else data.kls = NULL;
+
+   data.current = all_kls_buf = malloc(10000);
    if (!foo) foo = dlsym(RTLD_DEFAULT, "eo_debug_classes_iterate");
    foo(_klids_walk_cb, &data);
-
-   eina_debug_session_send(session, srcid, _klids_get_op, all_kls_buf, data.current - all_kls_buf);
+   eina_debug_session_send(session, srcid,
+         _klids_get_op, all_kls_buf, data.current - all_kls_buf);
    free(all_kls_buf);
 
-   hdr->size = sizeof(Eina_Debug_Packet_Header) + size;
-   hdr->cid = srcid;
-   if (size) memcpy(buf + sizeof(Eina_Debug_Packet_Header), data.kls, size);
-   hdr->thread_id = 0xFFFFFFFF;
-   hdr->opcode = _snapshot_objs_get_op;
-   eina_debug_dispatch(session, buf);
+   _snapshot_objs_get_req_cb(session, srcid, data.kls, size);
 
    eina_debug_session_send(session, srcid, _snapshot_done_op, NULL, 0);
-   return EINA_DEBUG_OK;
 }
+
+WRAPPER_TO_XFER_MAIN_LOOP(_snapshot_start_cb)
 
 /* Highlight functions. */
 static Eina_Bool
@@ -664,14 +693,14 @@ _obj_highlight_del(void *data,
    ecore_animator_del(data);
 }
 
-static Eina_Debug_Error
-_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid EINA_UNUSED, void *buffer, int size)
+static void
+_main_loop_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid EINA_UNUSED, void *buffer, int size)
 {
-   if (size <= 0) return EINA_DEBUG_ERROR;
    uint64_t ptr64;
+   if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *obj = (Eo *)ptr64;
-   if (!efl_isa(obj, EFL_CANVAS_OBJECT_CLASS) && !efl_isa(obj, EVAS_CANVAS_CLASS)) return EINA_DEBUG_OK;
+   if (!efl_isa(obj, EFL_CANVAS_OBJECT_CLASS) && !efl_isa(obj, EVAS_CANVAS_CLASS)) return;
    Evas *e = evas_object_evas_get(obj);
    Eo *rect = evas_object_polygon_add(e);
    evas_object_move(rect, 0, 0);
@@ -705,11 +734,12 @@ _obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid EINA_UNUSED
    /* Add Timer for fade and a callback to delete timer on obj del */
    Ecore_Animator *t = ecore_animator_add(_obj_highlight_fade, rect);
    evas_object_event_callback_add(rect, EVAS_CALLBACK_DEL, _obj_highlight_del, t);
-   return EINA_DEBUG_OK;
 }
 
-static Eina_Debug_Error
-_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+WRAPPER_TO_XFER_MAIN_LOOP(_obj_highlight_cb)
+
+static void
+_main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
 {
    struct tm *t = NULL;
    time_t now = time(NULL);
@@ -723,7 +753,7 @@ _win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffer, int siz
    int w, h;
    unsigned int hdr_size = sizeof(uint64_t) + 5 * sizeof(int);
 
-   if (size <= 0) return EINA_DEBUG_ERROR;
+   if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *e = (Eo *)ptr64;
    if (!efl_isa(e, EVAS_CANVAS_CLASS)) goto end;
@@ -775,13 +805,13 @@ _win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffer, int siz
 
 end:
    if (resp) free(resp);
-   return EINA_DEBUG_OK;
 }
+
+WRAPPER_TO_XFER_MAIN_LOOP(_win_screenshot_cb)
 
 static const Eina_Debug_Opcode _debug_ops[] =
 {
      {"Clouseau/Snapshot/start", &_snapshot_start_op, &_snapshot_start_cb},
-     {"Clouseau/Snapshot/fetch_all_objects", &_snapshot_objs_get_op, &_snapshot_objs_get_req_cb},
      {"Clouseau/Snapshot/done", &_snapshot_done_op, NULL},
      {"Eo/classes_ids_get", &_klids_get_op, NULL},
      {"Eo/objects_ids_get", &_eoids_get_op, NULL},
@@ -842,12 +872,10 @@ eo_debug_eoids_request_prepare(int *size, ...)
 }
 
 EAPI void
-eo_debug_eoids_extract(void *buffer, int size, Eo_Debug_Object_Extract_Cb cb, void *data, int *thread_id)
+eo_debug_eoids_extract(void *buffer, int size, Eo_Debug_Object_Extract_Cb cb, void *data)
 {
    if (!buffer || !size || !cb) return;
    char *buf = buffer;
-   EXTRACT(buf, thread_id, sizeof(int));
-   size -= sizeof(int);
 
    while (size > 0)
      {

@@ -104,8 +104,8 @@ static Eina_List *_extensions = NULL;
 
 static int _selected_port = -1;
 
-static Eina_Debug_Error _clients_info_added_cb(Eina_Debug_Session *, int, void *, int);
-static Eina_Debug_Error _clients_info_deleted_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _clients_info_added_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _clients_info_deleted_cb(Eina_Debug_Session *, int, void *, int);
 
 static const Eina_Debug_Opcode _ops[] =
 {
@@ -378,7 +378,7 @@ _menu_selected_app(void *data,
    EINA_LIST_FOREACH(_extensions, itr, ext) _app_populate();
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
@@ -403,10 +403,10 @@ _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNU
         buf += len;
         size -= (2 * sizeof(int) + len);
      }
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
 {
    char *buf = buffer;
@@ -417,7 +417,7 @@ _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_U
         if (_selected_app && cid == _selected_app->cid) _selected_app = NULL;
         _app_del(cid);
      }
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 static void
@@ -429,21 +429,21 @@ _ecore_thread_dispatcher(void *data)
    free(data);
 }
 
-Eina_Debug_Error
+Eina_Bool
 _disp_cb(Eina_Debug_Session *session, void *buffer)
 {
    Eina_Debug_Packet_Header *hdr = (Eina_Debug_Packet_Header *)buffer;
    if (hdr->cid && (!_selected_app || _selected_app->cid != hdr->cid))
      {
         free(buffer);
-        return EINA_DEBUG_OK;
+        return EINA_TRUE;
      }
 
    Dispatcher_Info *info = calloc(1, sizeof(*info));
    info->session = session;
    info->buffer = buffer;
    ecore_main_loop_thread_safe_call_async(_ecore_thread_dispatcher, info);
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 static void

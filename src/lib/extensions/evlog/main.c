@@ -110,7 +110,7 @@ static int _record_on_op = EINA_DEBUG_OPCODE_INVALID;
 static int _record_off_op = EINA_DEBUG_OPCODE_INVALID;
 static int _record_get_op = EINA_DEBUG_OPCODE_INVALID;
 
-static Eina_Debug_Error _record_get_cb(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _record_get_cb(Eina_Debug_Session *, int, void *, int);
 
 static const Eina_Debug_Opcode _ops[] = {
        {"cpufreq/on", &_record_on_op, NULL},
@@ -1397,12 +1397,12 @@ _evlog_import(Clouseau_Extension *ext, void *buffer, int size, int version EINA_
    else _fill_log_table(inf);
 }
 
-static Eina_Debug_Error
+static Eina_Bool
 _record_get_cb(Eina_Debug_Session *session, int cid EINA_UNUSED, void *buffer, int size)
 {
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
    _evlog_import(ext, buffer, size, -1);
-   return EINA_DEBUG_OK;
+   return EINA_TRUE;
 }
 
 static Eina_Bool
