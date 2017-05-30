@@ -867,6 +867,7 @@ eo_debug_eoids_request_prepare(int *size, ...)
         STORE(tmp, &kl, sizeof(uint64_t));
         kl = va_arg(list, uint64_t);
      }
+   va_end(list);
    *size = nb_kls * sizeof(uint64_t);
    return buf;
 }
@@ -948,6 +949,9 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
 
    while (size > 0)
      {
+        Eolian_Debug_Function *func;
+        Eolian_Function_Parameter *eo_param;
+        Eina_Iterator *itr;
         int len = strlen(buffer) + 1;
         if (len > 1) // if class_name is not NULL, we begin a new class
           {
@@ -957,8 +961,9 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
           }
         buffer += len;
         size -= len;
+        if (!kl) goto error;
 
-        Eolian_Debug_Function *func = calloc(1, sizeof(*func));
+        func = calloc(1, sizeof(*func));
         printf("Class name = %s function = %s\n", eolian_class_name_get(kl->ekl), buffer);
         kl->functions = eina_list_append(kl->functions, func);
         func->efunc = eolian_class_function_get_by_name(kl->ekl, buffer, EOLIAN_PROP_GET);
@@ -972,8 +977,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
         size -= len;
 
         //go over function params using eolian
-        Eolian_Function_Parameter *eo_param;
-        Eina_Iterator *itr = eolian_property_values_get(func->efunc, EOLIAN_PROP_GET);
+        itr = eolian_property_values_get(func->efunc, EOLIAN_PROP_GET);
         EINA_ITERATOR_FOREACH(itr, eo_param)
           {
              Eolian_Debug_Basic_Type type = _eolian_type_resolve(

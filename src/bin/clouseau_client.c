@@ -82,7 +82,7 @@ typedef struct
 {
    const char *nickname;
    void *data;
-   int data_count;
+   unsigned int data_count;
    int version;
 } Extension_Snapshot;
 
@@ -269,7 +269,6 @@ _configs_load()
         if (!name_fn)
           {
              printf("Can not find extension_name_get function for %s\n", ext_cfg->lib_path);
-             ext_cfg->name = ext_cfg->lib_path;
              continue;
           }
         ext_cfg->name = name_fn();
@@ -277,7 +276,6 @@ _configs_load()
         if (!nickname_fn)
           {
              printf("Can not find extension_nickname_get function for %s\n", ext_cfg->name);
-             ext_cfg->nickname = ext_cfg->lib_path;
              continue;
           }
         ext_cfg->nickname = nickname_fn();
@@ -589,7 +587,11 @@ _extension_instantiate(Extension_Config *cfg)
    ext = calloc(1, sizeof(*ext));
 
    sprintf(path, "%s/clouseau/extensions", efreet_config_home_get());
-   if (!_mkdir(path)) return NULL;
+   if (!_mkdir(path))
+     {
+        free(ext);
+        return NULL;
+     }
 
    ext->path_to_config = eina_stringshare_add(path);
    ext->ext_cfg = cfg;
@@ -655,7 +657,11 @@ _file_get(const char *filename, char **buffer_out)
         if (!feof(fp)) printf("fread failed\n");
      }
    fclose(fp);
-   if (file_data && buffer_out) *buffer_out = file_data;
+   if (file_data)
+     {
+        if (buffer_out) *buffer_out = file_data;
+        else free(file_data);
+     }
    return file_size;
 }
 
@@ -774,14 +780,14 @@ _file_import(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
 {
    const char *filename = ev;
    FILE *fp = fopen(filename, "r");
-   void *eet_buf;
+   void *eet_buf = NULL;
    Snapshot *s;
-   int eet_size;
+   unsigned int eet_size;
    if (!fp) return;
    _snapshot_eet_load();
-   fread(&eet_size, sizeof(int), 1, fp);
+   if (fread(&eet_size, sizeof(int), 1, fp) != 1) goto end;
    eet_buf = malloc(eet_size);
-   fread(eet_buf, 1, eet_size, fp);
+   if (fread(eet_buf, 1, eet_size, fp) != eet_size) goto end;
    s = eet_data_descriptor_decode(_snapshot_edd, eet_buf, eet_size);
    if (s)
      {
@@ -790,13 +796,15 @@ _file_import(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
         EINA_LIST_FREE(s->ext_snapshots, e_s)
           {
              void *data = malloc(e_s->data_count);
-             fread(data, 1, e_s->data_count, fp);
-             Extension_Config *e_cfg = _ext_cfg_find_by_nickname(e_s->nickname);
-             if (e_cfg)
+             if (fread(data, 1, e_s->data_count, fp) == e_s->data_count)
                {
-                  Clouseau_Extension *e = _extension_instantiate(e_cfg);
-                  if (e->import_data_cb)
-                     e->import_data_cb(e, data, e_s->data_count, e_s->version);
+                  Extension_Config *e_cfg = _ext_cfg_find_by_nickname(e_s->nickname);
+                  if (e_cfg)
+                    {
+                       Clouseau_Extension *e = _extension_instantiate(e_cfg);
+                       if (e->import_data_cb)
+                          e->import_data_cb(e, data, e_s->data_count, e_s->version);
+                    }
                }
              free(data);
              free(e_s);
@@ -807,6 +815,8 @@ _file_import(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
      }
    else
       _extensions_cfgs_inwin_create(eina_stringshare_add(filename));
+end:
+   if (eet_buf) free(eet_buf);
    if (fp) fclose(fp);
 }
 

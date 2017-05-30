@@ -70,7 +70,6 @@ typedef struct
    Eina_Hash *classes_hash_by_name;
    Eina_Hash *objs_hash;
    Eina_List *objs_list_tree;
-   Eina_List *screenshots;
    Eina_Debug_Dispatch_Cb old_disp_cb;
 } Instance;
 
@@ -252,8 +251,9 @@ _disp_cb(Eina_Debug_Session *session, void *buffer)
         else if (hdr->opcode == _obj_info_op) sb = &(s->obj_infos_buf);
         else if (hdr->opcode == _win_screenshot_op) sb = &(s->screenshots_buf);
         if (sb) _snapshot_buffer_append(sb, buffer);
+        return inst->old_disp_cb(session, buffer);
      }
-   return inst->old_disp_cb(session, buffer);
+   return EINA_FALSE;
 }
 
 static void
@@ -552,7 +552,11 @@ _obj_info_get(Eina_Debug_Session *session, int src, void *buffer, int size)
    Eolian_Debug_Object_Information *e_info =
       eolian_debug_object_information_decode(buffer, size);
    Obj_Info *o_info = eina_hash_find(inst->objs_hash, &(e_info->obj));
-   if (!o_info) return EINA_TRUE;
+   if (!o_info)
+     {
+        eolian_debug_object_information_free(e_info);
+        return EINA_TRUE;
+     }
 
    if (o_info->eolian_info)
       eolian_debug_object_information_free(o_info->eolian_info);
@@ -656,9 +660,13 @@ _win_screenshot_get(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED
    Evas_Debug_Screenshot *s = evas_debug_screenshot_decode(buffer, size);
    if (!s) return EINA_FALSE;
    Obj_Info *info = eina_hash_find(inst->objs_hash, &(s->obj));
-   if (!info) return EINA_TRUE;
+   if (!info)
+     {
+        free(s->img);
+        free(s);
+        return EINA_TRUE;
+     }
    info->screenshots = eina_list_append(info->screenshots, s);
-   inst->screenshots = eina_list_append(inst->screenshots, s);
    if (info->glitem) elm_genlist_item_update(info->glitem);
    return EINA_TRUE;
 }
