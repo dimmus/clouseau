@@ -101,25 +101,6 @@ typedef struct
 
 typedef struct
 {
-   /* Buffer to fill with all the classes ids/names */
-   char *current;
-   /* Classes to filter when walking over Eo objects */
-   Eina_List *kls_strs;
-   uint64_t *kls;
-   int nb_kls;
-} _KlIds_Walk_Data;
-
-typedef struct
-{
-   /* List of the objects from which we need their Eolian info */
-   Eina_List *objs_to_fetch;
-   /* Filter */
-   uint64_t *kls;
-   int nb_kls;
-} _EoIds_Walk_Data;
-
-typedef struct
-{
    Eolian_Type_Type etype;
    const char *name;
    Eolian_Debug_Basic_Type type;
@@ -142,57 +123,6 @@ const Param_Type_Info param_types[] =
      {EOLIAN_TYPE_REGULAR, "uint", EOLIAN_DEBUG_UINT,     "%u", &ffi_type_uint, 4},
      {0, NULL, 0, NULL, NULL, 0}
 };
-
-static Eina_Bool
-_klids_walk_cb(void *_data, Efl_Class *kl)
-{
-   _KlIds_Walk_Data *data = _data;
-   const char *kl_name = efl_class_name_get(kl), *kls_str;
-   int len = strlen(kl_name) + 1;
-   uint64_t u64 = (uint64_t)kl;
-   Eina_List *itr;
-
-   /* Fill the buffer with class id/name */
-   STORE(data->current, &u64, sizeof(u64));
-   STORE(data->current, kl_name, len);
-
-   /* Check for filtering */
-   if (!data->nb_kls) return EINA_TRUE;
-   EINA_LIST_FOREACH(data->kls_strs, itr, kls_str)
-     {
-        if (!strcmp(kl_name, kls_str))
-          {
-             int i;
-             for (i = 0; i < data->nb_kls; i++)
-               {
-                  if (!data->kls[i])
-                    {
-                       data->kls[i] = (uint64_t)kl;
-                       return EINA_TRUE;
-                    }
-               }
-          }
-     }
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_eoids_walk_cb(void *_data, Eo *obj)
-{
-   _EoIds_Walk_Data *data = _data;
-   int i;
-   Eina_Bool klass_ok = EINA_FALSE;
-
-   for (i = 0; i < data->nb_kls && !klass_ok; i++)
-     {
-        if (efl_isa(obj, (Efl_Class *)data->kls[i])) klass_ok = EINA_TRUE;
-     }
-   if (!klass_ok && data->nb_kls) return EINA_TRUE;
-
-   data->objs_to_fetch = eina_list_append(data->objs_to_fetch, obj);
-
-   return EINA_TRUE;
-}
 
 static Eolian_Debug_Basic_Type
 _eolian_type_resolve(const Eolian_Type *eo_type)
@@ -576,23 +506,32 @@ end:
 }
 
 static Eina_Bool
-_snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *filters, int size)
+_snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
 {
-   static Eina_Bool (*foo)(Eo_Debug_Object_Iterator_Cb, void *) = NULL;
+   Eina_Iterator *iter;
+   Eina_List *itr;
    char *buf, *tmp;
    Eo *obj;
-   Eina_List *itr;
-   _EoIds_Walk_Data data;
+   Eina_List *objs = NULL;
+   uint64_t *kls = buffer;
+   int nb_kls = size / sizeof(uint64_t);
 
-   data.objs_to_fetch = NULL;
-   data.kls = filters;
-   data.nb_kls = size / sizeof(uint64_t);
-   if (!foo) foo = dlsym(RTLD_DEFAULT, "eo_debug_objects_iterate");
-   foo(_eoids_walk_cb, &data);
+   iter = eo_objects_iterator_new();
+   EINA_ITERATOR_FOREACH(iter, obj)
+     {
+        int i;
+        Eina_Bool klass_ok = EINA_FALSE;
+        for (i = 0; i < nb_kls && !klass_ok; i++)
+          {
+             if (efl_isa(obj, (Efl_Class *)kls[i])) klass_ok = EINA_TRUE;
+             if (klass_ok || !nb_kls) objs = eina_list_append(objs, obj);
+          }
+     }
+   eina_iterator_free(iter);
 
-   size = eina_list_count(data.objs_to_fetch) * 3 * sizeof(uint64_t);
+   size = eina_list_count(objs) * 3 * sizeof(uint64_t);
    buf = tmp = malloc(size);
-   EINA_LIST_FOREACH(data.objs_to_fetch, itr, obj)
+   EINA_LIST_FOREACH(objs, itr, obj)
    {
       Eo *parent;
       uint64_t u64 = (uint64_t)obj;
@@ -611,48 +550,81 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *filters,
    }
    eina_debug_session_send(session, srcid, _eoids_get_op, buf, size);
 
-   EINA_LIST_FREE(data.objs_to_fetch, obj)
+   EINA_LIST_FREE(objs, obj)
      {
         uint64_t u64 = (uint64_t)obj;
         _obj_info_req_cb(session, srcid, &u64, sizeof(uint64_t));
      }
-   eina_list_free(data.objs_to_fetch);
    return EINA_TRUE;
 }
 
 static void
 _main_loop_snapshot_start_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
 {
-   static Eina_Bool (*foo)(Eo_Debug_Class_Iterator_Cb, void *) = NULL;
    char *all_kls_buf;
    char *tmp;
-   _KlIds_Walk_Data data;
+   Eina_Iterator *iter;
+   Efl_Class *kl;
+   uint64_t *kls;
+   Eina_List *kls_strs = NULL;
+   int nb_kls = 0;
 
-   data.kls_strs = NULL;
    tmp = buffer;
    while (size > 0)
      {
-        data.kls_strs = eina_list_append(data.kls_strs, tmp);
+        kls_strs = eina_list_append(kls_strs, tmp);
         size -= strlen(tmp) + 1;
         tmp += strlen(tmp) + 1;
+        nb_kls++;
      }
-   data.nb_kls = eina_list_count(data.kls_strs);
-   size = data.nb_kls * sizeof(uint64_t);
+   size = nb_kls * sizeof(uint64_t);
    if (size)
      {
-        data.kls = alloca(size);
-        memset(data.kls, 0, size);
+        kls = alloca(size);
+        memset(kls, 0, size);
      }
-   else data.kls = NULL;
+   else kls = NULL;
 
-   data.current = all_kls_buf = malloc(10000);
-   if (!foo) foo = dlsym(RTLD_DEFAULT, "eo_debug_classes_iterate");
-   foo(_klids_walk_cb, &data);
+   all_kls_buf = tmp = malloc(10000);
+   iter = eo_classes_iterator_new();
+   EINA_ITERATOR_FOREACH(iter, kl)
+     {
+        Eina_List *itr;
+        const char *kl_name = efl_class_name_get(kl), *kl_str;
+        int len = strlen(kl_name) + 1;
+        uint64_t u64 = (uint64_t)kl;
+        Eina_Bool found = EINA_FALSE;
+
+        /* Fill the buffer with class id/name */
+        STORE(tmp, &u64, sizeof(u64));
+        STORE(tmp, kl_name, len);
+
+        /* Check for filtering */
+        if (!nb_kls) continue;
+        EINA_LIST_FOREACH(kls_strs, itr, kl_str)
+          {
+             if (found) continue;
+             if (!strcmp(kl_name, kl_str))
+               {
+                  int i;
+                  for (i = 0; i < nb_kls; i++)
+                    {
+                       if (!kls[i])
+                         {
+                            kls[i] = (uint64_t)kl;
+                            found = EINA_TRUE;
+                         }
+                    }
+               }
+          }
+     }
+   eina_iterator_free(iter);
+
    eina_debug_session_send(session, srcid,
-         _klids_get_op, all_kls_buf, data.current - all_kls_buf);
+         _klids_get_op, all_kls_buf, tmp - all_kls_buf);
    free(all_kls_buf);
 
-   _snapshot_objs_get_req_cb(session, srcid, data.kls, size);
+   _snapshot_objs_get_req_cb(session, srcid, kls, size);
 
    eina_debug_session_send(session, srcid, _snapshot_done_op, NULL, 0);
 }
