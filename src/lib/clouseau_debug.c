@@ -784,13 +784,13 @@ WRAPPER_TO_XFER_MAIN_LOOP(_win_screenshot_cb)
 
 static const Eina_Debug_Opcode _debug_ops[] =
 {
-     {"Clouseau/Snapshot/start", &_snapshot_start_op, &_snapshot_start_cb},
-     {"Clouseau/Snapshot/done", &_snapshot_done_op, NULL},
-     {"Eo/classes_ids_get", &_klids_get_op, NULL},
-     {"Eo/objects_ids_get", &_eoids_get_op, NULL},
-     {"Eolian/object/info_get", &_obj_info_op, &_obj_info_req_cb},
-     {"Evas/object/highlight", &_obj_highlight_op, &_obj_highlight_cb},
-     {"Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_cb},
+     {"Clouseau/Object_Introspection/snapshot_start", &_snapshot_start_op, &_snapshot_start_cb},
+     {"Clouseau/Object_Introspection/snapshot_done", &_snapshot_done_op, NULL},
+     {"Clouseau/Eo/classes_ids_get", &_klids_get_op, NULL},
+     {"Clouseau/Eo/objects_ids_get", &_eoids_get_op, NULL},
+     {"Clouseau/Eolian/object/info_get", &_obj_info_op, &_obj_info_req_cb},
+     {"Clouseau/Evas/object/highlight", &_obj_highlight_op, &_obj_highlight_cb},
+     {"Clouseau/Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_cb},
      {NULL, NULL, NULL}
 };
 

@@ -92,13 +92,13 @@ static Eina_Bool _win_screenshot_get(Eina_Debug_Session *, int, void *, int);
 
 static const Eina_Debug_Opcode _ops[] =
 {
-     {"Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
-     {"Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
-     {"Evas/object/highlight",  &_obj_highlight_op, NULL},
-     {"Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
-     {"Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
-     {"Clouseau/Snapshot/start",&_snapshot_do_op, NULL},
-     {"Clouseau/Snapshot/done", &_snapshot_done_op, &_snapshot_done_cb},
+     {"Clouseau/Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
+     {"Clouseau/Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
+     {"Clouseau/Evas/object/highlight",  &_obj_highlight_op, NULL},
+     {"Clouseau/Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
+     {"Clouseau/Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
+     {"Clouseau/Object_Introspection/snapshot_start",&_snapshot_do_op, NULL},
+     {"Clouseau/Object_Introspection/snapshot_done", &_snapshot_done_op, &_snapshot_done_cb},
      {NULL, NULL, NULL}
 };
 
