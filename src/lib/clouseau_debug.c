@@ -825,8 +825,7 @@ end:
 
 WRAPPER_TO_XFER_MAIN_LOOP(_win_screenshot_cb)
 
-static const Eina_Debug_Opcode _debug_ops[] =
-{
+EINA_DEBUG_OPCODES_ARRAY_DEFINE(_debug_ops,
      {"Clouseau/Object_Introspection/snapshot_start", &_snapshot_start_op, &_snapshot_start_cb},
      {"Clouseau/Object_Introspection/snapshot_done", &_snapshot_done_op, NULL},
      {"Clouseau/Eo/classes_ids_get", &_klids_get_op, NULL},
@@ -835,7 +834,7 @@ static const Eina_Debug_Opcode _debug_ops[] =
      {"Clouseau/Evas/object/highlight", &_obj_highlight_op, &_obj_highlight_cb},
      {"Clouseau/Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_cb},
      {NULL, NULL, NULL}
-};
+);
 
 EAPI Eina_Bool
 clouseau_debug_init(void)
@@ -846,7 +845,7 @@ clouseau_debug_init(void)
 
    eolian_system_directory_scan();
 
-   eina_debug_opcodes_register(NULL, _debug_ops, NULL, NULL);
+   eina_debug_opcodes_register(NULL, _debug_ops(), NULL, NULL);
 
    printf("%s - In\n", __FUNCTION__);
    return EINA_TRUE;

@@ -90,8 +90,7 @@ static Eina_Bool _obj_info_get(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _snapshot_done_cb(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _win_screenshot_get(Eina_Debug_Session *, int, void *, int);
 
-static const Eina_Debug_Opcode _ops[] =
-{
+EINA_DEBUG_OPCODES_ARRAY_DEFINE(_ops,
      {"Clouseau/Eo/objects_ids_get",     &_eoids_get_op, &_eoids_get},
      {"Clouseau/Eo/classes_ids_get",     &_klids_get_op, &_klids_get},
      {"Clouseau/Evas/object/highlight",  &_obj_highlight_op, NULL},
@@ -100,7 +99,7 @@ static const Eina_Debug_Opcode _ops[] =
      {"Clouseau/Object_Introspection/snapshot_start",&_snapshot_do_op, NULL},
      {"Clouseau/Object_Introspection/snapshot_done", &_snapshot_done_op, &_snapshot_done_cb},
      {NULL, NULL, NULL}
-};
+);
 
 static Clouseau_Extension *
 _ext_get(Eo *obj)
@@ -270,10 +269,11 @@ _session_changed(Clouseau_Extension *ext)
 {
    int i = 0;
    Instance *inst = ext->data;
+   Eina_Debug_Opcode *ops = _ops();
    _app_changed(ext);
-   while (_ops[i].opcode_name)
+   while (ops[i].opcode_name)
      {
-        if (_ops[i].opcode_id) *(_ops[i].opcode_id) = EINA_DEBUG_OPCODE_INVALID;
+        if (ops[i].opcode_id) *(ops[i].opcode_id) = EINA_DEBUG_OPCODE_INVALID;
         i++;
      }
    if (ext->session)
@@ -281,7 +281,7 @@ _session_changed(Clouseau_Extension *ext)
         eina_debug_session_data_set(ext->session, ext);
         inst->old_disp_cb = eina_debug_session_dispatch_get(ext->session);
         eina_debug_session_dispatch_override(ext->session, _disp_cb);
-        eina_debug_opcodes_register(ext->session, _ops, _post_register_handle, ext);
+        eina_debug_opcodes_register(ext->session, ops, _post_register_handle, ext);
      }
    elm_object_item_disabled_set(inst->wdgs->reload_button, EINA_TRUE);
 }
