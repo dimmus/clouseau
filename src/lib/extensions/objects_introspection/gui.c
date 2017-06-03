@@ -137,7 +137,7 @@ gui_take_screenshot_button_create(Eo *__main_parent)
    Eo *bt;
    Eo *elm_icon1;
 
-   bt = efl_add(ELM_BUTTON_CLASS, __main_parent);
+   bt = efl_add(EFL_UI_BUTTON_CLASS, __main_parent);
    pub_widgets->bt = bt;
    evas_object_size_hint_weight_set(bt, 1.000000, 1.000000);
    efl_gfx_visible_set(bt, EINA_TRUE);
@@ -161,7 +161,7 @@ gui_show_screenshot_button_create(Eo *__main_parent)
    Eo *bt;
    Eo *elm_icon1;
 
-   bt = efl_add(ELM_BUTTON_CLASS, __main_parent);
+   bt = efl_add(EFL_UI_BUTTON_CLASS, __main_parent);
    pub_widgets->bt = bt;
    evas_object_size_hint_weight_set(bt, 1.000000, 1.000000);
    efl_gfx_visible_set(bt, EINA_TRUE);
