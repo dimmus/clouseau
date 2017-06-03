@@ -113,9 +113,9 @@ static int _record_get_op = EINA_DEBUG_OPCODE_INVALID;
 static Eina_Bool _record_get_cb(Eina_Debug_Session *, int, void *, int);
 
 static const Eina_Debug_Opcode _ops[] = {
-       {"cpufreq/on", &_record_on_op, NULL},
-       {"cpufreq/off", &_record_off_op, NULL},
-       {"evlog/get", &_record_get_op, &_record_get_cb},
+       {"CPU/Freq/on", &_record_on_op, NULL},
+       {"CPU/Freq/off", &_record_off_op, NULL},
+       {"EvLog/get", &_record_get_op, &_record_get_cb},
        {NULL, NULL, NULL}
 };
 
