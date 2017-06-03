@@ -39,6 +39,18 @@
 # endif
 #endif /* ! _WIN32 */
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define SWAP_64(x) x
+#define SWAP_32(x) x
+#define SWAP_16(x) x
+#define SWAP_DBL(x) x
+#else
+#define SWAP_64(x) eina_swap64(x)
+#define SWAP_32(x) eina_swap32(x)
+#define SWAP_16(x) eina_swap16(x)
+#define SWAP_DBL(x) SWAP_64(x)
+#endif
+
 #define STORE(_buf, pval, sz) \
 { \
    memcpy(_buf, pval, sz); \
@@ -423,8 +435,21 @@ _class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *ekl, ch
                }
              else
                {
-                  memcpy(buf + size,  &(params[i].value.value.value),
-                        param_types[params[i].value.type].size);
+                  if (param_types[params[i].value.type].size == 8)
+                    {
+                       uint64_t value = SWAP_64(params[i].value.value.value);
+                       memcpy(buf + size, &value, 8);
+                    }
+                  else if (param_types[params[i].value.type].size == 4)
+                    {
+                       int value = SWAP_32(params[i].value.value.value);
+                       memcpy(buf + size, &value, 4);
+                    }
+                  else
+                    {
+                       memcpy(buf + size, &(params[i].value.value.value),
+                             param_types[params[i].value.type].size);
+                    }
                   size += param_types[params[i].value.type].size;
                }
           }
@@ -448,8 +473,21 @@ _class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *ekl, ch
                }
              else
                {
-                  memcpy(buf + size,  &(ret.value.value.value),
-                        param_types[ret.value.type].size);
+                  if (param_types[ret.value.type].size == 8)
+                    {
+                       uint64_t value = SWAP_64(ret.value.value.value);
+                       memcpy(buf + size, &value, 8);
+                    }
+                  else if (param_types[ret.value.type].size == 4)
+                    {
+                       int value = SWAP_32(ret.value.value.value);
+                       memcpy(buf + size, &value, 4);
+                    }
+                  else
+                    {
+                       memcpy(buf + size, &(ret.value.value.value),
+                             param_types[ret.value.type].size);
+                    }
                   size += param_types[ret.value.type].size;
                }
           }
@@ -464,7 +502,7 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
 {
    uint64_t ptr64;
    memcpy(&ptr64, buffer, sizeof(ptr64));
-   Eo *obj = (Eo *)ptr64;
+   Eo *obj = (Eo *)SWAP_64(ptr64);
 
    const char *class_name = efl_class_name_get(obj);
    const Eolian_Unit *unit = NULL;
@@ -515,12 +553,12 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, 
    Eo *obj;
    Eina_List *objs = NULL;
    uint64_t *kls = buffer;
-   int nb_kls = size / sizeof(uint64_t);
+   int nb_kls = size / sizeof(uint64_t), i;
 
+   for (i = 0; i < nb_kls; i++) kls[i] = SWAP_64(kls[i]);
    iter = eo_objects_iterator_new();
    EINA_ITERATOR_FOREACH(iter, obj)
      {
-        int i;
         Eina_Bool klass_ok = EINA_FALSE;
         for (i = 0; i < nb_kls && !klass_ok; i++)
           {
@@ -535,9 +573,9 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, 
    EINA_LIST_FOREACH(objs, itr, obj)
    {
       Eo *parent;
-      uint64_t u64 = (uint64_t)obj;
+      uint64_t u64 = SWAP_64((uint64_t)obj);
       STORE(tmp, &u64, sizeof(u64));
-      u64 = (uint64_t)efl_class_get(obj);
+      u64 = SWAP_64((uint64_t)efl_class_get(obj));
       STORE(tmp, &u64, sizeof(u64));
       parent = elm_object_parent_widget_get(obj);
       if (!parent && efl_isa(obj, EFL_CANVAS_OBJECT_CLASS))
@@ -546,14 +584,14 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, 
            if (!parent) parent = evas_object_smart_parent_get(obj);
         }
       if (!parent) parent = efl_parent_get(obj);
-      u64 = (uint64_t)parent;
+      u64 = SWAP_64((uint64_t)parent);
       STORE(tmp, &u64, sizeof(u64));
    }
    eina_debug_session_send(session, srcid, _eoids_get_op, buf, size);
 
    EINA_LIST_FREE(objs, obj)
      {
-        uint64_t u64 = (uint64_t)obj;
+        uint64_t u64 = SWAP_64((uint64_t)obj);
         _obj_info_req_cb(session, srcid, &u64, sizeof(uint64_t));
      }
    return EINA_TRUE;
@@ -593,7 +631,7 @@ _main_loop_snapshot_start_cb(Eina_Debug_Session *session, int srcid, void *buffe
         Eina_List *itr;
         const char *kl_name = efl_class_name_get(kl), *kl_str;
         int len = strlen(kl_name) + 1;
-        uint64_t u64 = (uint64_t)kl;
+        uint64_t u64 = SWAP_64((uint64_t)kl);
         Eina_Bool found = EINA_FALSE;
 
         /* Fill the buffer with class id/name */
@@ -672,7 +710,7 @@ _main_loop_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid E
    uint64_t ptr64;
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
-   Eo *obj = (Eo *)ptr64;
+   Eo *obj = (Eo *)SWAP_64(ptr64);
    if (!efl_isa(obj, EFL_CANVAS_OBJECT_CLASS) && !efl_isa(obj, EVAS_CANVAS_CLASS)) return;
    Evas *e = evas_object_evas_get(obj);
    Eo *rect = evas_object_polygon_add(e);
@@ -723,12 +761,12 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
    unsigned char *img_src;
    unsigned char *resp = NULL, *tmp;
    int bpl = 0, rows = 0, bpp = 0;
-   int w, h;
+   int w, h, val;
    unsigned int hdr_size = sizeof(uint64_t) + 5 * sizeof(int);
 
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
-   Eo *e = (Eo *)ptr64;
+   Eo *e = (Eo *)SWAP_64(ptr64);
    if (!efl_isa(e, EVAS_CANVAS_CLASS)) goto end;
 
    ee = ecore_evas_ecore_evas_get(e);
@@ -753,12 +791,17 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
    ecore_x_image_get(img, win, 0, 0, 0, 0, w, h);
    img_src = ecore_x_image_data_get(img, &bpl, &rows, &bpp);
    resp = tmp = malloc(hdr_size + (w * h * sizeof(int)));
+   t->tm_sec = SWAP_32(t->tm_sec);
+   t->tm_min = SWAP_32(t->tm_min);
+   t->tm_hour = SWAP_32(t->tm_hour);
    STORE(tmp, &ptr64, sizeof(ptr64));
    STORE(tmp, &t->tm_sec, sizeof(int));
    STORE(tmp, &t->tm_min, sizeof(int));
    STORE(tmp, &t->tm_hour, sizeof(int));
-   STORE(tmp, &w, sizeof(int));
-   STORE(tmp, &h, sizeof(int));
+   val = SWAP_32(w);
+   STORE(tmp, &val, sizeof(int));
+   val = SWAP_32(h);
+   STORE(tmp, &val, sizeof(int));
    if (!ecore_x_image_is_argb32_get(img))
      {  /* Fill resp buffer with image convert */
         ecore_x_image_to_argb_convert(img_src, bpp, bpl, att.colormap, att.visual,
@@ -837,6 +880,7 @@ eo_debug_eoids_request_prepare(int *size, ...)
              buf = realloc(buf, max_kls * sizeof(uint64_t));
           }
         char *tmp = buf + (nb_kls-1) * sizeof(uint64_t);
+        kl = SWAP_64(kl);
         STORE(tmp, &kl, sizeof(uint64_t));
         kl = va_arg(list, uint64_t);
      }
@@ -857,7 +901,7 @@ eo_debug_eoids_extract(void *buffer, int size, Eo_Debug_Object_Extract_Cb cb, vo
         EXTRACT(buf, &obj, sizeof(uint64_t));
         EXTRACT(buf, &kl, sizeof(uint64_t));
         EXTRACT(buf, &parent, sizeof(uint64_t));
-        cb(data, obj, kl, parent);
+        cb(data, SWAP_64(obj), SWAP_64(kl), SWAP_64(parent));
         size -= (3 * sizeof(uint64_t));
      }
 }
@@ -873,7 +917,7 @@ eo_debug_klids_extract(void *buffer, int size, Eo_Debug_Class_Extract_Cb cb, voi
         char *name;
         EXTRACT(buf, &kl, sizeof(uint64_t));
         name = buf;
-        cb(data, kl, buf);
+        cb(data, SWAP_64(kl), buf);
         buf += (strlen(name) + 1);
         size -= (strlen(name) + 1 + sizeof(uint64_t));
      }
@@ -918,6 +962,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
 
    //get the Eo* pointer
    EXTRACT(buffer, &(ret->obj), sizeof(uint64_t));
+   ret->obj = SWAP_64(ret->obj);
    size -= sizeof(uint64_t);
 
    while (size > 0)
@@ -970,7 +1015,9 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
                     }
                   else
                     {
-                       EXTRACT(buffer, &(p->value.value), param_types[type].size);
+                       uint64_t value;
+                       EXTRACT(buffer, &value, param_types[type].size);
+                       p->value.value.value = SWAP_64(value);
                        size -= param_types[type].size;
                     }
                   func->params = eina_list_append(func->params, p);
@@ -994,7 +1041,9 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
                     }
                   else
                     {
-                       EXTRACT(buffer, &(func->ret.value.value), param_types[type].size);
+                       uint64_t value;
+                       EXTRACT(buffer, &value, param_types[type].size);
+                       func->ret.value.value.value = SWAP_64(value);
                        size -= param_types[type].size;
                     }
                }
@@ -1027,12 +1076,12 @@ evas_debug_screenshot_decode(char *buffer, unsigned int size)
    if (size != (w * h * sizeof(int))) return NULL;
 
    s = calloc(1, sizeof(*s));
-   s->obj = obj;
-   s->w = w;
-   s->h = h;
-   s->tm_sec = tm_sec;
-   s->tm_min = tm_min;
-   s->tm_hour = tm_hour;
+   s->obj = SWAP_64(obj);
+   s->w = SWAP_32(w);
+   s->h = SWAP_32(h);
+   s->tm_sec = SWAP_32(tm_sec);
+   s->tm_min = SWAP_32(tm_min);
+   s->tm_hour = SWAP_32(tm_hour);
    s->img = malloc(size);
    s->img_size = size;
    memcpy(s->img, buffer, size);

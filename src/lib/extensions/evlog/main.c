@@ -8,6 +8,18 @@
 #define RES 500000.0
 #define LEN 5.0
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define SWAP_64(x) x
+#define SWAP_32(x) x
+#define SWAP_16(x) x
+#define SWAP_DBL(x) x
+#else
+#define SWAP_64(x) eina_swap64(x)
+#define SWAP_32(x) eina_swap32(x)
+#define SWAP_16(x) eina_swap16(x)
+#define SWAP_DBL(x) SWAP_64(x)
+#endif
+
 typedef struct _Evlog            Evlog;
 typedef struct _Evlog_Thread     Evlog_Thread;
 typedef struct _Evlog_Event      Evlog_Event;
@@ -315,6 +327,14 @@ _evlog_event_read(Evlog *evlog, void *ptr, void *end)
    if ((unsigned int)(dataend - data) < sizeof(Eina_Evlog_Item)) return NULL;
 
    memcpy(&item, data, sizeof(Eina_Evlog_Item));
+
+   item.tim           = SWAP_DBL(item.tim);
+   item.srctim        = SWAP_DBL(item.srctim);
+   item.thread        = SWAP_64(item.thread);
+   item.obj           = SWAP_64(item.obj);
+   item.event_offset  = SWAP_16(item.event_offset);
+   item.detail_offset = SWAP_16(item.detail_offset);
+   item.event_next    = SWAP_16(item.event_next);
 
    if (item.event_offset >= sizeof(Eina_Evlog_Item))
      eventstr = data + item.event_offset;
