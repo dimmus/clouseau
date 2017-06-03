@@ -16,6 +16,18 @@
 #include "gui.h"
 #include "Clouseau.h"
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define SWAP_64(x) x
+#define SWAP_32(x) x
+#define SWAP_16(x) x
+#define SWAP_DBL(x) x
+#else
+#define SWAP_64(x) eina_swap64(x)
+#define SWAP_32(x) eina_swap32(x)
+#define SWAP_16(x) eina_swap16(x)
+#define SWAP_DBL(x) SWAP_64(x)
+#endif
+
 #define EXTRACT(_buf, pval, sz) \
 { \
    memcpy(pval, _buf, sz); \
@@ -385,6 +397,8 @@ _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNU
         int cid, pid, len;
         EXTRACT(buf, &cid, sizeof(int));
         EXTRACT(buf, &pid, sizeof(int));
+        cid = SWAP_32(cid);
+        pid = SWAP_32(pid);
         if(pid != getpid())
           {
              char name[100];
@@ -412,6 +426,7 @@ _clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_U
      {
         int cid;
         EXTRACT(buf, &cid, sizeof(int));
+        cid = SWAP_32(cid);
         if (_selected_app && cid == _selected_app->cid) _selected_app = NULL;
         _app_del(cid);
      }
