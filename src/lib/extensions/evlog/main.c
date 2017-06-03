@@ -124,12 +124,12 @@ static int _record_get_op = EINA_DEBUG_OPCODE_INVALID;
 
 static Eina_Bool _record_get_cb(Eina_Debug_Session *, int, void *, int);
 
-static const Eina_Debug_Opcode _ops[] = {
+EINA_DEBUG_OPCODES_ARRAY_DEFINE(_ops,
        {"CPU/Freq/on", &_record_on_op, NULL},
        {"CPU/Freq/off", &_record_off_op, NULL},
        {"EvLog/get", &_record_get_op, &_record_get_cb},
        {NULL, NULL, NULL}
-};
+);
 
 static void
 _evlog_state_event_register(Evlog *evlog, Evlog_Event *ev)
@@ -1563,16 +1563,17 @@ _session_changed(Clouseau_Extension *ext)
 {
    int i = 0;
    Inf *inf = ext->data;
+   Eina_Debug_Opcode *ops = _ops();
    _app_changed(ext);
-   while (_ops[i].opcode_name)
+   while (ops[i].opcode_name)
      {
-        if (_ops[i].opcode_id) *(_ops[i].opcode_id) = EINA_DEBUG_OPCODE_INVALID;
+        if (ops[i].opcode_id) *(ops[i].opcode_id) = EINA_DEBUG_OPCODE_INVALID;
         i++;
      }
    if (ext->session)
      {
         eina_debug_session_data_set(ext->session, ext);
-        eina_debug_opcodes_register(ext->session, _ops, NULL, NULL);
+        eina_debug_opcodes_register(ext->session, ops, NULL, NULL);
      }
    elm_object_disabled_set(inf->record_button, EINA_TRUE);
 }

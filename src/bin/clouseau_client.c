@@ -119,13 +119,12 @@ static int _selected_port = -1;
 static Eina_Bool _clients_info_added_cb(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _clients_info_deleted_cb(Eina_Debug_Session *, int, void *, int);
 
-static const Eina_Debug_Opcode _ops[] =
-{
+EINA_DEBUG_OPCODES_ARRAY_DEFINE(_ops,
      {"Daemon/Client/register_observer", &_cl_stat_reg_op, NULL},
      {"Daemon/Client/added", NULL, _clients_info_added_cb},
      {"Daemon/Client/deleted", NULL, _clients_info_deleted_cb},
      {NULL, NULL, NULL}
-};
+);
 
 static Eina_Bool
 _mkdir(const char *dir)
@@ -541,7 +540,7 @@ _connection_type_change(Connection_Type conn_type)
            }
       default: return;
      }
-   if (_session) eina_debug_opcodes_register(_session, _ops, _post_register_handle, NULL);
+   if (_session) eina_debug_opcodes_register(_session, _ops(), _post_register_handle, NULL);
    elm_object_item_text_set(_main_widgets->conn_selector, _conn_strs[conn_type]);
    _conn_type = conn_type;
    _session_populate();
