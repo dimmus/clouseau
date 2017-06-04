@@ -539,6 +539,7 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
    (void) list2;
 
    eina_debug_session_send(session, srcid, _obj_info_op, buf, size_curr);
+   free(buf);
 
 end:
    return EINA_TRUE;
@@ -588,6 +589,7 @@ _snapshot_objs_get_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, 
       STORE(tmp, &u64, sizeof(u64));
    }
    eina_debug_session_send(session, srcid, _eoids_get_op, buf, size);
+   free(buf);
 
    EINA_LIST_FREE(objs, obj)
      {
