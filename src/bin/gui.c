@@ -8,7 +8,6 @@
 #define ELM_INTERNAL_API_ARGESFSDFEFC
 #endif
 #include <Elementary.h>
-#include <elm_fileselector_button.eo.h>
 #include "elm_widget_container.h"
 #include "elm_interface_scrollable.h"
 #include "elm_interface_fileselector.h"
