@@ -17,7 +17,6 @@ include_directories(
    ${EINA_INCLUDE_DIRS}
    ${EET_INCLUDE_DIRS}
    ${EOLIAN_INCLUDE_DIRS}
-   ${EDEBUG_INCLUDE_DIRS}
    )
 
 link_directories (${PC_LIBELEMENTARY_LIBRARY_DIRS})
@@ -31,7 +30,6 @@ target_link_libraries(clouseau_objects_introspection
    ${EINA_LIBRARIES}
    ${EET_LIBRARIES}
    ${EOLIAN_LIBRARIES}
-   ${EDEBUG_LIBRARIES}
    )
 
 INSTALL(TARGETS clouseau_objects_introspection LIBRARY DESTINATION lib)
