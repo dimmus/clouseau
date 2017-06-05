@@ -648,7 +648,7 @@ _main_loop_snapshot_start_cb(Eina_Debug_Session *session, int srcid, void *buffe
              if (!strcmp(kl_name, kl_str))
                {
                   int i;
-                  for (i = 0; i < nb_kls; i++)
+                  for (i = 0; i < nb_kls && !found; i++)
                     {
                        if (!kls[i])
                          {
