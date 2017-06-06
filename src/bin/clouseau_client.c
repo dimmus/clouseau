@@ -1,2736 +1,953 @@
-#ifdef HAVE_CONFIG_H
-# include "config.h"
+#ifndef EFL_BETA_API_SUPPORT
+#define EFL_BETA_API_SUPPORT
 #endif
+#ifndef EFL_EO_API_SUPPORT
+#define EFL_EO_API_SUPPORT
+#endif
+#ifndef ELM_INTERNAL_API_ARGESFSDFEFC
+#define ELM_INTERNAL_API_ARGESFSDFEFC
+#endif
+#include <Efreet.h>
+#include <Elementary.h>
+#include <Evas.h>
+#include <Eolian.h>
+#include <Ecore_File.h>
+#include "gui.h"
 
-#include <Elementary_Cursor.h>
-#include <Ecore_Con_Eet.h>
-
-#include "Clouseau.h"
-#include "client/cfg.h"
-#include "client/config_dialog.h"
-
-#define CLIENT_NAME         "Clouseau Client"
-#define SELECT_APP_TEXT     "Select App"
+#include <Eolian_Debug.h>
+#include <Eo_Debug.h>
 
 #define SHOW_SCREENSHOT     "/images/show-screenshot.png"
-#define TAKE_SCREENSHOT     "/images/take-screenshot.png"
-#define SCREENSHOT_MISSING  "/images/screenshot-missing.png"
 
-static int _clouseau_client_log_dom = -1;
+#define EXTRACT(_buf, pval, sz) \
+{ \
+   memcpy(pval, _buf, sz); \
+   _buf += sz; \
+}
 
-#ifdef CRITICAL
-#undef CRITICAL
-#endif
-#define CRITICAL(...) EINA_LOG_DOM_CRIT(_clouseau_client_log_dom, __VA_ARGS__)
+#define _PROFILE_EET_ENTRY "config"
 
-#ifdef ERR
-#undef ERR
-#endif
-#define ERR(...) EINA_LOG_DOM_ERR(_clouseau_client_log_dom, __VA_ARGS__)
+static Evas_Object *
+_obj_info_tootip(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
+      Evas_Object *tt, void *item   EINA_UNUSED);
 
-#ifdef WRN
-#undef WRN
-#endif
-#define WRN(...) EINA_LOG_DOM_WARN(_clouseau_client_log_dom, __VA_ARGS__)
+static int _cl_stat_reg_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _module_init_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _eo_list_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _obj_info_opcode = EINA_DEBUG_OPCODE_INVALID;
+static int _obj_highlight_opcode = EINA_DEBUG_OPCODE_INVALID;
 
-#ifdef INF
-#undef INF
-#endif
-#define INF(...) EINA_LOG_DOM_INFO(_clouseau_client_log_dom, __VA_ARGS__)
+static Gui_Main_Win_Widgets *_main_widgets = NULL;
+static Gui_Profiles_Win_Widgets *_profiles_wdgs = NULL;
 
-#ifdef DBG
-#undef DBG
-#endif
-#define DBG(...) EINA_LOG_DOM_DBG(_clouseau_client_log_dom, __VA_ARGS__)
-
-static Evas_Object *prop_list = NULL;
-// Item class for app name list
-static Elm_Genlist_Item_Class *_app_itc = NULL;
-static Elm_Genlist_Item_Class _obj_info_itc;
-// Item class for objects classnames
-static Elm_Genlist_Item_Class _class_info_itc;
-
-/* FIXME: Most hackish thing even seen. Needed because of the lack of a
- * way to list genlist item's children. */
-static Elm_Object_Item *_tree_item_show_last_expanded_item = NULL;
-
-struct _App_Data_St
+typedef struct
 {
-   app_info_st *app;
-   tree_data_st *td;
-};
-typedef struct _App_Data_St App_Data_St;
+   int *opcode; /* address to the opcode */
+   void *buffer;
+   int size;
+} _pending_request;
 
-struct _Bmp_Node
+typedef struct
 {
-   unsigned int ctr;           /* Current refresh_ctr */
-   unsigned long long object;  /* Evas ptr        */
-   Evas_Object *bt;            /* Button of BMP_REQ */
-};
-typedef struct _Bmp_Node Bmp_Node;
+   Obj_Info *info;
+   Eina_List *children;
+} _Obj_list_node;
 
-struct _Gui_Elementns
+typedef enum
 {
-   Evas_Object *win;
-   Evas_Object *bx;     /* The main box */
-   Evas_Object *hbx;    /* The top menu box */
-   Evas_Object *bt_load;
-   Evas_Object *bt_save;
-   struct {
-        Evas_Object *dd_list;
-        Evas_Object *obj;
-        Evas_Object *btn;
-        Evas_Object *resize_rect;
-        Eina_Bool is_expand : 1;
-   } hover;
-   Evas_Object *gl;
-   Evas_Object *prop_list;
-   Evas_Object *connect_inwin;
-   Evas_Object *save_inwin;
-   Evas_Object *en;
-   Evas_Object *pb; /* Progress wheel shown when waiting for TREE_DATA */
-   char *address;
-   App_Data_St *sel_app; /* Currently selected app data */
-   Elm_Object_Item *gl_it; /* Currently selected genlist item */
-   uintptr_t jump_to_ptr;
-};
-typedef struct _Gui_Elementns Gui_Elements;
+   CLOUSEAU_OBJ_CLASS = 0,
+   CLOUSEAU_OBJ_FUNC,
+   CLOUSEAU_OBJ_PARAM,
+   CLOUSEAU_OBJ_RET
+} Clouseau_Obj_Info_Type;
 
-static void _load_list(Gui_Elements *g);
-static void _bt_load_file(void *data, Evas_Object *obj EINA_UNUSED, void *event_info);
-static void _show_gui(Gui_Elements *g, Eina_Bool work_offline);
+typedef struct
+{
+   Clouseau_Obj_Info_Type type;
+   void *data;
+} _Obj_info_node;
 
-/* Globals */
-static Gui_Elements *gui = NULL;
-static Eina_List *apps = NULL;    /* List of (App_Data_St *)  */
-static Eina_List *bmp_req = NULL; /* List of (Bmp_Node *)     */
+typedef enum
+{
+   CLOUSEAU_PROFILE_LOCAL = 1,
+   CLOUSEAU_PROFILE_SHELL_REMOTE
+} Clouseau_Profile_Type;
 
-static Elm_Genlist_Item_Class itc;
-static Eina_Bool do_highlight = EINA_TRUE;
-static Ecore_Con_Reply *eet_svr = NULL;
-static Eina_Bool _add_callback_called = EINA_FALSE;
-static void _cancel_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED);
-static void _ofl_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED);
-static void _jump_to_ptr(Gui_Elements *g, uintptr_t ptr);
+typedef struct
+{
+   const char *file_name;
+   const char *name;
+   const char *command;
+   const char *script;
+   Clouseau_Profile_Type type;
+   Elm_Object_Item *item;
+} Clouseau_Profile;
+
+static Eina_List *_pending = NULL;
+static Eina_Debug_Session *_session = NULL;
+static int _selected_app = -1;
+static Elm_Genlist_Item_Class *_objs_itc = NULL;
+static Elm_Genlist_Item_Class *_obj_info_itc = NULL;
+static Elm_Genlist_Item_Class *_profiles_itc = NULL;
+static Eina_List *_objs_list_tree = NULL;
+static Eolian_Debug_Object_Information *_obj_info = NULL;
+
+static Eet_Data_Descriptor *_profile_edd = NULL;
+static Eina_List *_profiles = NULL;
+static Clouseau_Profile *_selected_profile = NULL;
 
 static void
-_titlebar_string_set(Gui_Elements *g, Eina_Bool online)
+_consume(int opcode)
 {
-   if (online)
+   if (!_pending) return;
+   _pending_request *req;
+   Eina_List *itr;
+   EINA_LIST_FOREACH(_pending, itr, req)
      {
-        char *str = malloc(strlen(CLIENT_NAME) + (g->address ? strlen(g->address) : 0) + 32);
-        sprintf(str, "%s - %s", CLIENT_NAME, g->address);
-        elm_win_title_set(g->win, str);
-        free(str);
-     }
-   else
-     {
-        char *str = malloc(strlen(CLIENT_NAME) + strlen(" - Offline") + 32);
-        sprintf(str, "%s - Offline", CLIENT_NAME);
-        elm_win_title_set(g->win, str);
-        free(str);
-     }
-}
-
-static Eina_Bool
-_client_connected(EINA_UNUSED void *data, Ecore_Con_Reply *reply,
-      EINA_UNUSED Ecore_Con_Server *conn)
-{
-   _add_callback_called = EINA_TRUE;
-
-   eet_svr = reply;
-   connect_st t = { getpid(), __FILE__ };
-   ecore_con_eet_send(reply, CLOUSEAU_GUI_CLIENT_CONNECT_STR, &t);
-   _titlebar_string_set(gui, EINA_TRUE);
-
-   return ECORE_CALLBACK_RENEW;
-}
-
-static void
-_set_button(Evas_Object *w, Evas_Object *bt,
-      char *ic_name, char *tip, Eina_Bool en)
-{  /* Update button icon and tooltip */
-   char buf[1024];
-   Evas_Object *ic = elm_icon_add(w);
-   snprintf(buf, sizeof(buf), "%s%s", PACKAGE_DATA_DIR, ic_name);
-   elm_image_file_set(ic, buf, NULL);
-   elm_object_part_content_set(bt, "icon", ic);
-   elm_object_tooltip_text_set(bt, tip);
-   elm_object_disabled_set(bt, en);
-   evas_object_show(ic);
-}
-
-static void
-_work_offline_popup(void)
-{
-   Evas_Object *bxx, *lb, *bt_bx, *bt_ofl, *bt_exit;
-   /* START - Popup asking user to close client or work offline */
-   gui->connect_inwin = elm_win_inwin_add(gui->win);
-   evas_object_show(gui->connect_inwin);
-
-   bxx = elm_box_add(gui->connect_inwin);
-   elm_object_style_set(gui->connect_inwin, "minimal_vertical");
-   evas_object_size_hint_weight_set(bxx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_show(bxx);
-
-   lb = elm_label_add(bxx);
-   evas_object_size_hint_weight_set(lb, EVAS_HINT_EXPAND, 0.0);
-   evas_object_size_hint_align_set(lb, EVAS_HINT_FILL, 0.0);
-   elm_object_text_set(lb, "Connection to server failed.");
-   elm_box_pack_end(bxx, lb);
-   evas_object_show(lb);
-
-   bt_bx = elm_box_add(bxx);
-   elm_box_horizontal_set(bt_bx, EINA_TRUE);
-   elm_box_homogeneous_set(bt_bx, EINA_TRUE);
-   evas_object_size_hint_align_set(bt_bx, 0.5, 0.5);
-   evas_object_size_hint_weight_set(bt_bx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_show(bt_bx);
-   elm_box_pack_end(bxx, bt_bx);
-
-   /* Add the exit button */
-   bt_exit = elm_button_add(bt_bx);
-   elm_object_text_set(bt_exit, "Exit");
-   evas_object_smart_callback_add(bt_exit, "clicked",
-         _cancel_bt_clicked, (void *) gui);
-
-   elm_box_pack_end(bt_bx, bt_exit);
-   evas_object_show(bt_exit);
-
-   bt_ofl = elm_button_add(bt_bx);
-   elm_object_text_set(bt_ofl, "Work Offline");
-   evas_object_smart_callback_add(bt_ofl, "clicked",
-         _ofl_bt_clicked, (void *) gui);
-
-   elm_box_pack_end(bt_bx, bt_ofl);
-   evas_object_show(bt_ofl);
-
-   elm_win_inwin_content_set(gui->connect_inwin, bxx);
-   /* END   - Popup asking user to close client or work offline */
-}
-
-static Eina_Bool
-_client_disconnected(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      Ecore_Con_Server *conn)
-{
-   if ((!_add_callback_called) || (!eet_svr))
-     {  /* if initial connection with daemon failed - exit */
-        ecore_con_server_del(conn);
-        eet_svr = NULL; /* Global svr var */
-        _work_offline_popup();
-        return ECORE_CALLBACK_RENEW;
-     }
-
-   ERR("Lost server with ip <%s>!\n", ecore_con_server_ip_get(conn));
-
-   ecore_con_server_del(conn);
-   eet_svr = NULL; /* Global svr var */
-   _show_gui(gui, EINA_TRUE);
-
-   return ECORE_CALLBACK_RENEW;
-}
-
-static void
-clouseau_lines_free(bmp_info_st *st)
-{  /* Free lines asociated with a bmp */
-   if (st->lx)
-     evas_object_del(st->lx);
-
-   if (st->ly)
-     evas_object_del(st->ly);
-
-   st->lx = st->ly = NULL;
-}
-
-static void
-clouseau_bmp_blob_free(bmp_info_st *st)
-{  /* We also free all lines drawn in this bmp canvas */
-   clouseau_lines_free(st);
-
-   if (st->bmp)
-     free(st->bmp);
-}
-
-static Eina_Bool
-_load_gui_with_list(Gui_Elements *g, Eina_List *trees)
-{
-   Eina_List *l;
-   Clouseau_Tree_Item *treeit;
-
-   if (!trees)
-     return EINA_TRUE;
-
-   /* Stop progress wheel as we load tree data */
-   elm_progressbar_pulse(g->pb, EINA_FALSE);
-   evas_object_hide(g->pb);
-
-   elm_genlist_clear(g->gl);
-
-   EINA_LIST_FOREACH(trees, l, treeit)
-     {  /* Insert the base ee items */
-        Elm_Genlist_Item_Type glflag = (treeit->children) ?
-           ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-        elm_genlist_item_append(g->gl, &itc, treeit, NULL,
-              glflag, NULL, NULL);
-     }
-
-   if (g->jump_to_ptr)
-     {
-        _jump_to_ptr(g, g->jump_to_ptr);
-        g->jump_to_ptr = 0;
-     }
-
-   return EINA_TRUE;
-}
-
-static char *
-_app_name_get(app_info_st *app)
-{
-   char *str = NULL;
-   if (app->file)
-     {
-        char *tmp = strdup(app->file);
-        char *bname = basename(tmp);
-        str = malloc(strlen(bname) + strlen(app->name) + 32);
-        sprintf(str, "%s:%s [%d]", bname, app->name, app->pid);
-        free(tmp);
-     }
-   else
-     {
-        str = malloc(strlen(app->name)+32);
-        sprintf(str, "%s [%d]", app->name, app->pid);
-     }
-
-   return str;  /* User has to free(str) */
-}
-
-static void
-_close_app_views(app_info_st *app, Eina_Bool clr)
-{  /* Close any open-views if this app */
-   Eina_List *l;
-   bmp_info_st *view;
-   EINA_LIST_FOREACH(app->view, l, view)
-     {
-        if (view->win)
-          evas_object_del(view->win);
-
-        if (view->bt)
-          elm_object_disabled_set(view->bt, EINA_FALSE);
-
-        view->win = view->bt = NULL;
-     }
-
-   if (clr)
-     {  /* These are cleared when app data is reloaded */
-        EINA_LIST_FREE(app->view, view)
-          {  /* Free memory allocated to show any app screens */
-             clouseau_bmp_blob_free(view);
-             free(view);
-          }
-
-        app->view = NULL;
-     }
-}
-
-static void
-_set_selected_app(void *data, Evas_Object *pobj,
-      void *event_info EINA_UNUSED)
-{  /* Set hovel label */
-   App_Data_St *st = data;
-   elm_progressbar_pulse(gui->pb, EINA_FALSE);
-   evas_object_hide(gui->pb);
-   gui->gl_it = NULL;
-
-   if (gui->sel_app)
-     _close_app_views(gui->sel_app->app, EINA_FALSE);
-
-   if (st)
-     {
-        if (!eet_svr)
-          {  /* Got TREE_DATA from file, update this immidately */
-              gui->sel_app = st;
-             char *str = _app_name_get(st->app);
-             elm_object_text_set(gui->hover.btn, str);
-             free(str);
-             _load_list(gui);
+        if (*(req->opcode) != EINA_DEBUG_OPCODE_INVALID &&
+           (opcode == EINA_DEBUG_OPCODE_INVALID || *(req->opcode) == opcode))
+          {
+             eina_debug_session_send(_session, _selected_app, *(req->opcode), req->buffer, req->size);
+             _pending = eina_list_remove_list(_pending, itr);
+             free(req->buffer);
+             free(req);
              return;
           }
-
-        if (gui->sel_app != st)
-          {  /* Reload only of selected some other app */
-             gui->sel_app = st;
-             char *str = _app_name_get(st->app);
-             elm_object_text_set(gui->hover.btn, str);
-             free(str);
-
-             elm_progressbar_pulse(gui->pb, EINA_FALSE);
-             evas_object_hide(gui->pb);
-             _load_list(gui);
-          }
-     }
-   else
-     {  /* If we got a NULL ptr, reset lists and dd_list text */
-        elm_object_text_set(gui->hover.btn, SELECT_APP_TEXT);
-        elm_genlist_clear(gui->gl);
-        elm_genlist_clear(gui->prop_list);
-        gui->sel_app = NULL;
-     }
-
-   if (eet_svr)
-     {  /* Enable/Disable buttons only if we are online */
-        elm_object_disabled_set(gui->bt_load, (gui->sel_app == NULL));
-        elm_object_disabled_set(gui->bt_save, (gui->sel_app == NULL));
-     }
-   elm_genlist_item_selected_set(elm_genlist_selected_item_get(pobj), EINA_FALSE);
-   elm_hover_dismiss(gui->hover.obj);
-}
-
-static int
-_app_ptr_cmp(const void *d1, const void *d2)
-{
-   const App_Data_St *info = d1;
-   app_info_st *app = info->app;
-
-   return ((app->ptr) - (unsigned long long) (uintptr_t) d2);
-}
-
-static char *
-_app_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
-                    const char *part EINA_UNUSED)
-{
-   App_Data_St *st = data;
-   char *str, *retstr;
-
-   str = _app_name_get(st->app);
-   retstr = strdup(str);
-   free(str);
-   return retstr;
-}
-
-static void
-_add_app_to_dd_list(Evas_Object *dd_list, App_Data_St *st)
-{  /* Add app to Drop Down List */
-   elm_genlist_item_append(dd_list, _app_itc, st,
-                           NULL, ELM_GENLIST_ITEM_NONE,
-                           _set_selected_app, st);
-}
-
-static int
-_bmp_object_ptr_cmp(const void *d1, const void *d2)
-{  /* Comparison according to Evas ptr of BMP struct */
-   const bmp_info_st *bmp = d1;
-   return ((bmp->object) - (unsigned long long) (uintptr_t) d2);
-}
-
-static int
-_bmp_app_ptr_cmp(const void *d1, const void *d2)
-{  /* Comparison according to app ptr of BMP struct */
-   const bmp_info_st *bmp = d1;
-   return ((bmp->app) - (unsigned long long) (uintptr_t) d2);
-}
-
-static Eina_List *
-_remove_bmp(Eina_List *view, void *ptr)
-{  /* Remove app bitmap from bitmaps list */
-   bmp_info_st *st = (bmp_info_st *)
-      eina_list_search_unsorted(view, _bmp_app_ptr_cmp,
-            (void *) (uintptr_t) ptr);
-
-   if (st)
-     {
-        if (st->win)
-          evas_object_del(st->win);
-
-        if (st->bmp)
-          free(st->bmp);
-
-        free(st);
-        return eina_list_remove(view, st);
-     }
-
-   return view;
-}
-
-static App_Data_St *
-_add_app(Gui_Elements *g, app_info_st *app)
-{
-   App_Data_St *st;
-
-   st = malloc(sizeof(App_Data_St));
-   if (!st) return NULL;
-
-   st->app = app;
-   st->td = NULL; /* Will get this on TREE_DATA message */
-   apps = eina_list_append(apps, st);
-
-   _add_app_to_dd_list(g->hover.dd_list, st);
-
-   return st;
-}
-
-static void
-_free_app_tree_data(tree_data_st *ftd)
-{
-
-   if (!ftd) return;
-
-   clouseau_data_tree_free(ftd->tree);
-   free(ftd);
-}
-
-static void
-_free_app(App_Data_St *st)
-{
-   bmp_info_st *view;
-   app_info_st *app = st->app;
-   if (app->file)
-     free(app->file);
-
-   EINA_LIST_FREE(app->view, view)
-     {  /* Free memory allocated to show any app screens */
-        if (view->win)
-          evas_object_del(view->win);
-
-        if (view->bmp)
-          free(view->bmp);
-
-        free(view);
-     }
-
-   _free_app_tree_data(st->td);
-   free(app);
-   free(st);
-}
-
-static void
-_remove_app(Gui_Elements *g, app_closed_st *app)
-{  /* Handle the case that NO app is selected, set sel_app to NULL */
-   app_info_st *sel_app = (g->sel_app) ? g->sel_app->app: NULL;
-   App_Data_St *st = (App_Data_St *)
-      eina_list_search_unsorted(apps, _app_ptr_cmp,
-            (void *) (uintptr_t) app->ptr);
-
-   /* if NO app selected OR closing app is the selected one, reset display */
-   if ((!sel_app) || (app->ptr == sel_app->ptr))
-     _set_selected_app(NULL, g->hover.dd_list, NULL);
-
-   if (st)
-     {  /* Remove from list and free all app info */
-        Eina_List *l;
-        apps = eina_list_remove(apps, st);
-        _free_app(st);
-
-        if (g->hover.is_expand)
-          {
-             elm_hover_dismiss(g->hover.obj);
-             g->hover.is_expand = EINA_FALSE;
-          }
-
-        elm_genlist_clear(g->hover.dd_list);
-        EINA_LIST_FOREACH(apps, l , st)
-           _add_app_to_dd_list(g->hover.dd_list, st);
      }
 }
 
 static void
-_update_tree_offline(Gui_Elements *g, tree_data_st *td)
+_pending_add(int *opcode, void *buffer, int size)
 {
-   elm_genlist_clear(g->gl);
-   _load_gui_with_list(g, td->tree);
-}
-
-static int
-_Bmp_Node_cmp(const void *d1, const void *d2)
-{  /* Compare accoring to Evas ptr */
-   const Bmp_Node *info = d1;
-
-   return ((info->object) - (unsigned long long) (uintptr_t) d2);
-}
-
-static Bmp_Node *
-_get_Bmp_Node(bmp_info_st *st, app_info_st *app)
-{  /* Find the request of this bmp info, in the req list         */
-   /* We would like to verify this bmp_info_st is still relevant */
-   Eina_List *req_list = bmp_req;
-   Bmp_Node *nd = NULL;
-
-   if (!app)
-     return NULL;
-
-   do
-     { /* First find according to Evas ptr, then match ctr with refresh_ctr */
-        req_list = eina_list_search_unsorted_list(req_list, _Bmp_Node_cmp,
-              (void *) (uintptr_t) st->object);
-
-        if (req_list)
-          nd = (Bmp_Node *) eina_list_data_get(req_list);
-
-        if (nd)
-          {  /* if found this object in list, compare ctr */
-             if (nd->ctr == app->refresh_ctr)
-               return nd;
-
-             /* ctr did not match, look further in list */
-             req_list = eina_list_next(req_list);
-          }
-     }
-   while(req_list);
-
-   return NULL;
+   _pending_request *req = calloc(1, sizeof(*req));
+   req->opcode = opcode;
+   req->buffer = buffer;
+   req->size = size;
+   _pending = eina_list_append(_pending, req);
 }
 
 static void
-clouseau_make_lines(bmp_info_st *st, Evas_Coord xx, Evas_Coord yy)
-{  /* and no, we are NOT talking about WHITE lines */
-   Evas_Coord x_rgn, y_rgn, w_rgn, h_rgn;
-
-   clouseau_lines_free(st);
-
-   elm_scroller_region_get(st->scr, &x_rgn, &y_rgn, &w_rgn, &h_rgn);
-
-   st->lx = evas_object_line_add(evas_object_evas_get(st->o));
-   st->ly = evas_object_line_add(evas_object_evas_get(st->o));
-   evas_object_repeat_events_set(st->lx, EINA_TRUE);
-   evas_object_repeat_events_set(st->ly, EINA_TRUE);
-
-   evas_object_line_xy_set(st->lx, 0, yy, w_rgn, yy);
-   evas_object_line_xy_set(st->ly, xx, 0, xx, h_rgn);
-
-   evas_object_color_set(st->lx, HIGHLIGHT_R, HIGHLIGHT_G, HIGHLIGHT_B,
-         HIGHLIGHT_A);
-   evas_object_color_set(st->ly, HIGHLIGHT_R, HIGHLIGHT_G, HIGHLIGHT_B,
-         HIGHLIGHT_A);
-   evas_object_show(st->lx);
-   evas_object_show(st->ly);
-}
-
-static void
-clouseau_lines_cb(void *data,
-      Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
-      void *event_info)
+_obj_info_expand_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
-   if (((Evas_Event_Mouse_Down *) event_info)->button == 1)
-     return; /* Draw line only if not left mouse button */
-
-   clouseau_make_lines(data, 
-         (((Evas_Event_Mouse_Move *) event_info)->cur.canvas.x),
-         (((Evas_Event_Mouse_Move *) event_info)->cur.canvas.y));
-}
-
-static void
-_mouse_out(void *data,
-      Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
-      EINA_UNUSED void *event_info)
-{
-   bmp_info_st *st = data;
-   elm_object_text_set(st->lb_mouse, " ");
-   elm_object_text_set(st->lb_rgba, " ");
-}
-
-static void
-_mouse_move(void *data,
-      Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
-      void *event_info)
-{  /* Event info is label getting mouse pointer cords */
-   bmp_info_st *st = data;
-   unsigned char *pt;
-   char s_bar[64];
-   float dx, dy;
-   Evas_Coord mp_x, mp_y, xx, yy;
-   Evas_Coord x, y, w, h;
-
-   mp_x = (((Evas_Event_Mouse_Move *) event_info)->cur.canvas.x);
-   mp_y = (((Evas_Event_Mouse_Move *) event_info)->cur.canvas.y);
-   evas_object_geometry_get(st->o, &x, &y, &w, &h);
-
-   dx = ((float) (mp_x - x)) / ((float) w);
-   dy = ((float) (mp_y - y)) / ((float) h);
-
-   xx = dx * st->w;
-   yy = dy * st->h;
-
-   sprintf(s_bar, "%dx%d", xx, yy);
-
-   elm_object_text_set(st->lb_mouse, s_bar);
-
-   if (((Evas_Event_Mouse_Move *) event_info)->buttons > 1)
-     clouseau_make_lines(st, mp_x, mp_y);
-
-   if (((xx >= 0) && (xx < ((Evas_Coord) st->w))) &&
-         ((yy >= 0) && (yy < ((Evas_Coord) st->h))))
-     { /* Need to test borders, because image may be scrolled */
-        pt = ((unsigned char *) st->bmp) + (((yy * st->w) + xx) * sizeof(int));
-        sprintf(s_bar, "rgba(%d,%d,%d,%d)", pt[2], pt[1], pt[0], pt[3]);
-        elm_object_text_set(st->lb_rgba, s_bar);
-     }
-   else
-     elm_object_text_set(st->lb_rgba, " ");
-}
-
-static void
-_app_win_del(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{  /* when closeing view, set view ptr to NULL, and enable open button */
-   bmp_info_st *st = data;
-   clouseau_lines_free(st);
-   elm_object_disabled_set(st->bt, EINA_FALSE);
-   evas_object_event_callback_del(st->o, EVAS_CALLBACK_MOUSE_MOVE,
-         _mouse_move);
-   evas_object_event_callback_del(st->o, EVAS_CALLBACK_MOUSE_OUT,
-         _mouse_out);
-   evas_object_event_callback_del(st->o, EVAS_CALLBACK_MOUSE_DOWN,
-         clouseau_lines_cb);
-   st->win = st->bt = st->lb_mouse = st->o = NULL;
-}
-
-/* START - Callbacks to handle zoom on app window (screenshot) */
-static Evas_Event_Flags
-reset_view(void *data , void *event_info EINA_UNUSED)
-{  /* Cancel ZOOM and remove LINES on double tap */
-   bmp_info_st *st = data;
-   st->zoom_val = 1.0;
-   clouseau_lines_free(st);
-   evas_object_size_hint_min_set(st->o, st->w, st->h);
-
-   return EVAS_EVENT_FLAG_ON_HOLD;
-}
-
-static void
-_update_zoom(Evas_Object *img, Evas_Object *scr, Evas_Coord zx,
-      Evas_Coord zy, double zoom, Evas_Coord origw, Evas_Coord origh)
-{
-   Evas_Coord origrelx = 0, origrely= 0;
-   Evas_Coord offx = 0, offy= 0;
-
-   Evas_Coord sx, sy, sw, sh;
-   elm_scroller_region_get(scr, &sx, &sy, &sw, &sh);
-
-   /* Get coords on pic. */
-     {
-        Evas_Coord x, y, w, h;
-        evas_object_geometry_get(img, &x, &y, &w, &h);
-        double ratio = (((double) origw) / w) * zoom;
-        origrelx = ratio * (double) (zx - x);
-        origrely = ratio * (double) (zy - y);
-
-        /* Offset of the cursor from the first visible pixel of the
-         * content. */
-        offx = (zx - x) - sx;
-        offy = (zy - y) - sy;
-     }
-
-   Evas_Coord imw, imh;
-   imw = origw * zoom;
-   imh = origh * zoom;
-   evas_object_size_hint_min_set(img, imw, imh);
-   evas_object_size_hint_max_set(img, imw, imh);
-
-   elm_scroller_region_show(scr, origrelx - offx, origrely - offy, sw, sh);
-}
-
-static Evas_Event_Flags
-zoom_start(void *data , void *event_info)
-{
-   bmp_info_st *st = data;
-   Elm_Gesture_Zoom_Info *p = (Elm_Gesture_Zoom_Info *) event_info;
-   clouseau_lines_free(st);
-   _update_zoom(st->o, st->scr, p->x, p->y, st->zoom_val, st->w, st->h);
-
-   return EVAS_EVENT_FLAG_ON_HOLD;
-}
-
-static Evas_Event_Flags
-zoom_move(void *data , void *event_info)
-{
-   bmp_info_st *st = data;
-   Elm_Gesture_Zoom_Info *p = (Elm_Gesture_Zoom_Info *) event_info;
-   _update_zoom(st->o, st->scr, p->x, p->y,
-         st->zoom_val * p->zoom, st->w, st->h);
-
-   return EVAS_EVENT_FLAG_ON_HOLD;
-}
-
-static Evas_Event_Flags
-zoom_end(void *data , void *event_info)
-{
-   Elm_Gesture_Zoom_Info *p = (Elm_Gesture_Zoom_Info *) event_info;
-   bmp_info_st *st = data;
-   st->zoom_val *= p->zoom;
-
-   return EVAS_EVENT_FLAG_ON_HOLD;
-}
-/* END   - Callbacks to handle zoom on app window (screenshot) */
-
-static void
-_open_app_window(bmp_info_st *st, Evas_Object *bt, Clouseau_Tree_Item *treeit)
-{
-#define SHOT_HEADER " - Screenshot"
-#define SBAR_PAD_X 4
-#define SBAR_PAD_Y 2
-
-   Evas_Object *tb, *bg, *lb_size, *hbx, *glayer;
-
-   char s_bar[128];
-   char *win_name = malloc(strlen(treeit->name) + strlen(SHOT_HEADER) + 1);
-   st->zoom_val = 1.0; /* Init zoom value */
-   st->bt = bt;
-   st->win = elm_win_add(NULL, "win", ELM_WIN_BASIC);
-   sprintf(win_name, "%s%s", treeit->name, SHOT_HEADER);
-   elm_win_title_set(st->win, win_name);
-   free(win_name);
-
-   bg = elm_bg_add(st->win);
-   elm_win_resize_object_add(st->win, bg);
-   evas_object_size_hint_weight_set(bg, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_show(bg);
-
-   Evas_Object *bx = elm_box_add(st->win);
-   evas_object_size_hint_weight_set(bx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(bx, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_show(bx);
-
-   /* Table to holds bg and scr on top of it */
-   tb = elm_table_add(bx);
-   elm_box_pack_end(bx, tb);
-   evas_object_size_hint_weight_set(tb, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(tb, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_show(tb);
-
-   /* Set background to scr in table cell */
-   bg = elm_bg_add(tb);
-   snprintf(s_bar, sizeof(s_bar), "%s/images/background.png",
-         PACKAGE_DATA_DIR);
-   elm_bg_file_set(bg, s_bar, NULL);
-   elm_bg_option_set(bg, ELM_BG_OPTION_TILE);
-   evas_object_size_hint_weight_set(bg, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(bg, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_show(bg);
-   elm_table_pack(tb, bg, 0, 0, 1, 1);
-
-   /* Then add the scroller in same cell */
-   st->scr = elm_scroller_add(tb);
-   elm_table_pack(tb, st->scr, 0, 0, 1, 1);
-   evas_object_size_hint_weight_set(st->scr,
-         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-
-   evas_object_size_hint_align_set(st->scr, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_show(st->scr);
-
-   st->o = evas_object_image_filled_add(
-         evas_object_evas_get(bx));
-
-   evas_object_size_hint_min_set(st->o, st->w, st->h);
-   elm_object_content_set(st->scr, st->o);
-   elm_object_cursor_set(st->o, ELM_CURSOR_TARGET);
-
-   elm_object_disabled_set(bt, EINA_TRUE);
-   evas_object_image_colorspace_set(st->o, EVAS_COLORSPACE_ARGB8888);
-   evas_object_image_alpha_set(st->o, EINA_FALSE);
-   evas_object_image_size_set(st->o, st->w, st->h);
-   evas_object_image_data_copy_set(st->o, st->bmp);
-   evas_object_image_data_update_add(st->o, 0, 0, st->w, st->h);
-   evas_object_show(st->o);
-   evas_object_smart_callback_add(st->win,
-         "delete,request", _app_win_del, st);
-
-   /* Build status bar */
-   hbx = elm_box_add(bx);
-   elm_box_horizontal_set(hbx, EINA_TRUE);
-   evas_object_show(hbx);
-   elm_box_padding_set(hbx, SBAR_PAD_X, SBAR_PAD_Y);
-   evas_object_size_hint_align_set(hbx, 0.0, EVAS_HINT_FILL);
-   elm_box_pack_end(bx, hbx);
-   lb_size = elm_label_add(hbx);
-   sprintf(s_bar, "%llux%llu", st->w, st->h);
-   elm_object_text_set(lb_size, s_bar);
-   evas_object_show(lb_size);
-   elm_box_pack_end(hbx, lb_size);
-
-   st->lb_mouse = elm_label_add(hbx);
-   elm_object_text_set(st->lb_mouse, s_bar);
-   evas_object_show(st->lb_mouse);
-   elm_box_pack_end(hbx, st->lb_mouse);
-
-   st->lb_rgba = elm_label_add(hbx);
-   elm_object_text_set(st->lb_rgba, s_bar);
-   evas_object_show(st->lb_rgba);
-   elm_box_pack_end(hbx, st->lb_rgba);
-
-   evas_object_event_callback_add(st->o, EVAS_CALLBACK_MOUSE_MOVE,
-         _mouse_move, st);
-
-   evas_object_event_callback_add(st->o, EVAS_CALLBACK_MOUSE_OUT,
-         _mouse_out, st);
-
-   evas_object_event_callback_add(st->o, EVAS_CALLBACK_MOUSE_DOWN,
-         clouseau_lines_cb, st);
-
-   evas_object_resize(st->scr, st->w, st->h);
-   elm_win_resize_object_add(st->win, bx);
-   evas_object_resize(st->win, st->w, st->h);
-
-   elm_win_autodel_set(st->win, EINA_TRUE);
-   evas_object_show(st->win);
-
-   /* Attach a gesture layer object to support ZOOM gesture */
-   glayer = elm_gesture_layer_add(st->scr);
-   elm_gesture_layer_attach(glayer, st->scr);
-
-   /* Reset zoom and remove lines on double click */
-   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_N_DOUBLE_TAPS,
-         ELM_GESTURE_STATE_END, reset_view, st);
-
-   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
-         ELM_GESTURE_STATE_START, zoom_start, st);
-   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
-         ELM_GESTURE_STATE_MOVE, zoom_move, st);
-   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
-         ELM_GESTURE_STATE_END, zoom_end, st);
-   elm_gesture_layer_cb_set(glayer, ELM_GESTURE_ZOOM,
-         ELM_GESTURE_STATE_ABORT, zoom_end, st);
-}
-
-static void
-_show_app_window(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
-{  /* Open window with currnent bmp, or download it if missing   */
-   app_info_st *st = gui->sel_app->app;
-   Clouseau_Tree_Item *treeit = data;
-
-   /* First search app->view list if already have the window bmp */
-   bmp_info_st *bmp = (bmp_info_st *)
-      eina_list_search_unsorted(st->view, _bmp_object_ptr_cmp,
-            (void *) (uintptr_t) treeit->ptr);
-   if (bmp)
-     return _open_app_window(bmp, obj, data);
-
-   /* Need to issue BMP_REQ */
-   if (eet_svr)
-     {
-        bmp_req_st t = { (unsigned long long) (uintptr_t) NULL,
-             (unsigned long long) (uintptr_t) st->ptr,
-             (unsigned long long) (uintptr_t) treeit->ptr, st->refresh_ctr };
-
-        ecore_con_eet_send(eet_svr, CLOUSEAU_BMP_REQ_STR, &t);
-        elm_object_disabled_set(obj, EINA_TRUE);
-        elm_progressbar_pulse(gui->pb, EINA_TRUE);
-        evas_object_show(gui->pb);
-
-        Bmp_Node *b_node = malloc(sizeof(*b_node));
-        b_node->ctr = st->refresh_ctr;
-        b_node->object = (unsigned long long) (uintptr_t) treeit->ptr;
-        b_node->bt = obj;       /* Button of BMP_REQ */
-        bmp_req = eina_list_append(bmp_req, b_node);
-     }
-   else  /* Disable button if we lost server */
-     _set_button(gui->win, obj,
-           SCREENSHOT_MISSING,
-           "Screenshot not available", EINA_TRUE);
-}
-
-/* START - Callbacks to handle messages from daemon */
-void
-_app_closed_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      EINA_UNUSED const char *protocol_name, void *value)
-{
-   _remove_app(gui, value);
-}
-
-void
-_app_add_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      EINA_UNUSED const char *protocol_name, void *value)
-{
-   _add_app(gui, value);
-}
-
-void
-_tree_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      EINA_UNUSED const char *protocol_name, void *value)
-{  /* Update Tree for app, then update GUI if its displayed */
-   tree_data_st *td = value;
-   app_info_st *selected = gui->sel_app->app;
-
-   /* Update only if tree is from APP on our list */
-   App_Data_St *st = (App_Data_St *)
-      eina_list_search_unsorted(apps, _app_ptr_cmp,
-            (void *) (uintptr_t) td->app);
-
-   if (st)
-     {  /* Free app TREE_DATA then set ptr to new data */
-        _free_app_tree_data(st->td);
-        st->td = value;
-
-        if (selected->ptr == td->app)
-          {  /* Update GUI only if TREE_DATA is from SELECTED app */
-             elm_genlist_clear(gui->gl);
-             _load_gui_with_list(gui, td->tree);
-          }
-     }
-   else
-     {  /* Happens when TREE_DATA of app that already closed has arrived */
-        _free_app_tree_data(value);
-     }
-}
-
-void
-_bmp_data_cb(EINA_UNUSED void *data, EINA_UNUSED Ecore_Con_Reply *reply,
-      const char *protocol_name, EINA_UNUSED const char *section,
-      void *value, size_t length)
-{  /* Remove bmp if exists (according to obj-ptr), then add the new one */
-   bmp_info_st *st = clouseau_data_packet_info_get(protocol_name,
-         value, length);
-
-   st->zoom_val = 1.0; /* Init zoom value */
-
-   App_Data_St *app = (App_Data_St *)
-      eina_list_search_unsorted(apps, _app_ptr_cmp,
-            (void *) (uintptr_t) st->app);
-
-   /* Check for relevant bmp req in the bmp_req list */
-   Bmp_Node *nd = _get_Bmp_Node(st, app->app);
-
-   if (!st->bmp)
-     {  /* We consider a case out request will be answered with empty bmp
-           this may happen if we have a sub-window of app
-           (like checks in elementary test)
-           if the user closed it just as we send our BMP_REQ
-           this Evas is no longer valid and we get NULL ptr for BMP.
-           This code ignores this case. */
-        elm_progressbar_pulse(gui->pb, EINA_FALSE);
-        evas_object_hide(gui->pb);
-        free(st);
-
-        /* Make refresh button display: screenshot NOT available */
-        if (nd)
-          _set_button(gui->win, nd->bt,
-                SCREENSHOT_MISSING,
-                "Screenshot not available", EINA_TRUE);
-        return;
-     }
-
-   if (app && nd)
-     {  /* Remove app bmp data if exists, then update */
-        elm_progressbar_pulse(gui->pb, EINA_FALSE);
-        evas_object_hide(gui->pb);
-
-        app_info_st *info = app->app;
-        info->view = _remove_bmp(info->view,
-              (void *) (uintptr_t) (st->object));
-        info->view = eina_list_append(info->view, st);
-
-        /* Now we need to update refresh button, make it open-window */
-        _set_button(gui->win, nd->bt,
-              SHOW_SCREENSHOT,
-              "Show App Screenshot", EINA_FALSE);
-
-        bmp_req = eina_list_remove(bmp_req, nd);
-        free(nd);
-     }
-   else
-     {  /* Dispose bmp info if app no longer in the list of apps */
-        /* or the bmp_info is no longer relevant */
-        if (st->bmp)
-          free(st->bmp);
-
-        free(st);
-     }
-}
-
-static Eina_Bool
-_tree_it_is_elm(Clouseau_Tree_Item *treeit)
-{
-   Eina_List *l;
-   Efl_Dbg_Info *eo_root, *eo;
-   Eina_Value_List eo_list;
-   clouseau_tree_item_from_legacy_convert(treeit);
-   eo_root = treeit->new_eo_info;
-
-   eina_value_pget(&(eo_root->value), &eo_list);
-
-   EINA_LIST_FOREACH(eo_list.list, l, eo)
-     {
-        if (!strcmp(eo->name, "Elm_Widget"))
-           return EINA_TRUE;
-     }
-
-   return EINA_FALSE;
-}
-
-static void
-_gl_exp_add_subitems(Evas_Object *gl, Elm_Object_Item *glit, Clouseau_Tree_Item *parent)
-{
-   Clouseau_Tree_Item *treeit;
-   Eina_List *itr;
-
-   EINA_LIST_FOREACH(parent->children, itr, treeit)
-     {
-        /* Skip the item if we don't want to show it. */
-        if ((!_clouseau_cfg->show_hidden && !treeit->is_visible) ||
-              (!_clouseau_cfg->show_clippers && treeit->is_clipper))
-           continue;
-
-        if (_clouseau_cfg->show_elm_only && !_tree_it_is_elm(treeit))
-          {
-             _gl_exp_add_subitems(gl, glit, treeit);
-          }
-        else
-          {
-             Elm_Genlist_Item_Type iflag = (treeit->children) ?
-                ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-             _tree_item_show_last_expanded_item =
-                elm_genlist_item_append(gl, &itc, treeit, glit, iflag,
-                      NULL, NULL);
-          }
-     }
-}
-
-static void
-gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   Elm_Object_Item *glit = event_info;
-   Evas_Object *gl = elm_object_item_widget_get(glit);
-   Clouseau_Tree_Item *parent = elm_object_item_data_get(glit);
-   _gl_exp_add_subitems(gl, glit, parent);
-}
-
-static void
-gl_con(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   Elm_Object_Item *glit = event_info;
-   elm_genlist_item_subitems_clear(glit);
-}
-
-static void
-gl_exp_req(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   Elm_Object_Item *glit = event_info;
+   Elm_Object_Item *glit = event->info;
    elm_genlist_item_expanded_set(glit, EINA_TRUE);
 }
 
 static void
-gl_clk_double(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+_obj_info_contract_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
-   Elm_Object_Item *glit = (Elm_Object_Item *)event_info;
-   if (elm_genlist_item_type_get(glit) == ELM_GENLIST_ITEM_TREE)
-     {
-        if (elm_genlist_item_expanded_get(glit))
-          elm_genlist_item_subitems_clear(glit);
-        else
-          elm_genlist_item_expanded_set(glit, EINA_TRUE);
-     }
-}
-
-static void
-gl_con_req(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   Elm_Object_Item *glit = event_info;
+   Elm_Object_Item *glit = event->info;
    elm_genlist_item_expanded_set(glit, EINA_FALSE);
 }
 
-static Evas_Object *
-item_icon_get(void *data, Evas_Object *parent, const char *part)
-{
-   Clouseau_Tree_Item *treeit = data;
-   char buf[PATH_MAX];
-
-   if (!treeit->is_obj)
-     {  /* Add "Download" button for evas objects */
-        if (!strcmp(part, "elm.swallow.end"))
-          {
-             Evas_Object *bt = elm_button_add(parent);
-             app_info_st *app = NULL;
-             if (gui->sel_app)
-               app = gui->sel_app->app;
-
-             if (app)
-               {  /* match ptr with bmp->object ptr to find view */
-                  bmp_info_st *bmp = (bmp_info_st *)
-                     eina_list_search_unsorted(app->view, _bmp_object_ptr_cmp,
-                           (void *) (uintptr_t) treeit->ptr);
-
-                  if (bmp)
-                    {  /* Set to "show view" if view exists */
-                       _set_button(parent, bt,
-                             SHOW_SCREENSHOT,
-                             "Show App Screenshot", EINA_FALSE);
-                    }
-                  else
-                    {  /* Set to Download or not available if offline */
-                       if (eet_svr)
-                         {
-                            _set_button(parent, bt,
-                                  TAKE_SCREENSHOT,
-                                  "Download Screenshot", EINA_FALSE);
-                         }
-                       else
-                         { /* Make button display: screenshot NOT available */
-                            _set_button(parent, bt,
-                                  SCREENSHOT_MISSING,
-                                  "Screenshot not available", EINA_TRUE);
-                         }
-                    }
-               }
-
-             evas_object_smart_callback_add(bt, "clicked",
-                   _show_app_window, treeit);
-
-             evas_object_show(bt);
-             return bt;
-          }
-
-        return NULL;
-     }
-
-   if (!strcmp(part, "elm.swallow.icon"))
-     {
-        if (treeit->is_clipper && !treeit->is_visible)
-          {
-             Evas_Object *ic;
-             Evas_Object *bx = elm_box_add(parent);
-             evas_object_size_hint_aspect_set(bx, EVAS_ASPECT_CONTROL_VERTICAL,
-                   1, 1);
-
-             ic = elm_icon_add(bx);
-             snprintf(buf, sizeof(buf), "%s/images/clipper.png",
-                   PACKAGE_DATA_DIR);
-             elm_image_file_set(ic, buf, NULL);
-             evas_object_size_hint_aspect_set(ic, EVAS_ASPECT_CONTROL_VERTICAL,
-                   1, 1);
-             evas_object_size_hint_weight_set(ic, EVAS_HINT_EXPAND,
-                   EVAS_HINT_EXPAND);
-             evas_object_size_hint_align_set(ic, EVAS_HINT_FILL,
-                   EVAS_HINT_FILL);
-             elm_box_pack_end(bx, ic);
-
-             ic = elm_icon_add(bx);
-             snprintf(buf, sizeof(buf), "%s/images/hidden.png",
-                   PACKAGE_DATA_DIR);
-             elm_image_file_set(ic, buf, NULL);
-             evas_object_size_hint_aspect_set(ic, EVAS_ASPECT_CONTROL_VERTICAL,
-                   1, 1);
-             evas_object_size_hint_weight_set(ic, EVAS_HINT_EXPAND,
-                   EVAS_HINT_EXPAND);
-             evas_object_size_hint_align_set(ic, EVAS_HINT_FILL,
-                   EVAS_HINT_FILL);
-             elm_box_pack_end(bx, ic);
-
-             return bx;
-
-          }
-        else if (treeit->is_clipper)
-          {
-             Evas_Object *ic;
-             ic = elm_icon_add(parent);
-             snprintf(buf, sizeof(buf), "%s/images/clipper.png",
-                   PACKAGE_DATA_DIR);
-             elm_image_file_set(ic, buf, NULL);
-             evas_object_size_hint_aspect_set(ic, EVAS_ASPECT_CONTROL_VERTICAL,
-                   1, 1);
-             return ic;
-          }
-        else if (!treeit->is_visible)
-          {
-             Evas_Object *ic;
-             ic = elm_icon_add(parent);
-             snprintf(buf, sizeof(buf), "%s/images/hidden.png",
-                   PACKAGE_DATA_DIR);
-             elm_image_file_set(ic, buf, NULL);
-             evas_object_size_hint_aspect_set(ic, EVAS_ASPECT_CONTROL_VERTICAL,
-                   1, 1);
-             return ic;
-          }
-     }
-
-   return NULL;
-}
-
-static char *
-item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
-      const char *part EINA_UNUSED)
-{
-   Clouseau_Tree_Item *treeit = data;
-   char buf[256];
-   snprintf(buf, sizeof(buf), "%s %llx", treeit->name, treeit->ptr);
-   return strdup(buf);
-}
-
 static void
-client_win_del(void *data EINA_UNUSED,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{  /* called when client window is deleted */
-   elm_exit(); /* exit the program's main loop that runs in elm_run() */
-}
-
-static Eina_Bool
-_connect_to_daemon(Gui_Elements *g)
+_obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
-   if (eet_svr)
-     return EINA_TRUE;
-
-   int port = PORT;
-   char *address = LOCALHOST;
-   char *p_colon = NULL;
-   Ecore_Con_Server *server;
-   Ecore_Con_Eet *ece = NULL;
-
-   if (g->address && strlen(g->address))
-     {
-        address = g->address;
-        p_colon = strchr(g->address, ':');
-     }
-
-   if (p_colon)
-     {
-        *p_colon = '\0';
-        if (isdigit(*(p_colon+1)))
-          port = atoi(p_colon+1);
-     }
-
-   server = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
-         address, port, NULL);
-
-   if (p_colon)
-     *p_colon = ':';
-
-   if (!server)
-     {
-        ERR("could not connect to the server: %s\n", g->address);
-        return EINA_FALSE;
-     }
-
-   /* TODO: ecore_con_server_data_size_max_set(server, -1); */
-
-   ece = ecore_con_eet_client_new(server);
-   if (!ece)
-     {
-        ERR("could not connect to the server: %s\n", g->address);
-        return EINA_FALSE;
-     }
-
-   clouseau_register_descs(ece);
-
-   /* Register callbacks for ecore_con_eet */
-   ecore_con_eet_server_connect_callback_add(ece, _client_connected, NULL);
-   ecore_con_eet_server_disconnect_callback_add(ece, _client_disconnected, NULL);
-   ecore_con_eet_data_callback_add(ece, CLOUSEAU_APP_CLOSED_STR,
-         _app_closed_cb, NULL);
-   ecore_con_eet_data_callback_add(ece, CLOUSEAU_APP_ADD_STR,
-         _app_add_cb, NULL);
-   ecore_con_eet_data_callback_add(ece, CLOUSEAU_TREE_DATA_STR,
-         _tree_data_cb, NULL);
-
-   /* At the moment our only raw-data packet is BMP info */
-   ecore_con_eet_raw_data_callback_add(ece, CLOUSEAU_BMP_DATA_STR,
-         _bmp_data_cb, NULL);
-
-   return EINA_TRUE;
-}
-
-static void
-_send_highlight(App_Data_St *app, Clouseau_Tree_Item *tree)
-{
-   if (!do_highlight)
-     return;
-
-   if (!eet_svr)
-     {
-        //do offline highlight
-        Efl_Dbg_Info *evas_object, *pos, *size, *x, *y, *w, *h;
-        Eina_Rectangle r;
-        Evas_Object *rectangle;
-        bmp_info_st *bmp;
-        Evas *e;
-
-        evas_object = clouseau_eo_info_find(tree->new_eo_info , "Evas_Object");
-        size = clouseau_eo_info_find(evas_object, "Size");
-        pos = clouseau_eo_info_find(evas_object, "Position");
-
-#define FIND_AND_GET(c, name) \
-        name = clouseau_eo_info_find(c, ""#name""); \
-        eina_value_get(&name->value, &r.name);
-
-        FIND_AND_GET(pos, x)
-        FIND_AND_GET(pos, y)
-        FIND_AND_GET(size, w)
-        FIND_AND_GET(size, h)
-
-#undef FIND_AND_GET
-
-        bmp = eina_list_search_unsorted(app->app->view,
-                                        _bmp_app_ptr_cmp,
-                                        (void*) (uintptr_t) app->td->app);
-
-        if (!bmp)
-          {
-             printf("Error, failed to find window of open screenshot!\n");
-             return;
-          }
-
-        //win is null as long as the screenshot is not displayed
-        if (!bmp->win) return;
-        e = efl_parent_get(bmp->win);
-        rectangle = evas_object_rectangle_add(e);
-        evas_object_geometry_set(rectangle, r.x, r.y, r.w, r.h);
-        clouseau_data_object_highlight(rectangle);
-     }
-   else
-     {
-        //sent highlight to the listening client
-        highlight_st st = { (unsigned long long) (uintptr_t) app->app->ptr,
-                            tree->ptr };
-
-        ecore_con_eet_send(eet_svr, CLOUSEAU_HIGHLIGHT_STR, &st);
-     }
-}
-
-static void
-_gl_selected(void *data, Evas_Object *pobj EINA_UNUSED, void *event_info)
-{
-   Gui_Elements *g = data;
-   Clouseau_Tree_Item *treeit = elm_object_item_data_get(event_info);
-   const Elm_Object_Item *parent;
-   const Elm_Object_Item *prt = elm_genlist_item_parent_get(event_info);
-
-   if (!prt)
-     {
-        g->gl_it = NULL;
-        return;
-     }
-
-   /* Populate object information, then do highlight */
-   if (g->gl_it != event_info)
-     {
-        elm_genlist_clear(prop_list);
-        clouseau_object_information_list_populate(treeit);
-        g->gl_it = event_info;
-
-          {
-             /* Fetch properties of eo object */
-             Eina_List *expand_list = NULL, *l, *l_prev;
-             Elm_Object_Item *eo_it;
-
-             /* Populate the property list. */
-               {
-                  Efl_Dbg_Info *eo_root, *eo;
-                  Eina_Value_List eo_list;
-                  /* FIXME: Do it before and save it like that. Probably at the
-                   * eet conversion stage. */
-                  clouseau_tree_item_from_legacy_convert(treeit);
-                  eo_root = treeit->new_eo_info;
-
-                  eina_value_pget(&(eo_root->value), &eo_list);
-
-                  EINA_LIST_FOREACH(eo_list.list, l, eo)
-                    {
-                       Elm_Genlist_Item_Type iflag = (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST) ?
-                          ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE;
-                       // We force the item to be a tree for the class layers
-                       eo_it = elm_genlist_item_append(prop_list, &_class_info_itc, eo, NULL,
-                             iflag, _gl_selected, data);
-                       expand_list = eina_list_append(expand_list, eo_it);
-                    }
-               }
-             EINA_LIST_REVERSE_FOREACH_SAFE(expand_list, l, l_prev, eo_it)
-               {
-                  elm_genlist_item_expanded_set(eo_it, EINA_TRUE);
-                  expand_list = eina_list_remove_list(expand_list, l);
-               }
-          }
-     }
-
-   _send_highlight(g->sel_app , treeit);
-}
-
-static void
-_load_list(Gui_Elements *g)
-{
-   elm_progressbar_pulse(g->pb, EINA_FALSE);
-   evas_object_hide(g->pb);
-
-   if (g->sel_app)
-     {
-        elm_genlist_clear(g->gl);
-        elm_genlist_clear(g->prop_list);
-        app_info_st *st = g->sel_app->app;
-        tree_data_st *td = (g->sel_app->td) ? g->sel_app->td : NULL;
-
-        if (td)
-          {  /* Just show currnet tree we got */
-             _load_gui_with_list(g, td->tree);
-          }
-        else
-          {  /* Ask for app info only if was not fetched */
-             if (!eet_svr)
-               {
-                  _update_tree_offline(g, g->sel_app->td);
-                  return;
-               }
-
-             if (eina_list_search_unsorted(apps, _app_ptr_cmp,
-                      (void *) (uintptr_t) st->ptr))
-               {  /* do it only if app selected AND found in apps list */
-                  data_req_st t = { (unsigned long long) (uintptr_t) NULL,
-                       (unsigned long long) (uintptr_t) st->ptr };
-
-                  ecore_con_eet_send(eet_svr, CLOUSEAU_DATA_REQ_STR, &t);
-                  elm_progressbar_pulse(g->pb, EINA_TRUE);
-                  evas_object_show(g->pb);
-               }
-          }
-     }
-}
-
-static void
-_highlight_check_check_changed(EINA_UNUSED void *data, Evas_Object *obj,
-      void *event_info EINA_UNUSED)
-{
-   do_highlight = elm_check_state_get(obj);
-}
-
-static void
-_bt_clicked(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Gui_Elements *g = data;
-
-   /* If there's a currently selected item, try to reopening it. */
-   if (g->gl_it)
-     {
-        Clouseau_Tree_Item *treeit = elm_object_item_data_get(g->gl_it);
-        g->jump_to_ptr = (treeit) ? (uintptr_t) treeit->ptr : 0;
-     }
-
-   /* Close all app-bmp-view windows here and clear mem */
-   if (g->sel_app)
-     {
-        app_info_st *st = g->sel_app->app;
-        _close_app_views(st, EINA_TRUE);
-        st->refresh_ctr++;
-     }
-
-   _free_app_tree_data(g->sel_app->td);
-   g->sel_app->td = NULL;
-   g->gl_it = NULL;
-   _load_list(data);
-}
-
-static void
-_load_file(const char *path)
-{
-   app_info_st *app = calloc(1, sizeof(*app));
-   tree_data_st *td =  calloc(1, sizeof(*td));
-   Eina_Bool s = clouseau_data_eet_info_read(path,
-                 (app_info_st **) &app, (tree_data_st **) &td);
-
-   if (s)
-     {  /* Add the app to list of apps, then set this as selected app */
-        app->file = strdup(path);
-        App_Data_St *st = _add_app(gui, app);
-        st->td = td;  /* This is the same as we got TREE_DATA message */
-        _set_selected_app(st, gui->hover.dd_list, NULL);
-     }
-}
-
-static void
-_bt_load_file(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   if (event_info)
-     _load_file(event_info);
-}
-
-static void
-_dismiss_save_dialog(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{  /* Just close save file save_inwin, do nothing */
-   Gui_Elements *g = data;
-   evas_object_del(g->save_inwin);
-   g->save_inwin = NULL;
-}
-
-static void
-_bt_save_file(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   app_info_st *app = gui->sel_app->app;
-   tree_data_st *ftd = gui->sel_app->td;
-   if (event_info)
-     {
-        /* FIXME: Handle failure. */
-        Eina_List *bmp_ck_list  = elm_box_children_get(data);
-
-        clouseau_data_eet_info_save(event_info, app, ftd, bmp_ck_list);
-        eina_list_free(bmp_ck_list);
-     }
-
-
-   if (event_info)  /* Dismiss save dialog after saving */
-     _dismiss_save_dialog(gui, NULL, NULL);
-}
-
-static void
-_dismiss_inwin(Gui_Elements *g)
-{
-   g->address = (g->en) ? strdup(elm_entry_entry_get(g->en)) : NULL;
-   evas_object_del(g->connect_inwin);
-   g->en = NULL;
-   g->connect_inwin = NULL;
-}
-
-static void
-_save_all(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
-{
-   Evas_Object *ck_bx = data;
-   Evas_Object *ck;
-   Eina_List *l;
-   Eina_List *ck_list = elm_box_children_get(ck_bx);
-   Eina_Bool val = elm_check_state_get(obj);
-
-   EINA_LIST_FOREACH(ck_list, l, ck)
-     {  /* Run through checkoxes, set / unset marks for all */
-        if (!elm_object_disabled_get(ck))
-          elm_check_state_set(ck, val);
-     }
-
-   eina_list_free(ck_list);
-}
-
-static Eina_Bool
-_tree_item_show_item(Elm_Object_Item *git, Eina_List *item_list)
-{
-   if (eina_list_data_get(item_list) == elm_object_item_data_get(git))
-     {
-        item_list = eina_list_next(item_list);
-        if (item_list)
-          {
-             Elm_Object_Item *gitc;
-             _tree_item_show_last_expanded_item = NULL;
-             elm_genlist_item_expanded_set(git, EINA_FALSE);
-             elm_genlist_item_expanded_set(git, EINA_TRUE);
-             gitc = _tree_item_show_last_expanded_item;
-
-             while (gitc && (gitc != git))
-               {
-                  if (_tree_item_show_item(gitc, item_list))
-                     return EINA_TRUE;
-                  gitc = elm_genlist_item_prev_get(gitc);
-               }
-          }
-        else
-          {
-             elm_genlist_item_bring_in(git, ELM_GENLIST_ITEM_SCROLLTO_MIDDLE);
-             elm_genlist_item_selected_set(git, EINA_TRUE);
-             return EINA_TRUE;
-          }
-     }
-
-   return EINA_FALSE;
-}
-
-static void
-_tree_item_show(Evas_Object *tree_genlist, Eina_List *item_list)
-{
-   Elm_Object_Item *git = elm_genlist_first_item_get(tree_genlist);
-   while (git)
-     {
-        if (_tree_item_show_item(git, item_list))
-           break;
-        git = elm_genlist_item_next_get(git);
-     }
-
-}
-
-static Eina_List *
-_tree_item_pointer_find(Clouseau_Tree_Item *treeit, uintptr_t ptr)
-{
-   Eina_List *l;
-
-   /* Mark that we found the item, and start adding. */
-   if (treeit->ptr == ptr)
-      return eina_list_prepend(NULL, NULL);
-
-   EINA_LIST_FOREACH(treeit->children, l, treeit)
-     {
-        Eina_List *found;
-        if ((found = _tree_item_pointer_find(treeit, ptr)))
-          {
-             if (!eina_list_data_get(found))
-               {
-                  eina_list_free(found);
-                  found = NULL;
-               }
-             return eina_list_prepend(found, treeit);
-          }
-     }
-
-   return NULL;
-}
-
-static Eina_List *
-_list_tree_item_pointer_find(Eina_List *tree, uintptr_t ptr)
-{
-   Clouseau_Tree_Item *treeit;
-   Eina_List *l;
-   EINA_LIST_FOREACH(tree, l, treeit)
-     {
-        Eina_List *found;
-        if ((found = _tree_item_pointer_find(treeit, ptr)))
-          {
-             found = eina_list_prepend(found, treeit);
-             return found;
-          }
-     }
-
-   return NULL;
-}
-
-/* Load/unload modules. */
-
-static Eina_List *_client_modules = NULL;
-
-static void
-_modules_load_from_path(const char *path)
-{
-   Eina_Array *modules = NULL;
-
-   modules = eina_module_list_get(modules, path, EINA_TRUE, NULL, NULL);
-   if (modules)
-     {
-        eina_module_list_load(modules);
-
-        _client_modules = eina_list_append(_client_modules, modules);
-     }
-}
-
-#define MODULES_POSTFIX PACKAGE "/modules/client"
-
-static void
-_modules_init(void)
-{
-   char *path;
-
-   path = eina_module_environment_path_get("HOME", "/." MODULES_POSTFIX);
-   _modules_load_from_path(path);
-   free(path);
-
-   path = PACKAGE_LIB_DIR "/" MODULES_POSTFIX;
-   _modules_load_from_path(path);
-}
-
-static void
-_modules_shutdown(void)
-{
-   Eina_Array *module_list;
-
-   EINA_LIST_FREE(_client_modules, module_list)
-      eina_module_list_free(module_list);
-}
-
-static void
-_run_module_btn_clicked(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Eina_Module *module = data;
-   tree_data_st *td = NULL;
- 
-   if (gui && gui->sel_app)
-      td = (gui->sel_app->td) ? gui->sel_app->td : NULL;
-
-   if (td)
-     {
-        void (*module_run)(Eina_List *) = eina_module_symbol_get(module, "clouseau_client_module_run");
-
-        module_run(td->tree);
-     }
-   else
-     {
-        ERR("No selected apps!");
-     }
-}
-
-static Eina_Bool
-_module_name_get_cb(const void *container EINA_UNUSED, void *data, void *fdata)
-{
-   Evas_Object *box = fdata;
-   Eina_Module *module = data;
-   Evas_Object *btn = NULL;
-
-   const char **name = eina_module_symbol_get(module, "clouseau_module_name");
-   if (name)
-     {
-        btn = elm_button_add(box);
-        elm_object_text_set(btn, *name);
-        evas_object_smart_callback_add(btn, "clicked", _run_module_btn_clicked, module);
-        elm_box_pack_end(box, btn);
-        evas_object_show(btn);
-     }
-
-   return EINA_TRUE;
-}
-
-static void
-_popup_close_clicked_cb(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   evas_object_del(data);
-}
-
-static void
-_extensions_btn_clicked(void *data EINA_UNUSED,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
+   Elm_Object_Item *glit = event->info;
+   _Obj_info_node *node = elm_object_item_data_get(glit);
    Eina_List *itr;
-   Eina_Array *module_list;
-   Evas_Object *popup, *box, *btn;
-
-   popup = elm_popup_add(gui->win);
-   elm_object_part_text_set(popup, "title,text", "Run Extensions");
-   evas_object_show(popup);
-
-   box = elm_box_add(popup);
-   elm_object_content_set(popup, box);
-   evas_object_show(box);
-
-   EINA_LIST_FOREACH(_client_modules, itr, module_list)
+   if(node->type == CLOUSEAU_OBJ_CLASS)
      {
-        eina_array_foreach(module_list, _module_name_get_cb, box);
-     }
-
-   btn = elm_button_add(box);
-   elm_object_text_set(btn, "Close");
-   evas_object_smart_callback_add(btn, "clicked", _popup_close_clicked_cb, popup);
-   evas_object_size_hint_align_set(btn, 1.0, 0.5);
-   elm_box_pack_end(box, btn);
-   evas_object_show(btn);
-}
-
-static void
-_settings_btn_clicked(void *data EINA_UNUSED,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   clouseau_settings_dialog_open(gui->win,
-         (Clouseau_Config_Changed_Cb) _load_list, (void *) gui);
-}
-
-static void
-_save_file_dialog(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{  /* START - Popup to save eet file */
-   Gui_Elements *g = data;
-   Evas_Object *scr, *bt_bx, *bx, *ck_bx,
-               *lb, *ck, *bt_cancel, *bt_save;
-   g->save_inwin = elm_win_inwin_add(g->win);
-   evas_object_show(g->save_inwin);
-
-
-   bx = elm_box_add(g->save_inwin);
-   evas_object_size_hint_weight_set(bx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_show(bx);
-
-   lb = elm_label_add(bx);
-   evas_object_size_hint_weight_set(lb, EVAS_HINT_EXPAND, 0.0);
-   evas_object_size_hint_align_set(lb, EVAS_HINT_FILL, 0.0);
-   elm_object_text_set(lb, "Select Screeenshots to save:");
-   elm_box_pack_end(bx, lb);
-   evas_object_show(lb);
-
-   /* Add checkboxes to select screenshots to save */
-   ck_bx = elm_box_add(g->save_inwin);
-
-   Eina_List *l;
-   app_info_st *a = g->sel_app->app;
-   tree_data_st *td = g->sel_app->td;
-   Clouseau_Tree_Item *treeit;
-   char buf[256];
-   EINA_LIST_FOREACH(td->tree, l, treeit)
-     {  /* First search app->view list if already have the window bmp */
-        bmp_info_st *bmp = (bmp_info_st *)
-           eina_list_search_unsorted(a->view, _bmp_object_ptr_cmp,
-                 (void *) (uintptr_t) treeit->ptr);
-
-        ck = elm_check_add(ck_bx);
-        evas_object_size_hint_weight_set(ck, EVAS_HINT_EXPAND, 1.0);
-        evas_object_size_hint_align_set(ck, EVAS_HINT_FILL, 0.0);
-        elm_box_pack_end(ck_bx, ck);
-        elm_object_disabled_set(ck, !(bmp && bmp->bmp));
-        evas_object_data_set(ck, BMP_FIELD, bmp); /* Associate ck with bmp */
-        snprintf(buf, sizeof(buf), "%llx %s", treeit->ptr, treeit->name);
-        elm_object_text_set(ck, buf);
-
-        evas_object_show(ck);
-     }
-
-   evas_object_show(ck_bx);
-   scr = elm_scroller_add(bx);
-   elm_object_content_set(scr, ck_bx);
-   evas_object_size_hint_align_set(scr, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(scr, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_show(scr);
-   elm_box_pack_end(bx, scr);
-
-   /* Add the save all checkbox */
-   ck = elm_check_add(bx);
-   elm_object_text_set(ck, "Save All");
-   evas_object_smart_callback_add(ck, "changed", _save_all, ck_bx);
-   evas_object_show(ck);
-   elm_box_pack_end(bx, ck);
-
-   bt_bx = elm_box_add(bx);
-   elm_box_horizontal_set(bt_bx, EINA_TRUE);
-   elm_box_homogeneous_set(bt_bx, EINA_TRUE);
-   evas_object_size_hint_align_set(bt_bx, 0.5, 1.0);
-   evas_object_size_hint_weight_set(bt_bx, EVAS_HINT_EXPAND, 0.0);
-   evas_object_show(bt_bx);
-   elm_box_pack_end(bx, bt_bx);
-
-   /* Add the cancel button */
-   bt_cancel = elm_button_add(bt_bx);
-   elm_object_text_set(bt_cancel, "Cancel");
-   evas_object_smart_callback_add(bt_cancel, "clicked",
-         _dismiss_save_dialog, g);
-
-   elm_box_pack_end(bt_bx, bt_cancel);
-   evas_object_show(bt_cancel);
-
-   /* Add the Save fileselector button */
-   bt_save = elm_fileselector_button_add(bt_bx);
-   elm_fileselector_is_save_set(bt_save, EINA_TRUE);
-   elm_object_text_set(bt_save, "Save File");
-   elm_fileselector_path_set(bt_save, getenv("HOME"));
-   evas_object_smart_callback_add(bt_save, "file,chosen",
-         _bt_save_file, ck_bx);
-
-   elm_box_pack_end(bt_bx, bt_save);
-   evas_object_show(bt_save);
-
-   elm_win_inwin_content_set(g->save_inwin, bx);
-   /* END   - Popup to save eet file */
-}
-
-static void
-_remove_apps_with_no_tree_data(Gui_Elements *g)
-{  /* We need to remove apps with no tree data when losing commection
-    * with daemon. We may have apps in our list that were added but
-    * tree-data was NOT loaded.
-    * In this case, we want to remove them if connection was lost.    */
-
-   Eina_List *l, *l_next;
-   App_Data_St *st;
-   app_closed_st t;
-   EINA_LIST_FOREACH_SAFE(apps, l, l_next, st)
-     {
-        if (!st->td)
-          {  /* We actually fake APP_CLOSED message, for app NO tree */
-             t.ptr = (unsigned long long) (uintptr_t)
-                (((app_info_st *) st->app)->ptr);
-
-             _remove_app(g, &t);
-          }
-     }
-}
-
-static void
-_show_gui(Gui_Elements *g, Eina_Bool work_offline)
-{
-   if (work_offline)
-     {  /* Replace bt_load with fileselector button */
-        _titlebar_string_set(g, EINA_FALSE);
-        elm_box_unpack(g->hbx, g->bt_load);
-        evas_object_del(g->bt_load);
-
-        /* We need this in case conneciton closed and no tree data */
-        _remove_apps_with_no_tree_data(g);
-
-        g->bt_load = elm_fileselector_button_add(g->hbx);
-        elm_box_pack_start(g->hbx, g->bt_load);
-        elm_object_text_set(g->bt_load, "Load File");
-        elm_fileselector_path_set(g->bt_load, getenv("HOME"));
-        evas_object_smart_callback_add(g->bt_load, "file,chosen",
-              _bt_load_file, g);
-
-        evas_object_show(g->bt_load);
-     }
-   else
-     {
-        elm_object_text_set(g->bt_load, "Reload");
-        evas_object_smart_callback_add(g->bt_load, "clicked", _bt_clicked, g);
-
-        /* Add the Save button to open save dialog */
-        if (g->bt_save)
-          evas_object_del(g->bt_save);
-
-        g->bt_save = elm_button_add(g->hbx);
-        elm_object_text_set(g->bt_save, "Save");
-        evas_object_smart_callback_add(g->bt_save, "clicked",
-              _save_file_dialog, (void *) gui);
-
-        elm_box_pack_end(g->hbx, g->bt_save);
-        evas_object_show(g->bt_save);
-
-        elm_object_disabled_set(g->bt_load, (g->sel_app == NULL));
-        elm_object_disabled_set(g->bt_save, (g->sel_app == NULL));
-        evas_object_show(g->bt_save);
-
-        if (!_connect_to_daemon(g))
+        Eolian_Debug_Class *kl = node->data;
+        Eolian_Debug_Function *func;
+        EINA_LIST_FOREACH(kl->functions, itr, func)
           {
-             ERR("Failed to connect to server.\n");
-             elm_exit(); /* exit the program's main loop,runs in elm_run() */
-          }
-     }
-
-   evas_object_show(g->bx);
-}
-
-static void
-_cancel_bt_clicked(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   _dismiss_inwin(data);
-   elm_exit(); /* exit the program's main loop that runs in elm_run() */
-}
-
-static void
-_ok_bt_clicked(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{  /* Set the IP, PORT, then connect to server */
-   _dismiss_inwin(data);
-   _show_gui(data, EINA_FALSE);
-}
-
-static void
-_ofl_bt_clicked(void *data,
-      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{  /* Disbale entry when working offline */
-   _dismiss_inwin(data);
-   _show_gui(data, EINA_TRUE);
-}
-
-static void
-_jump_to_ptr(Gui_Elements *g, uintptr_t ptr)
-{
-   tree_data_st *td = (g->sel_app->td) ? g->sel_app->td : NULL;
-   Eina_List *found = NULL;
-
-   if (td && (found = _list_tree_item_pointer_find(td->tree, (uintptr_t) ptr)))
-     {
-        _tree_item_show(g->gl, found);
-        eina_list_free(found);
-     }
-}
-
-static void
-_jump_to_entry_activated(void *data,
-      Evas_Object *obj, void *event_info EINA_UNUSED)
-{
-   Gui_Elements *g = data;
-   long long unsigned int ptr = strtoul(elm_object_text_get(obj), NULL, 16);
-
-   _jump_to_ptr(g, ptr);
-}
-
-static Eina_Bool
-_calc_list(Gui_Elements *g)
-{
-   int count = elm_genlist_items_count(g->hover.dd_list);
-
-   if (count == 0)
-     return EINA_FALSE;
-   else
-     {
-        Evas_Object *track;
-        Elm_Object_Item *item;
-        Evas_Coord w, h;
-        Eina_List *realized_items;
-
-        realized_items = elm_genlist_realized_items_get(g->hover.dd_list);
-        if (!realized_items) return EINA_FALSE;
-
-        item = realized_items->data;
-        track = elm_object_item_track(item);
-        evas_object_geometry_get(track, NULL, NULL, &w, &h);
-        elm_object_item_untrack(item);
-
-        eina_list_free(realized_items);
-
-        if (count < 8)
-          {
-             elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_OFF,
-                                     ELM_SCROLLER_POLICY_OFF);
-             evas_object_size_hint_min_set(g->hover.resize_rect, w, h * count);
-          }
-        else
-          {
-             elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_ON,
-                                     ELM_SCROLLER_POLICY_ON);
-             evas_object_size_hint_min_set(g->hover.resize_rect, w, h * 8);
-          }
-     }
-
-   return EINA_TRUE;
-}
-
-static void
-_show_hover(void *d, Evas_Object *o EINA_UNUSED,
-            void *ei EINA_UNUSED)
-{
-   Gui_Elements *g = d;
-
-   if (!_calc_list(g)) return;
-   evas_object_show(g->hover.dd_list);
-   evas_object_show(g->hover.obj);
-   g->hover.is_expand = EINA_TRUE;
-}
-
-static Evas_Object *
-_app_list_min_set(Gui_Elements *g, Evas_Coord w, Evas_Coord h)
-{
-   Evas_Object *table, *rect;
-
-   table = elm_table_add(g->hover.obj);
-
-   rect = evas_object_rectangle_add(evas_object_evas_get(table));
-   evas_object_size_hint_min_set(rect, w, h);
-   evas_object_color_set(rect, 0, 0, 0, 0);
-   evas_object_size_hint_align_set(rect, EVAS_HINT_FILL,
-                                   EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(rect, EVAS_HINT_EXPAND,
-                                    EVAS_HINT_EXPAND);
-   elm_table_pack(table, rect, 0, 0, 1, 1);
-   evas_object_size_hint_align_set(g->hover.dd_list, EVAS_HINT_FILL,
-                                   EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(g->hover.dd_list, EVAS_HINT_EXPAND,
-                                    EVAS_HINT_EXPAND);
-
-   elm_table_pack(table, g->hover.dd_list, 0, 0, 1, 1);
-   evas_object_show(rect);
-
-   g->hover.resize_rect = rect;
-
-   return table;
-}
-
-static void
-_control_buttons_create(Gui_Elements *g, Evas_Object *win)
-{
-   Evas_Object *highlight_check;
-   Evas_Object *jump_to_entry, *frame, *table;
-
-   frame = elm_frame_add(gui->bx);
-   elm_object_style_set(frame, "pad_medium");
-   evas_object_size_hint_weight_set(frame, EVAS_HINT_EXPAND, 0.0);
-   evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_box_pack_end(g->bx, frame);
-   evas_object_show(frame);
-   
-   g->hbx = elm_box_add(g->bx);
-   evas_object_size_hint_align_set(g->hbx, 0.0, 0.5);
-   elm_box_horizontal_set(g->hbx, EINA_TRUE);
-   elm_object_content_set(frame, g->hbx);
-   elm_box_padding_set(g->hbx, 4, 0);
-   evas_object_size_hint_align_set(g->hbx, EVAS_HINT_FILL, 0.0);
-   evas_object_size_hint_weight_set(g->hbx, EVAS_HINT_EXPAND, 0.0);
-   evas_object_show(g->hbx);
-
-   g->bt_load = elm_button_add(g->hbx);
-   evas_object_size_hint_align_set(g->bt_load, 0.0, 0.3);
-   elm_box_pack_end(g->hbx, g->bt_load);
-   evas_object_show(g->bt_load);
-
-   g->hover.btn = elm_button_add(g->hbx);
-   elm_object_style_set(g->hover.btn, "hoversel_vertical/default");
-   elm_object_text_set(g->hover.btn, SELECT_APP_TEXT);
-   evas_object_size_hint_align_set(g->hover.btn, 0.0, 0.3);
-   elm_box_pack_end(g->hbx, g->hover.btn);
-   evas_object_show(g->hover.btn);
-
-   g->hover.obj = elm_hover_add(win);
-   elm_object_style_set(g->hover.obj, "hoversel_vertical/default");
-
-   if (!_app_itc)
-     {
-        _app_itc = elm_genlist_item_class_new();
-        _app_itc->item_style = "default";
-        _app_itc->func.text_get = _app_item_label_get;
-        _app_itc->func.state_get = NULL;
-        _app_itc->func.del = NULL;
-     }
-   g->hover.dd_list = elm_genlist_add(g->hover.obj);
-   elm_scroller_policy_set(g->hover.dd_list, ELM_SCROLLER_POLICY_OFF,
-                           ELM_SCROLLER_POLICY_OFF);
-   elm_object_style_set(g->hover.dd_list, "popup/no_inset_shadow");
-   evas_object_size_hint_align_set(g->hover.dd_list, EVAS_HINT_FILL,
-                                   EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(g->hover.dd_list, EVAS_HINT_EXPAND,
-                                    EVAS_HINT_EXPAND);
-   table = _app_list_min_set(g, 0, 0);
-   elm_object_part_content_set(g->hover.obj, "bottom", table);
-   elm_hover_target_set(g->hover.obj, g->hover.btn);
-   elm_hover_parent_set(g->hover.obj, win);
-
-   evas_object_smart_callback_add(g->hover.btn, "clicked",
-                                  _show_hover, g);
-
-   highlight_check = elm_check_add(g->hbx);
-   elm_object_text_set(highlight_check , "Highlight");
-   elm_check_state_set(highlight_check , do_highlight);
-   elm_box_pack_end(g->hbx, highlight_check);
-   evas_object_show(highlight_check);
-
-   evas_object_smart_callback_add(highlight_check, "changed",
-                                  _highlight_check_check_changed, g);
-
-   jump_to_entry = elm_entry_add(g->hbx);
-   elm_entry_scrollable_set(jump_to_entry, EINA_TRUE);
-   elm_entry_single_line_set(jump_to_entry, EINA_TRUE);
-   elm_object_part_text_set(jump_to_entry, "guide", "Jump To Pointer");
-   evas_object_size_hint_align_set(jump_to_entry,
-                                   EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(jump_to_entry,
-                                    EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   elm_box_pack_end(g->hbx, jump_to_entry);
-   evas_object_show(jump_to_entry);
-
-   evas_object_smart_callback_add(jump_to_entry, "activated",
-                                  _jump_to_entry_activated, g);
-
-   Evas_Object *btn_extensions;
-
-   btn_extensions = elm_button_add(g->hbx);
-   elm_object_text_set(btn_extensions, "Extensions");
-   evas_object_smart_callback_add(btn_extensions, "clicked",
-         _extensions_btn_clicked, NULL);
-   elm_box_pack_end(g->hbx, btn_extensions);
-   evas_object_show(btn_extensions);
-
-   Evas_Object *btn_settings;
-
-   btn_settings = elm_button_add(g->hbx);
-   elm_object_text_set(btn_settings, "Settings");
-   evas_object_smart_callback_add(btn_settings, "clicked",
-         _settings_btn_clicked, NULL);
-   elm_box_pack_end(g->hbx, btn_settings);
-   evas_object_show(btn_settings);
-}
-
-static void
-_main_list_create(Evas_Object *panes)
-{
-   gui->gl = elm_genlist_add(panes);
-   elm_genlist_select_mode_set(gui->gl, ELM_OBJECT_SELECT_MODE_ALWAYS);
-   evas_object_size_hint_align_set(gui->gl,
-                                   EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(gui->gl,
-                                    EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   elm_object_part_content_set(panes, "left", gui->gl);
-   evas_object_show(gui->gl);
-
-   itc.item_style = "default";
-   itc.func.text_get = item_text_get;
-   itc.func.content_get = item_icon_get;
-   itc.func.state_get = NULL;
-   itc.func.del = NULL;
-
-   evas_object_smart_callback_add(gui->gl,
-                                  "expand,request", gl_exp_req, gui->gl);
-   evas_object_smart_callback_add(gui->gl,
-                                  "contract,request", gl_con_req, gui->gl);
-   evas_object_smart_callback_add(gui->gl,
-                                  "expanded", gl_exp, gui->gl);
-   evas_object_smart_callback_add(gui->gl,
-                                  "contracted", gl_con, gui->gl);
-   evas_object_smart_callback_add(gui->gl,
-                                  "selected", _gl_selected, gui);
-   evas_object_smart_callback_add(gui->gl,
-                                  "clicked,double", gl_clk_double, gui->gl);
-}
-
-static void
-_obj_info_compactable_list_to_buffer(Efl_Dbg_Info *root_eo, char* buffer, unsigned int buffer_size)
-{
-   Eina_List *l; // Iterator
-   Eina_Value_List list; // list of the elements in root_eo
-   eina_value_pget(&(root_eo->value), &list);
-   Efl_Dbg_Info *eo; // List element
-   buffer += snprintf(buffer, buffer_size, "%s:", root_eo->name);
-   EINA_LIST_FOREACH(list.list, l, eo)
-     {
-        if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_UINT64)
-          {
-             /* We treat UINT64 as a pointer. */
-             uint64_t ptr = 0;
-             eina_value_get(&(eo->value), &ptr);
-             buffer += snprintf(buffer, buffer_size, "   %s: %llx", eo->name, (unsigned long long) ptr);
-          }
-        else
-          {
-             char *strval = eina_value_to_string(&(eo->value));
-             buffer += snprintf(buffer, buffer_size, "   %s: %s", eo->name, strval);
-             free(strval);
-          }
-     }
-}
-
-static Eina_Bool
-_obj_info_can_list_be_compacted(Efl_Dbg_Info *root_eo)
-{
-   Eina_List *l; // Iterator
-   Eina_Value_List list; // list of the elements in root_eo
-   Efl_Dbg_Info *eo; // List element
-   eina_value_pget(&(root_eo->value), &list);
-   // We check that there is no list into this list. If such list exists,
-   // we can't compact the list.
-   int number = 0;
-   EINA_LIST_FOREACH(list.list, l, eo)
-     {
-        number ++;
-        if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
-           return EINA_FALSE;
-         //this is very unreadable
-        if (number > 10)
-           return EINA_FALSE;
-     }
-   return EINA_TRUE;
-}
-
-static Clouseau_Tree_Item*
-_rec_find(Clouseau_Tree_Item *item, unsigned long long ptr)
-{
-   Eina_List *n;
-   Clouseau_Tree_Item *it;
-
-   if (item->ptr == ptr) return item;
-
-   EINA_LIST_FOREACH(item->children, n, it)
-     {
-        Clouseau_Tree_Item *ret = _rec_find(it, ptr);
-
-        if (ret) return ret;
-     }
-
-   return NULL;
-}
-
-static void
-_send_highlight_ptr(App_Data_St *app, unsigned long long ptr)
-{
-   Clouseau_Tree_Item *item;
-   Eina_List *n;
-
-   if (!ptr) return;
-
-   EINA_LIST_FOREACH(app->td->tree, n, item)
-     {
-        Clouseau_Tree_Item *ret = _rec_find(item, ptr);
-
-        if (ret)
-          {
-             _send_highlight(app, ret);
-             return;
-          }
-
-     }
-
-   printf("Error, ptr %p cannot be found\n", (void*)ptr);
-}
-
-static void
-_obj_info_gl_selected(void *data EINA_UNUSED, Evas_Object *pobj EINA_UNUSED,
-      void *event_info)
-{
-   Efl_Dbg_Info *info = elm_object_item_data_get(event_info);
-
-   /* if the user clicks on a property which is a pointer, try to highlight it*/
-   if (eina_value_type_get(&info->value) == EINA_VALUE_TYPE_STRING)
-     {
-         const char *string;
-
-         eina_value_get(&info->value, &string);
-         elm_cnp_selection_set(pobj, ELM_SEL_TYPE_PRIMARY, ELM_SEL_FORMAT_TEXT, string, strlen(string));
-     }
-   if (eina_value_type_get(&info->value) == EINA_VALUE_TYPE_UINT64)
-     {
-        uint64_t ptr;
-
-        eina_value_get(&info->value, &ptr);
-        _send_highlight_ptr(gui->sel_app, ptr);
-     }
-
-   /* if the user is clicking on a list of pointers its usefull to highlight them */
-   if (eina_value_type_get(&info->value) == EINA_VALUE_TYPE_LIST)
-     {
-        Eina_Value_List list;
-        Eina_List *n;
-        uint64_t ptr;
-        Efl_Dbg_Info *eo;
-
-        eina_value_pget(&info->value, &list);
-
-        EINA_LIST_FOREACH(list.list, n, eo)
-          {
-             if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_UINT64)
-               {
-                  uint64_t ptr;
-
-                  eina_value_get(&eo->value, &ptr);
-                  _send_highlight_ptr(gui->sel_app, ptr);
-               }
-          }
-     }
-   return;
-}
-
-static void
-_obj_info_gl_exp(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
-{
-   Elm_Object_Item *glit = event_info;
-
-     {
-        Eina_List *l;
-        Eina_Value_List eo_list;
-        Efl_Dbg_Info *eo_root, *eo;
-        eo_root = elm_object_item_data_get(glit);
-        eina_value_pget(&(eo_root->value), &eo_list);
-
-        EINA_LIST_FOREACH(eo_list.list, l, eo)
-          {
-             Elm_Genlist_Item_Type iflag = ELM_GENLIST_ITEM_NONE;
-             if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
-               {
-                  if (!_obj_info_can_list_be_compacted(eo))
-                     iflag = ELM_GENLIST_ITEM_TREE;
-               }
-             elm_genlist_item_append(prop_list, &_obj_info_itc, eo, glit,
-                   iflag, _obj_info_gl_selected, NULL);
+             _Obj_info_node *node_itr = calloc(1, sizeof(*node_itr));
+             node_itr->type = CLOUSEAU_OBJ_FUNC;
+             node_itr->data = func;
+
+            Elm_Genlist_Item *glist =  elm_genlist_item_append(
+                   event->object, _obj_info_itc, node_itr, glit,
+                   ELM_GENLIST_ITEM_NONE, NULL, NULL);
+            elm_genlist_item_tooltip_content_cb_set(glist, _obj_info_tootip, node_itr, NULL);
           }
      }
 }
 
 static void
-_obj_info_gl_con(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+_obj_info_contracted_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
-   Elm_Object_Item *glit = event_info;
+   Elm_Object_Item *glit = event->info;
    elm_genlist_item_subitems_clear(glit);
 }
 
 static void
-_obj_info_gl_exp_req(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+_obj_info_item_del(void *data, Evas_Object *obj EINA_UNUSED)
 {
-   Elm_Object_Item *glit = event_info;
+   _Obj_info_node *node = data;
+   free(node);
+}
+
+static void
+_eolian_type_to_string(const Eolian_Type *param_eolian_type, char *c_type)
+{
+   c_type[0] = '\0';
+   if ((eolian_type_type_get(param_eolian_type) == EOLIAN_TYPE_REGULAR)//if its one of the base type or alias
+         && !eolian_type_base_type_get(param_eolian_type))
+     {
+        sprintf(c_type, "%s", eolian_type_name_get(param_eolian_type));
+     }
+   else
+     {
+        const Eolian_Type *base = eolian_type_base_type_get(param_eolian_type);
+        if ((eolian_type_type_get(base) == EOLIAN_TYPE_REGULAR) ||
+              (eolian_type_type_get(base) == EOLIAN_TYPE_CLASS))
+          {
+             sprintf(c_type, "%s *", eolian_type_full_name_get(base));
+          }
+        else if (eolian_type_type_get(base) == EOLIAN_TYPE_VOID)
+          {
+             sprintf(c_type, "void *");
+          }
+#if 0
+        else if (eolian_type_type_get(base) == EOLIAN_TYPE_ENUM)
+          {
+             sprintf(c_type, "%s",  eolian_type_full_name_get(param_eolian_type));
+          }
+        else if (eolian_type_type_get(base) == EOLIAN_TYPE_ALIAS)
+          {
+             sprintf(c_type, "%s", eolian_type_full_name_get(base));
+          }
+#endif
+        else
+          {
+             sprintf(c_type, "%s *", eolian_type_is_const(base) ? "const " : "");
+          }
+     }
+}
+
+static int
+_eolian_value_to_string(Eolian_Debug_Value *value, char *buffer, int max)
+{
+   switch(value->type)
+     {
+      case EOLIAN_DEBUG_STRING: return snprintf(buffer, max, "%s ",
+                                      (char *)value->value.value);
+      case EOLIAN_DEBUG_POINTER: return snprintf(buffer, max, "%p ",
+                                       (void *)value->value.value);
+      case EOLIAN_DEBUG_CHAR: return snprintf(buffer, max, "%c ",
+                                    (char)value->value.value);
+      case EOLIAN_DEBUG_INT: return snprintf(buffer, max, "%d ",
+                                   (int)value->value.value);
+      case EOLIAN_DEBUG_SHORT: return snprintf(buffer, max, "%u ",
+                                     (unsigned int)value->value.value);
+      case EOLIAN_DEBUG_DOUBLE: return snprintf(buffer, max, "%f ",
+                                      (double)value->value.value);
+      case EOLIAN_DEBUG_BOOLEAN: return snprintf(buffer, max, "%s ",
+                                       (value->value.value ? "true" : "false"));
+      case EOLIAN_DEBUG_LONG: return snprintf(buffer, max, "%ld ",
+                                       (long)value->value.value);
+      case EOLIAN_DEBUG_UINT: return snprintf(buffer, max, "%u ",
+                                       (unsigned int)value->value.value);
+      default: return snprintf(buffer, max, "%lX ", value->value.value);
+     }
+}
+
+#define _MAX_LABEL 2000
+static void
+_obj_info_params_to_string(_Obj_info_node *node, char *buffer, Eina_Bool full)
+{
+   Eina_List *itr;
+   int buffer_size = 0;
+   buffer_size += snprintf(buffer + buffer_size,
+         _MAX_LABEL - buffer_size,  "%s:  ",
+         eolian_function_name_get(((Eolian_Debug_Function *)(node->data))->efunc));
+   buffer[0] = toupper(buffer[0]);
+
+   Eolian_Debug_Function *func =  (Eolian_Debug_Function *)(node->data);
+   Eolian_Debug_Parameter *param;
+   EINA_LIST_FOREACH(func->params, itr, param)
+     {
+        if(full)
+          {
+             char c_type[_MAX_LABEL];
+             _eolian_type_to_string(eolian_parameter_type_get(param->etype), c_type);
+             buffer_size += snprintf(buffer + buffer_size,
+                   _MAX_LABEL - buffer_size, "%s ", c_type);
+          }
+        buffer_size += snprintf(buffer + buffer_size,
+              _MAX_LABEL - buffer_size, "%s: ", eolian_parameter_name_get(param->etype));
+        buffer_size += _eolian_value_to_string(&(param->value),
+              buffer + buffer_size,  _MAX_LABEL - buffer_size);
+        if(full)
+           buffer_size += snprintf(buffer + buffer_size,
+                 _MAX_LABEL - buffer_size, "(%lX) ", param->value.value.value);
+
+     }
+   if(func->params == NULL)
+     {
+        if(full)
+          {
+             char c_type[_MAX_LABEL];
+             _eolian_type_to_string(func->ret.etype, c_type);
+             buffer_size += snprintf(buffer + buffer_size,
+                   _MAX_LABEL - buffer_size, "%s ", c_type);
+          }
+        buffer_size += snprintf(buffer + buffer_size,
+              _MAX_LABEL - buffer_size, "%s: ", "");
+        buffer_size += _eolian_value_to_string(&(func->ret.value),
+              buffer + buffer_size,  _MAX_LABEL - buffer_size);
+        if(full)
+           buffer_size += snprintf(buffer + buffer_size,
+                 _MAX_LABEL - buffer_size, "(%lX) ", func->ret.value.value.value);
+     }
+}
+
+static Evas_Object *
+_obj_info_tootip(void *data   EINA_UNUSED,
+              Evas_Object *obj EINA_UNUSED,
+              Evas_Object *tt,
+              void *item   EINA_UNUSED)
+{
+   Evas_Object *l = elm_label_add(tt);
+   char buffer[_MAX_LABEL];
+   _obj_info_params_to_string(data, buffer, EINA_TRUE);
+   elm_object_text_set(l, buffer);
+   elm_label_line_wrap_set(l, ELM_WRAP_NONE);
+
+   return l;
+}
+
+static char *
+_obj_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+      const char *part EINA_UNUSED)
+{
+   _Obj_info_node *node = data;
+
+   if(node->type == CLOUSEAU_OBJ_CLASS)
+     {
+        return strdup(eolian_class_full_name_get(((Eolian_Debug_Class *)(node->data))->ekl));
+     }
+   else if(node->type == CLOUSEAU_OBJ_FUNC)
+     {
+        char buffer[_MAX_LABEL];
+        _obj_info_params_to_string(node, buffer, EINA_FALSE);
+        return strdup(buffer);
+     }
+   return NULL;
+}
+#undef _MAX_LABEL
+
+static Eina_Bool
+_debug_obj_info_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED,
+      void *buffer, int size)
+{
+   if(_obj_info)
+     {
+        elm_genlist_clear(_main_widgets->object_infos_list);
+        eolian_debug_object_information_free(_obj_info);
+        _obj_info = NULL;
+     }
+   _obj_info = eolian_debug_object_information_decode(buffer, size);
+
+   Eolian_Debug_Class *kl;
+   Eina_List *kl_itr;
+   EINA_LIST_FOREACH(_obj_info->classes, kl_itr, kl)
+     {
+        Elm_Genlist_Item_Type type = ELM_GENLIST_ITEM_TREE;
+        _Obj_info_node *node = NULL;
+        node = calloc(1, sizeof(*node));
+        node->type = CLOUSEAU_OBJ_CLASS;
+        node->data = kl;
+
+        Elm_Object_Item  *glg = elm_genlist_item_append(
+              _main_widgets->object_infos_list, _obj_info_itc,
+              (void *)node, NULL,
+              type,
+              NULL, NULL);
+        elm_genlist_item_expanded_set(glg, EINA_FALSE);
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_objs_expand_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
+{
+   Elm_Object_Item *glit = event->info;
    elm_genlist_item_expanded_set(glit, EINA_TRUE);
 }
 
 static void
-_obj_info_gl_con_req(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+_objs_contract_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
-   Elm_Object_Item *glit = event_info;
+   Elm_Object_Item *glit = event->info;
    elm_genlist_item_expanded_set(glit, EINA_FALSE);
 }
 
-static Evas_Object *
-_obj_info_gl_item_icon_get(void *data EINA_UNUSED, Evas_Object *parent EINA_UNUSED,
-      const char *part EINA_UNUSED)
+static void
+_objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
-   return NULL;
+   Elm_Object_Item *glit = event_info;
+   _Obj_list_node *info_node = elm_object_item_data_get(glit);
+
+   uint64_t ptr = (uint64_t)info_node->info->ptr;
+
+   printf("Sending Eolian get request for Eo object[%lX]\n", info_node->info->ptr);
+   elm_genlist_clear(_main_widgets->object_infos_list);
+   eina_debug_session_send(_session, _selected_app, _obj_info_opcode, &ptr, sizeof(uint64_t));
+   eina_debug_session_send(_session, _selected_app, _obj_highlight_opcode, &ptr, sizeof(uint64_t));
+}
+
+static void
+_objs_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
+{
+   Eina_List *itr;
+   Elm_Object_Item *glit = event->info;
+   _Obj_list_node *info_node = elm_object_item_data_get(glit), *it_data;
+   EINA_LIST_FOREACH(info_node->children, itr, it_data)
+     {
+        Elm_Object_Item *nitem = elm_genlist_item_append(event->object, _objs_itc,
+              it_data, glit,
+              it_data->children ? ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE,
+              _objs_sel_cb, NULL);
+        elm_genlist_item_expanded_set(nitem, EINA_FALSE);
+     }
+}
+
+static void
+_objs_contracted_cb(void *data EINA_UNUSED, const Efl_Event *event)
+{
+   Elm_Object_Item *glit = event->info;
+   elm_genlist_item_subitems_clear(glit);
 }
 
 static char *
-_obj_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
+_objs_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
-   Efl_Dbg_Info *eo = data;
-   char buf[1024] = "";
-   if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_LIST)
-     {
-        if (_obj_info_can_list_be_compacted(eo))
-           _obj_info_compactable_list_to_buffer(eo, buf, sizeof(buf));
-        else
-           snprintf(buf, sizeof(buf), "%s", eo->name);
-     }
-   else if (eina_value_type_get(&(eo->value)) == EINA_VALUE_TYPE_UINT64)
-     {
-        /* We treat UINT64 as a pointer. */
-
-        uint64_t ptr = 0;
-        eina_value_get(&(eo->value), &ptr);
-        snprintf(buf, sizeof(buf), "%s: %llx", eo->name, (unsigned long long) ptr);
-     }
-   else
-     {
-        char *strval = eina_value_to_string(&(eo->value));
-        snprintf(buf, sizeof(buf), "%s: %s", eo->name, strval);
-        free(strval);
-     }
-
+   _Obj_list_node *info_node = data;
+   char buf[128];
+   sprintf(buf, "%s %lX", info_node->info->kl_name, info_node->info->ptr);
    return strdup(buf);
 }
 
-// Classes are not displayed in the same way as infos.
-// Infos lists can be compacted, not class infos.
-static char *
-_class_info_gl_item_text_get(void *data, Evas_Object *obj EINA_UNUSED,
-      const char *part EINA_UNUSED)
+Eina_Bool
+screenshot_req_cb(void *data EINA_UNUSED, Eo *obj, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   Efl_Dbg_Info *eo = data;
-   return strdup(eo->name);
+   _Obj_list_node *info_node = NULL;
+   info_node = efl_key_data_get(obj, "__info_node");
+
+   printf("show screenshot of obj %s %lX\n", info_node->info->kl_name, info_node->info->ptr);
+   return EINA_TRUE;
 }
 
 static Evas_Object *
-_clouseau_object_information_list_add(Evas_Object *parent)
+_objs_item_content_get(void *data, Evas_Object *obj, const char *part)
 {
-   prop_list = elm_genlist_add(parent);
-
-   _class_info_itc.item_style = "default";
-   _class_info_itc.func.text_get = _class_info_gl_item_text_get;
-   _class_info_itc.func.content_get = _obj_info_gl_item_icon_get;
-   _class_info_itc.func.state_get = NULL;
-   _class_info_itc.func.del = NULL;
-
-   _obj_info_itc.item_style = "default";
-   _obj_info_itc.func.text_get = _obj_info_gl_item_text_get;
-   _obj_info_itc.func.content_get = _obj_info_gl_item_icon_get;
-   _obj_info_itc.func.state_get = NULL;
-   _obj_info_itc.func.del = NULL;
-
-   evas_object_smart_callback_add(prop_list, "expand,request", _obj_info_gl_exp_req,
-         prop_list);
-   evas_object_smart_callback_add(prop_list, "contract,request", _obj_info_gl_con_req,
-         prop_list);
-   evas_object_smart_callback_add(prop_list, "expanded", _obj_info_gl_exp, prop_list);
-   evas_object_smart_callback_add(prop_list, "contracted", _obj_info_gl_con, prop_list);
-   evas_object_smart_callback_add(prop_list, "selected", _obj_info_gl_selected, NULL);
-
-   return prop_list;
+   if(!strcmp(part, "elm.swallow.end"))
+   {
+      Gui_Screenshot_Button_Widgets *wdgs = gui_screenshot_button_create(obj);
+      elm_object_tooltip_text_set(wdgs->screenshot_button, "Show App Screenshot");
+      efl_key_data_set(wdgs->screenshot_button, "__info_node", data);
+      return wdgs->screenshot_button;
+   }
+   return NULL;
 }
 
 static void
-_property_list_create(Evas_Object *panes)
+_objs_nodes_free(Eina_List *parents)
 {
-   Evas_Object *o= NULL;
-   gui->prop_list = o = _clouseau_object_information_list_add(panes);
-   evas_object_size_hint_align_set(o, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   evas_object_size_hint_weight_set(o, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  _Obj_list_node *info_node;
 
-   elm_object_part_content_set(panes, "right", o);
-   evas_object_show(o);
-}
-
-static void
-print_help(void)
-{
-   printf("Usage of clouseau_client:\n");
-   printf("   -f <file> will start clouseau_client in offline mode with the specified file loaded.\n");
-   printf("   -a <adress> will start clouseau_client, and connect to the specified adress.\n");
-   printf("   Only one file or one adress is allowed\n");
-   exit(-1);
-}
-static void
-_parse_arguments(int argc, char **argv, char **file)
-{
-   for (int i = 1; i < argc; ++i)
+   EINA_LIST_FREE(parents, info_node)
      {
-        if (!strcmp(argv[i], "-f"))
+        if (info_node->info) free(info_node->info->kl_name);
+        free(info_node->info);
+        _objs_nodes_free(info_node->children);
+        free(info_node);
+     }
+}
+
+static void
+_hoversel_selected_app(void *data,
+      Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   _selected_app = (int)(long)data;
+
+   if(_objs_list_tree)
+     {
+        _objs_nodes_free(_objs_list_tree);
+        _objs_list_tree = NULL;
+        elm_genlist_clear(_main_widgets->objects_list);
+        elm_genlist_clear(_main_widgets->object_infos_list);
+     }
+
+   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eo", 11);
+   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "eolian", 7);
+   eina_debug_session_send(_session, _selected_app, _module_init_opcode, "evas", 5);
+   _pending_add(&_eo_list_opcode, NULL, 0);
+}
+
+static Eina_Bool
+_clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
+{
+   char *buf = buffer;
+   while(size)
+     {
+        int cid, pid, len;
+        EXTRACT(buf, &cid, sizeof(int));
+        EXTRACT(buf, &pid, sizeof(int));
+        if(pid != getpid())
           {
-             if (i+1 >= argc) print_help();
-             *file = argv[i+1];
-             i++;
+             char option[100];
+             snprintf(option, 90, "%s [%d]", buf, pid);
+             elm_hoversel_item_add(_main_widgets->apps_selector,
+                   option, "home", ELM_ICON_STANDARD, _hoversel_selected_app,
+                   (void *)(long)cid);
           }
-        else if (!strcmp(argv[i], "-a"))
+        len = strlen(buf) + 1;
+        buf += len;
+        size -= (2 * sizeof(int) + len);
+     }
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_clients_info_deleted_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
+{
+   char *buf = buffer;
+   if(size >= (int)sizeof(int))
+     {
+        int cid;
+        EXTRACT(buf, &cid, sizeof(int));
+
+        const Eina_List *items = elm_hoversel_items_get(_main_widgets->apps_selector);
+        const Eina_List *l;
+        Elm_Object_Item *hoversel_it;
+
+        EINA_LIST_FOREACH(items, l, hoversel_it)
           {
-             if (i+1 >= argc) print_help();
-             gui->address = strdup(argv[i+1]);
-             i++;
+             if((int)(long)elm_object_item_data_get(hoversel_it) == cid)
+               {
+                  elm_object_item_del(hoversel_it);
+                  break;
+               }
+          }
+     }
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_eo_objects_list_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
+{
+   Eina_List *objs = efl_debug_list_response_decode(buffer, size);
+   Obj_Info *info;
+
+   Eina_Hash *objects_hash = NULL;
+   Eina_List *l = NULL;
+   objects_hash = eina_hash_pointer_new(NULL);
+   _Obj_list_node *info_node;
+
+   /* Add all objects to hash table */
+   EINA_LIST_FOREACH(objs, l, info)
+     {
+        info_node = calloc(1, sizeof(_Obj_list_node));
+        info_node->info = info;
+        info_node->children = NULL;
+        eina_hash_add(objects_hash, &(info_node->info->ptr), info_node);
+     }
+
+   /* Fill children lists */
+   EINA_LIST_FOREACH(objs, l, info)
+     {
+        _Obj_list_node *info_parent =  eina_hash_find(objects_hash, &(info->parent));
+        info_node =  eina_hash_find(objects_hash, &(info->ptr));
+
+        if(info_parent)
+           info_parent->children = eina_list_append(info_parent->children, info_node);
+        else
+           _objs_list_tree = eina_list_append(_objs_list_tree, info_node);
+     }
+
+   /* Add to Genlist */
+   EINA_LIST_FOREACH(_objs_list_tree, l, info_node)
+     {
+        Elm_Object_Item  *glg = elm_genlist_item_append(
+              _main_widgets->objects_list, _objs_itc,
+              (void *)info_node, NULL,
+              info_node->children ? ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE,
+              _objs_sel_cb, NULL);
+        if (info_node->children) elm_genlist_item_expanded_set(glg, EINA_FALSE);
+     }
+
+   /* Free allocated memory */
+   eina_hash_free(objects_hash);
+   eina_list_free(objs);
+
+   return EINA_TRUE;
+}
+
+static void
+_ecore_thread_dispatcher(void *data)
+{
+   eina_debug_dispatch(_session, data);
+}
+
+Eina_Bool
+_disp_cb(Eina_Debug_Session *session EINA_UNUSED, void *buffer)
+{
+   ecore_main_loop_thread_safe_call_async(_ecore_thread_dispatcher, buffer);
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_module_initted(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNUSED, void *buffer, int size)
+{
+   if (size > 0)
+     {
+        if (!strcmp(buffer, "eo")) _consume(_eo_list_opcode);
+     }
+   return EINA_TRUE;
+}
+
+static void
+_post_register_handle(Eina_Bool flag)
+{
+   if(!flag) return;
+   eina_debug_session_dispatch_override(_session, _disp_cb);
+   eina_debug_session_send(_session, 0, _cl_stat_reg_opcode, NULL, 0);
+}
+
+static Eina_Bool
+_mkdir(const char *dir)
+{
+   if (!ecore_file_exists(dir))
+     {
+        Eina_Bool success = ecore_file_mkdir(dir);
+        if (!success)
+          {
+             printf("Cannot create a config folder \"%s\"\n", dir);
+             return EINA_FALSE;
+          }
+     }
+   return EINA_TRUE;
+}
+
+static void
+_profile_eet_load()
+{
+   if (_profile_edd) return;
+   Eet_Data_Descriptor_Class eddc;
+
+   EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Clouseau_Profile);
+   _profile_edd = eet_data_descriptor_stream_new(&eddc);
+
+#define CFG_ADD_BASIC(member, eet_type)\
+   EET_DATA_DESCRIPTOR_ADD_BASIC\
+   (_profile_edd, Clouseau_Profile, # member, member, eet_type)
+
+   CFG_ADD_BASIC(name, EET_T_STRING);
+   CFG_ADD_BASIC(command, EET_T_STRING);
+   CFG_ADD_BASIC(script, EET_T_STRING);
+   CFG_ADD_BASIC(type, EET_T_INT);
+
+#undef CFG_ADD_BASIC
+}
+
+static void
+_config_load()
+{
+   char path[1024], *filename;
+   sprintf(path, "%s/clouseau", efreet_config_home_get());
+   if (!_mkdir(path)) return;
+   sprintf(path, "%s/clouseau/profiles", efreet_config_home_get());
+   if (!_mkdir(path)) return;
+   Eina_List *files = ecore_file_ls(path), *itr;
+   if (files) _profile_eet_load();
+   EINA_LIST_FOREACH(files, itr, filename)
+     {
+        sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), filename);
+        Eet_File *file = eet_open(path, EET_FILE_MODE_READ);
+        Clouseau_Profile *p = eet_data_read(file, _profile_edd, _PROFILE_EET_ENTRY);
+        p->file_name = eina_stringshare_add(filename);
+        eet_close(file);
+        _profiles = eina_list_append(_profiles, p);
+     }
+}
+
+static Clouseau_Profile *
+_profile_find(const char *name)
+{
+   Eina_List *itr;
+   Clouseau_Profile *p;
+   EINA_LIST_FOREACH(_profiles, itr, p)
+      if (p->name == name || !strcmp(p->name, name)) return p;
+   return NULL;
+}
+
+static void
+_profile_save(const Clouseau_Profile *p)
+{
+   char path[1024];
+   if (!p) return;
+   sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), p->file_name);
+   Eet_File *file = eet_open(path, EET_FILE_MODE_WRITE);
+   _profile_eet_load();
+   eet_data_write(file, _profile_edd, _PROFILE_EET_ENTRY, p, EINA_TRUE);
+   eet_close(file);
+   _profiles = eina_list_append(_profiles, p);
+}
+
+static const Eina_Debug_Opcode ops[] =
+{
+     {"daemon/observer/client/register", &_cl_stat_reg_opcode, NULL},
+     {"daemon/observer/slave_added", NULL, _clients_info_added_cb},
+     {"daemon/observer/slave_deleted", NULL, _clients_info_deleted_cb},
+     {"module/init",            &_module_init_opcode,    &_module_initted},
+     {"eo/objects_list",        &_eo_list_opcode,        &_eo_objects_list_cb},
+     {"eolian/object/info_get", &_obj_info_opcode,       &_debug_obj_info_cb},
+     {"evas/object/highlight",  &_obj_highlight_opcode,  NULL},
+     {NULL, NULL, NULL}
+};
+
+static void
+_profile_sel_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
+{
+   Elm_Object_Item *glit = event_info;
+   _selected_profile = glit ? elm_object_item_data_get(glit) : NULL;
+   elm_object_disabled_set(_profiles_wdgs->profile_ok_button, !_selected_profile);
+   elm_object_disabled_set(_profiles_wdgs->profile_delete_button, !_selected_profile);
+}
+
+static Eina_List *
+_parse_script(const char *script)
+{
+   Eina_List *lines = NULL;
+   while (script && *script)
+     {
+        char *tmp = strchr(script, '\n');
+        Eina_Stringshare *line;
+        if (tmp)
+          {
+             line = eina_stringshare_add_length(script, tmp - script);
+             script = tmp + 1;
           }
         else
           {
-             printf("Cannot undestand argument %s\n", argv[i]);
-             print_help();
+             line = eina_stringshare_add(script);
+             script = NULL;
           }
+        lines = eina_list_append(lines, line);
      }
-
-   if (*file && gui->address)
-     {
-        printf("Only file or adress is allowed\n");
-        exit(-1);
-     }
+   return lines;
 }
 
-int
-main(int argc, char **argv)
-{  /* Create Client Window */
-   const char *log_dom = "clouseau_client";
-   char *file = NULL;
-   _clouseau_client_log_dom = eina_log_domain_register(log_dom, EINA_COLOR_LIGHTBLUE);
-   if (_clouseau_client_log_dom < 0)
+static void
+_profile_load()
+{
+   switch (_selected_profile->type)
      {
-        EINA_LOG_ERR("Could not register log domain: %s", log_dom);
-        return 3;
+      case CLOUSEAU_PROFILE_LOCAL:
+         if (!(_session = eina_debug_local_connect(EINA_TRUE)))
+           {
+              fprintf(stderr, "ERROR: Cannot connect to debug daemon.\n");
+              elm_exit();
+           }
+         break;
+      case CLOUSEAU_PROFILE_SHELL_REMOTE:
+#if 0
+         eina_debug_session_basic_codec_add(_session, EINA_DEBUG_CODEC_SHELL);
+         Eina_List *script_lines = _parse_script(_selected_profile->script);
+         if (!eina_debug_shell_remote_connect(_session, _selected_profile->command, script_lines))
+           {
+              fprintf(stderr, "ERROR: Cannot connect to shell remote debug daemon.\n");
+              elm_exit();
+           }
+#endif
+         break;
+      default:
+           {
+              printf("Profile type %d not supported\n", _selected_profile->type);
+              elm_exit();
+           }
      }
 
-   Evas_Object *win, *panes, *frame;
+   eina_debug_opcodes_register(_session, ops, _post_register_handle);
+}
 
-   /* For inwin popup */
-   Evas_Object *lb, *bxx, *bt_bx, *bt_ok, *bt_cancel;
-   Evas_Object *bt_ofl; /* work_offline button  */
-   void *st;
+static void _profile_type_selected_cb(void *data, Evas_Object *obj, void *event_info)
+{
+   Gui_New_Profile_Win_Widgets *wdgs = NULL;
+   wdgs = efl_key_data_get(obj, "_wdgs");
+   elm_object_text_set(obj, elm_object_item_text_get(event_info));
+   Clouseau_Profile_Type type = (Clouseau_Profile_Type) data;
+   if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
+     {
+        elm_object_disabled_set(wdgs->new_profile_command, EINA_FALSE);
+        elm_object_disabled_set(wdgs->new_profile_script, EINA_FALSE);
+     }
+   else
+     {
+        elm_object_text_set(wdgs->new_profile_command, NULL);
+        elm_object_text_set(wdgs->new_profile_script, NULL);
+        elm_object_disabled_set(wdgs->new_profile_command, EINA_TRUE);
+        elm_object_disabled_set(wdgs->new_profile_script, EINA_TRUE);
+     }
+   efl_key_data_set(wdgs->new_profile_type_selector, "_current_type", data);
+}
 
-   gui = calloc(1, sizeof(Gui_Elements));
+Eina_Bool
+_new_profile_save_cb(void *data, Eo *save_bt, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Gui_New_Profile_Win_Widgets *wdgs = NULL;
+   Clouseau_Profile *p = NULL;
+   wdgs = efl_key_data_get(save_bt, "_wdgs");
+   data = NULL;
+   data = efl_key_data_get(wdgs->new_profile_type_selector, "_current_type");
+   if (!data) return EINA_TRUE; /* No type selected yet -> nothing done */
+   Clouseau_Profile_Type type = (Clouseau_Profile_Type) data;
+   const char *name = elm_object_text_get(wdgs->new_profile_name);
+   const char *cmd = elm_object_text_get(wdgs->new_profile_command);
+   const char *script = elm_entry_markup_to_utf8(elm_object_text_get(wdgs->new_profile_script));
+   if (!name || !*name) return EINA_TRUE;
+   if (type == CLOUSEAU_PROFILE_SHELL_REMOTE)
+     {
+        if (!cmd || !*cmd) return EINA_TRUE;
+     }
+   p = calloc(1, sizeof(*p));
+   p->file_name = eina_stringshare_add(name); /* FIXME: Have to format name to conform to file names convention */
+   p->name = eina_stringshare_add(name);
+   p->type = type;
+   p->command = eina_stringshare_add(cmd);
+   p->script = eina_stringshare_add(script);
+   _profile_save(p);
+   efl_del(wdgs->new_profile_win);
+   p->item = elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
+         NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
+   return EINA_TRUE;
+}
 
-   setenv("ELM_CLOUSEAU", "0", 1);
-   elm_init(argc, argv);
+void
+gui_new_profile_win_create_done(Gui_New_Profile_Win_Widgets *wdgs)
+   {
+      efl_key_data_set(wdgs->new_profile_type_selector, "_wdgs", wdgs);
+      elm_hoversel_hover_parent_set(wdgs->new_profile_type_selector, wdgs->new_profile_win);
+      elm_hoversel_item_add(wdgs->new_profile_type_selector, "Local connection", NULL, ELM_ICON_NONE, _profile_type_selected_cb, (void *)CLOUSEAU_PROFILE_LOCAL);
+      elm_hoversel_item_add(wdgs->new_profile_type_selector, "Shell remote", NULL, ELM_ICON_NONE, _profile_type_selected_cb, (void *)CLOUSEAU_PROFILE_SHELL_REMOTE);
 
-   _parse_arguments(argc, argv, &file);
+      efl_key_data_set(wdgs->new_profile_save_button, "_wdgs", wdgs);
+      efl_key_data_set(wdgs->new_profile_cancel_button, "_wdgs", wdgs);
+}
 
-   clouseau_cfg_init(PACKAGE_NAME);
-   clouseau_cfg_load();
+static char *_profile_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
+      const char *part EINA_UNUSED)
+{
+   Clouseau_Profile *p = data;
+   return strdup(p->name);
+}
 
-   _modules_init();
+Eina_Bool
+_profile_win_close_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   efl_del(_profiles_wdgs->profiles_win);
+   _profiles_wdgs = NULL;
+   _profile_load();
+   return EINA_TRUE;
+}
 
-   gui->win = win = elm_win_util_standard_add("client", CLIENT_NAME);
-   elm_win_autodel_set(win, EINA_TRUE);
-   _titlebar_string_set(gui, EINA_FALSE);
+static void
+_profile_item_del(void *data, Evas_Object *obj EINA_UNUSED)
+{
+   Clouseau_Profile *p = data;
+   p->item = NULL;
+}
 
-   gui->bx = elm_box_add(win);
-   evas_object_size_hint_weight_set(gui->bx,
-         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(gui->bx, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_win_resize_object_add(win, gui->bx);
+Eina_Bool
+_profile_del_cb(void *data EINA_UNUSED, Eo *obj EINA_UNUSED, const Efl_Event *event EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   if (_selected_profile)
+     {
+        char path[1024];
+        sprintf(path, "%s/clouseau/profiles/%s", efreet_config_home_get(), _selected_profile->file_name);
+        remove(path);
+        elm_object_item_del(_selected_profile->item);
+        _profiles = eina_list_remove(_profiles, _selected_profile);
+        eina_stringshare_del(_selected_profile->file_name);
+        eina_stringshare_del(_selected_profile->name);
+        free(_selected_profile);
+        _selected_profile = NULL;
+     }
+   _profile_sel_cb(NULL, NULL, NULL);
+   return EINA_TRUE;
+}
 
-   _control_buttons_create(gui, win);
-
-   frame = elm_frame_add(gui->bx);
-   elm_object_style_set(frame, "pad_medium");
-   evas_object_size_hint_weight_set(frame, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(frame, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_box_pack_end(gui->bx, frame);
-   evas_object_show(frame);
-
-   panes = elm_panes_add(gui->bx);
-   evas_object_size_hint_weight_set(panes, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   evas_object_size_hint_align_set(panes, EVAS_HINT_FILL, EVAS_HINT_FILL);
-   elm_object_content_set(frame, panes);
-   evas_object_show(panes);
-
-   _main_list_create(panes);
-   _property_list_create(panes);
-
-   /* Add progress wheel */
-   gui->pb = elm_progressbar_add(win);
-   elm_object_style_set(gui->pb, "wheel");
-   elm_object_text_set(gui->pb, "Style: wheel");
-   elm_progressbar_pulse_set(gui->pb, EINA_TRUE);
-   elm_progressbar_pulse(gui->pb, EINA_FALSE);
-   evas_object_size_hint_align_set(gui->pb, 0.5, 0.0);
-   evas_object_size_hint_weight_set(gui->pb,
-         EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-   elm_win_resize_object_add(win, gui->pb);
-
-   /* Resize and show main window */
-   evas_object_resize(win, 500, 500);
-   evas_object_show(win);
-
-   evas_object_smart_callback_add(win, "delete,request", client_win_del, NULL);
-
+EAPI_MAIN int
+elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
+{
    eina_init();
-   ecore_init();
-   ecore_con_init();
-   clouseau_data_init();
+   eolian_init();
 
-   if (gui->address)
+   _config_load();
+   if (!_profile_find("Local connection"))
      {
-        _show_gui(gui, EINA_FALSE);
+        Clouseau_Profile *p = calloc(1, sizeof(*p));
+        p->file_name = "local";
+        p->name = eina_stringshare_add("Local connection");
+        p->type = CLOUSEAU_PROFILE_LOCAL;
+        _profile_save(p);
      }
-   else if (file)
+
+   if (!_profiles_itc)
      {
-        _show_gui(gui, EINA_TRUE);
-        _load_file(file);
+        _profiles_itc = elm_genlist_item_class_new();
+        _profiles_itc->item_style = "default";
+        _profiles_itc->func.text_get = _profile_item_label_get;
+        _profiles_itc->func.del = _profile_item_del;
      }
-   else
+
+   eolian_directory_scan(EOLIAN_EO_DIR);
+   elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
+   _main_widgets = gui_gui_get()->main_win;
+
+   //Init objects Genlist
+   if (!_objs_itc)
      {
-        /* START - Popup to get IP, PORT from user */
-        gui->connect_inwin = elm_win_inwin_add(win);
-        evas_object_show(gui->connect_inwin);
+        _objs_itc = elm_genlist_item_class_new();
+        _objs_itc->item_style = "default";
+        _objs_itc->func.text_get = _objs_item_label_get;
+        _objs_itc->func.content_get = _objs_item_content_get;
+        _objs_itc->func.state_get = NULL;
+        _objs_itc->func.del = NULL;
+     }
+   efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL);
+   efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL);
+   efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL);
+   efl_event_callback_add(_main_widgets->objects_list, ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, NULL);
 
-        bxx = elm_box_add(gui->connect_inwin);
-        evas_object_size_hint_weight_set(bxx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-        evas_object_show(bxx);
+   //Init object info Genlist
+   if (!_obj_info_itc)
+     {
+        _obj_info_itc = elm_genlist_item_class_new();
+        _obj_info_itc->item_style = "default";
+        _obj_info_itc->func.text_get = _obj_info_item_label_get;
+        _obj_info_itc->func.content_get = NULL;
+        _obj_info_itc->func.state_get = NULL;
+        _obj_info_itc->func.del = _obj_info_item_del;
+     }
+   efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL);
+   efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL);
+   efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL);
+   efl_event_callback_add(_main_widgets->object_infos_list, ELM_GENLIST_EVENT_CONTRACTED, _obj_info_contracted_cb, NULL);
 
-        lb = elm_label_add(bxx);
-        evas_object_size_hint_weight_set(lb, EVAS_HINT_EXPAND, 0.0);
-        evas_object_size_hint_align_set(lb, EVAS_HINT_FILL, 0.0);
-        elm_object_text_set(lb, "Enter remote address[:port]");
-        elm_box_pack_end(bxx, lb);
-        evas_object_show(lb);
-
-        /* Single line selected entry */
-        gui->en = elm_entry_add(bxx);
-        elm_entry_scrollable_set(gui->en, EINA_TRUE);
-        evas_object_size_hint_weight_set(gui->en,
-              EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-        evas_object_size_hint_align_set(gui->en, EVAS_HINT_FILL, EVAS_HINT_FILL);
-        elm_object_style_set(gui->connect_inwin, "minimal_vertical");
-        elm_scroller_policy_set(gui->en, ELM_SCROLLER_POLICY_OFF,
-              ELM_SCROLLER_POLICY_OFF);
-        elm_object_text_set(gui->en, LOCALHOST);
-        elm_entry_single_line_set(gui->en, EINA_TRUE);
-        elm_entry_select_all(gui->en);
-        evas_object_smart_callback_add(gui->en, "activated", _ok_bt_clicked, (void *)gui);
-        elm_box_pack_end(bxx, gui->en);
-        evas_object_show(gui->en);
-        elm_object_focus_set(gui->en, EINA_TRUE);
-
-        bt_bx = elm_box_add(bxx);
-        elm_box_horizontal_set(bt_bx, EINA_TRUE);
-        elm_box_homogeneous_set(bt_bx, EINA_TRUE);
-        evas_object_size_hint_align_set(bt_bx, 0.5, 0.5);
-        evas_object_size_hint_weight_set(bt_bx, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-        evas_object_show(bt_bx);
-        elm_box_pack_end(bxx, bt_bx);
-
-        /* Add the cancel button */
-        bt_cancel = elm_button_add(bt_bx);
-        elm_object_text_set(bt_cancel, "Cancel");
-        evas_object_smart_callback_add(bt_cancel, "clicked",
-              _cancel_bt_clicked, (void *) gui);
-
-        elm_box_pack_end(bt_bx, bt_cancel);
-        evas_object_show(bt_cancel);
-
-        /* Add the OK button */
-        bt_ok = elm_button_add(bt_bx);
-        elm_object_text_set(bt_ok, "OK");
-        evas_object_smart_callback_add(bt_ok, "clicked",
-              _ok_bt_clicked, (void *) gui);
-
-        elm_box_pack_end(bt_bx, bt_ok);
-        evas_object_show(bt_ok);
-
-        bt_ofl = elm_button_add(bt_bx);
-        elm_object_text_set(bt_ofl, "Work Offline");
-        evas_object_smart_callback_add(bt_ofl, "clicked",
-              _ofl_bt_clicked, (void *) gui);
-
-        elm_box_pack_end(bt_bx, bt_ofl);
-        evas_object_show(bt_ofl);
-
-        elm_win_inwin_content_set(gui->connect_inwin, bxx);
-        /* END   - Popup to get IP, PORT from user */
+   if (1) /* if a profile is not given as parameter, we show the profiles window */
+     {
+        _profiles_wdgs = gui_profiles_win_create(_main_widgets->main_win);
+        elm_win_modal_set(_profiles_wdgs->profiles_win, EINA_TRUE);
+        Eina_List *itr;
+        Clouseau_Profile *p;
+        EINA_LIST_FOREACH(_profiles, itr, p)
+           p->item = elm_genlist_item_append(_profiles_wdgs->profiles_list, _profiles_itc, p,
+                 NULL, ELM_GENLIST_ITEM_NONE, _profile_sel_cb, NULL);
      }
 
    elm_run();
 
-   /* cleanup - free apps data */
-   EINA_LIST_FREE(apps, st)
-      _free_app(st);
-
-   EINA_LIST_FREE(bmp_req, st)
-      free(st);
-
-   clouseau_data_shutdown();
-   if (gui->address)
-     free(gui->address);
-
-   free(gui);
-
-   _modules_shutdown();
-   clouseau_cfg_save();
-   clouseau_cfg_shutdown();
-   elm_shutdown();
-
+   eolian_debug_object_information_free(_obj_info);
+   _objs_nodes_free(_objs_list_tree);
+   eina_debug_session_terminate(_session);
+   eina_shutdown();
+   eolian_shutdown();
    return 0;
 }
+ELM_MAIN()

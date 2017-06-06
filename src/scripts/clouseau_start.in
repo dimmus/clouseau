@@ -1,7 +1,0 @@
-#!/bin/sh
-if [ $# -lt 1 ]
-then
-   echo "Usage: clouseau_start <executable> [executable parameters]"
-else
-   LD_PRELOAD="@libdir@/clouseau/libclouseau_preload.so" "$@"
-fi

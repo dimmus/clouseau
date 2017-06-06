@@ -45,3 +45,4 @@ INSTALL
 src/bin/clouseaud
 src/bin/clouseau_client
 src/scripts/clouseau_start
+build/
