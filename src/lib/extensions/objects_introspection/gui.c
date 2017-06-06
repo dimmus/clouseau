@@ -85,6 +85,7 @@ gui_win_create(Eo *__main_parent)
         elm_toolbar_item_menu_set(settings_it, EINA_TRUE);
 
         Eo *settings_menu = elm_toolbar_item_menu_get(settings_it);
+        pub_widgets->settings_menu = settings_menu;
         Eo *objs_type_it = elm_menu_item_add(settings_menu, NULL, NULL,
               "Objects types display", NULL, NULL);
         while (objs_types_strings[i])

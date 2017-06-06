@@ -7,6 +7,7 @@ typedef struct
 {
    Eo *main;
    Eo *tb;
+   Eo *settings_menu;
    Eo *reload_button;
    Eo *objs_type_radio;
    Eo *highlight_ck;

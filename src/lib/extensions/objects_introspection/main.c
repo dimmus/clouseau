@@ -788,6 +788,7 @@ objs_type_changed(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
    elm_radio_value_set(inst->wdgs->objs_type_radio, type);
    _config->wdgs_show_type = type;
    _config_save(ext);
+   _app_changed(ext);
 }
 
 void
@@ -1029,6 +1030,7 @@ _ui_get(Clouseau_Extension *ext, Eo *parent)
 
    efl_key_data_set(inst->wdgs->main, "__extension", ext);
    efl_key_data_set(inst->wdgs->tb, "__extension", ext);
+   efl_key_data_set(inst->wdgs->settings_menu, "__extension", ext);
 
    elm_radio_value_set(inst->wdgs->objs_type_radio, _config->wdgs_show_type);
    elm_check_state_set(inst->wdgs->highlight_ck, _config->highlight);
