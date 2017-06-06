@@ -88,6 +88,7 @@ struct _Extension_Config
 typedef struct
 {
    Eina_List *extensions_cfgs;
+   const char *last_extension_nickname;
 } Config;
 
 typedef struct
@@ -156,6 +157,8 @@ _config_eet_load()
    _config_edd = eet_data_descriptor_stream_new(&eddc);
 
    EET_DATA_DESCRIPTOR_ADD_LIST(_config_edd, Config, "extensions_cfgs", extensions_cfgs, ext_edd);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(_config_edd, Config, "last_extension_nickname",
+         last_extension_nickname, EET_T_STRING);
 }
 
 static void
@@ -250,16 +253,14 @@ _configs_load()
         eet_close(file);
      }
 
-   snprintf(path, sizeof(path), INSTALL_PREFIX"/lib/libclouseau_objects_introspection.so");
-   if (!_ext_cfg_find_by_path(path))
+   if (!_ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_objects_introspection.so"))
      {
         ext_cfg = calloc(1, sizeof(*ext_cfg));
         ext_cfg->lib_path = eina_stringshare_add(path);
         _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
      }
 
-   snprintf(path, sizeof(path), INSTALL_PREFIX"/lib/libclouseau_evlog.so");
-   if (!_ext_cfg_find_by_path(path))
+   if (!_ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_evlog.so"))
      {
         ext_cfg = calloc(1, sizeof(*ext_cfg));
         ext_cfg->lib_path = eina_stringshare_add(path);
@@ -588,15 +589,20 @@ _extension_delete(Clouseau_Extension *ext)
    free(ext);
 }
 
-static Clouseau_Extension *
-_extension_instantiate(Extension_Config *cfg)
+static void
+_all_extensions_delete()
 {
    Eina_List *itr, *itr2;
    Clouseau_Extension *ext;
+   EINA_LIST_FOREACH_SAFE(_extensions, itr, itr2, ext) _extension_delete(ext);
+}
+
+static Clouseau_Extension *
+_extension_instantiate(Extension_Config *cfg)
+{
+   Clouseau_Extension *ext;
    char path[1024];
    if (!cfg->ready) return NULL;
-
-   EINA_LIST_FOREACH_SAFE(_extensions, itr, itr2, ext) _extension_delete(ext);
 
    ext = calloc(1, sizeof(*ext));
 
@@ -624,6 +630,8 @@ _extension_instantiate(Extension_Config *cfg)
    _session_populate();
    _app_populate();
 
+   _config->last_extension_nickname = cfg->nickname;
+   _config_save();
    return ext;
 }
 
@@ -632,6 +640,7 @@ _extension_view(void *data,
       Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Extension_Config *cfg = data;
+   _all_extensions_delete();
    _extension_instantiate(cfg);
 }
 
@@ -683,6 +692,7 @@ static void
 _extension_file_import(void *data, Evas_Object *obj,
       void *event_info EINA_UNUSED)
 {
+   _all_extensions_delete();
    Extension_Config *cfg = data;
    Clouseau_Extension *ext = _extension_instantiate(cfg);
    char *buffer = NULL;
@@ -716,7 +726,7 @@ _extensions_cfgs_inwin_create(const char *filename)
    efl_gfx_visible_set(box, EINA_TRUE);
 
    Eo *label = efl_add(ELM_LABEL_CLASS, box);
-   elm_object_text_set(label, "Choose an extension to open the file:");
+   elm_object_text_set(label, "Choose an extension to open the file with:");
    evas_object_size_hint_align_set(label, 0, -1);
    evas_object_size_hint_weight_set(label, 1, 1);
    efl_gfx_visible_set(label, EINA_TRUE);
@@ -807,6 +817,7 @@ _file_import(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
      {
         Extension_Snapshot *e_s;
         char name[100];
+        _all_extensions_delete();
         EINA_LIST_FREE(s->ext_snapshots, e_s)
           {
              void *data = malloc(e_s->data_count);
@@ -947,6 +958,18 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
               NULL, NULL, ext_cfg->name, _extension_view, ext_cfg);
         if (!ext_cfg->ready) elm_object_item_disabled_set(it, EINA_TRUE);
      }
+
+   if (!_config->last_extension_nickname)
+     {
+        ext_cfg = _ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_objects_introspection.so");
+        if (ext_cfg) _config->last_extension_nickname = ext_cfg->nickname;
+        _config_save();
+     }
+   else
+     {
+        ext_cfg = _ext_cfg_find_by_nickname(_config->last_extension_nickname);
+     }
+   if (ext_cfg) _extension_instantiate(ext_cfg);
 
    _connection_type_change(conn_type);
 
