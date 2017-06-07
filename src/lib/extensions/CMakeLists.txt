@@ -1,0 +1,2 @@
+add_subdirectory(objects_introspection)
+add_subdirectory(evlog)

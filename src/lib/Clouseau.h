@@ -1,56 +1,61 @@
 #ifndef _CLOUSEAU_H
 #define _CLOUSEAU_H
 
-/* FIXME: This doesn't include anything yet.
- * Still need to expose stuff for clouseaud and clouseau_client. Those will be
- * added once the whole interface will be better defined.
- * These functions will probably need to be renamed/change as well.
- * We'll also remove the private include once things are done. */
+#ifdef EAPI
+# undef EAPI
+#endif
 
-#include <Eo.h>
+#ifdef _WIN32
+# ifdef DEBUG_BUILD
+#  ifdef DLL_EXPORT
+#   define EAPI __declspec(dllexport)
+#  else
+#   define EAPI
+#  endif /* ! DLL_EXPORT */
+# else
+#  define EAPI __declspec(dllimport)
+# endif /* ! DEBUG_BUILD */
+#else
+# ifdef __GNUC__
+#  if __GNUC__ >= 4
+#   define EAPI __attribute__ ((visibility("default")))
+#  else
+#   define EAPI
+#  endif
+# else
+#  define EAPI
+# endif
+#endif /* ! _WIN32 */
+
 #include <Eina.h>
-#include <Evas.h>
 
-typedef struct _Clouseau_Bitmap Clouseau_Bitmap;
-typedef struct _Clouseau_Tree_Item Clouseau_Tree_Item;
+typedef struct _Extension_Config Extension_Config;
+typedef struct _Clouseau_Extension Clouseau_Extension;
 
-/* Legacy type. */
-typedef struct _Clouseau_Object Clouseau_Object;
+typedef Eo *(*Ui_Get_Cb)(Clouseau_Extension *ext, Eo *parent);
+typedef void (*Session_Changed_Cb)(Clouseau_Extension *ext);
+typedef void (*App_Changed_Cb)(Clouseau_Extension *ext);
+typedef void (*Import_Data_Cb)(Clouseau_Extension *ext, void *buffer, int size, int version);
+typedef void *(*Export_Data_Cb)(Clouseau_Extension *ext, int *size, int *version);
 
-struct _Clouseau_Bitmap
+typedef Eo *(*Inwin_Create_Cb)();
+typedef void (*Ui_Freeze_Cb)(Clouseau_Extension *ext, Eina_Bool freeze);
+
+struct _Clouseau_Extension
 {
-   unsigned char  *bmp;
-   int bmp_count; /* is (w * h), for EET_DATA_DESCRIPTOR_ADD_BASIC_VAR_ARRAY */
-   Evas_Coord w;
-   Evas_Coord h;
+   const char *name;                      /* Name filled by the extension */
+   Eina_Debug_Session *session;           /* Current session */
+   int app_id;                            /* Current application */
+   Eina_Stringshare *path_to_config;      /* Path to configuration directory */
+   Eo *ui_object;                         /* Main object of the UI extension */
+   Session_Changed_Cb session_changed_cb; /* Function called when the session changed */
+   App_Changed_Cb app_changed_cb;         /* Function called when the app changed */
+   Import_Data_Cb import_data_cb;         /* Function called when data has to be imported */
+   Export_Data_Cb export_data_cb;         /* Function called when data has to be exported */
+   Inwin_Create_Cb inwin_create_cb;       /* Function to call to create a Inwin */
+   Ui_Freeze_Cb ui_freeze_cb;             /* Function to call to freeze/thaw the UI */
+   void *data;                            /* Data allocated and managed by the extension */
+   Extension_Config *ext_cfg;             /* Extention configuration - used by Clouseau */
 };
-
-/* FIXME: Should name be a stringshare?
- * FIXME: Should strip this structure to be half the size. Most of the stuff are
- * not really needed. */
-struct _Clouseau_Tree_Item
-{
-   Eina_List *children;
-   Eina_List *eo_info;          /* The intermediate type we use for eet. */
-   Efl_Dbg_Info *new_eo_info;
-   const char *name;
-   unsigned long long ptr;      /* Just a ptr, we keep the value but not accessing mem */
-   Clouseau_Object *info;       /* Legacy */
-   Eina_Bool is_obj;
-   Eina_Bool is_clipper;
-   Eina_Bool is_visible;
-};
-
-EAPI Eina_Bool clouseau_app_connect(const char *appname);
-
-EAPI Eina_Bool clouseau_daemon_connect(void);
-EAPI Eina_Bool clouseau_client_connect(void);
-EAPI Eina_Bool clouseau_disconnect(void);
-
-EAPI int clouseau_init(void);
-EAPI int clouseau_shutdown(void);
-
-/* FIXME: Remove. */
-#include "clouseau_private.h"
 
 #endif

@@ -1,0 +1,138 @@
+#define TILED_PATTERN(_WIDTH, _HEIGHT) \
+   fill { size { relative: 0.0 0.0; offset: _WIDTH _HEIGHT; } }
+
+collections {
+   images.image: "box_glow.png" COMP;
+   images.image: "box_outline.png" COMP;
+
+   group { name: "range";
+      parts {
+         part { name: "bg"; type: RECT;
+            description { state: "default" 0.0;
+               rel1.offset: 1 1;
+               rel2.offset: -2 -2;
+               color_class: "range";
+            }
+         }
+         part { name: "text"; type: TEXT;
+            scale: 1;
+            description { state: "default" 0.0;
+               rel1.to: "bg";
+               rel2.to: "bg";
+               color: 255 255 255 255;
+               text { font: "Sans"; size: 10;
+                  min: 0 1;
+                  align: 0.0 1.0;
+               }
+            }
+         }
+      }
+   }
+
+   group { name: "cpufreq";
+      parts {
+         part { name: "bg"; type: RECT;
+            description { state: "default" 0.0;
+//               rel1.offset: 1 1;
+//               rel2.offset: -2 -2;
+               color_class: "range";
+            }
+         }
+      }
+   }
+
+   group { name: "cpuused";
+      parts {
+         part { name: "bg"; type: RECT;
+            description { state: "default" 0.0;
+//               rel1.offset: 1 1;
+//               rel2.offset: -2 -2;
+               color_class: "range";
+            }
+         }
+      }
+   }
+
+   images.image: "diagonal_stripes.png" COMP;
+
+   group { name: "state";
+      parts {
+         part { name: "bg";
+            description { state: "default" 0.0;
+               rel1.offset: 1 1;
+               rel2.offset: -2 -2;
+               color_class: "state";
+               TILED_PATTERN(240, 240)
+               image.normal: "diagonal_stripes.png";
+            }
+         }
+         part { name: "text"; type: TEXT;
+            scale: 1;
+            description { state: "default" 0.0;
+               rel1.to: "bg";
+               rel2.to: "bg";
+               color: 255 255 255 255;
+               text { font: "Sans"; size: 10;
+                  min: 0 1;
+                  align: 0.0 1.0;
+               }
+            }
+         }
+      }
+   }
+
+   images.image: "handle_pick_up_right.png" COMP;
+
+   group { name: "frame";
+      parts {
+         part { name: "base"; type: RECT;
+            description { state: "default" 0.0;
+               color: 51 153 255 128;
+               min: 1 1;
+            }
+         }
+         part { name: "bg";
+            description { state: "default" 0.0;
+               image.normal: "handle_pick_up_right.png";
+               rel1.offset: -12 -11;
+               rel1.relative: 0.0 1.0;
+               rel2.offset: -12 -11;
+               rel2.relative: 0.0 1.0;
+               align: 0.0 0.0;
+               min: 42 54;
+               max: 42 54;
+            }
+         }
+      }
+   }
+
+   group { name: "event";
+      parts {
+         part { name: "base"; type: RECT; mouse_events: 0;
+            description { state: "default" 0.0;
+               color_class: "event";
+               min: 1 1;
+            }
+         }
+         part { name: "over"; type: RECT;
+            description { state: "default" 0.0;
+               color: 0 0 0 0;
+               min: 5 1;
+            }
+         }
+         part { name: "text"; type: TEXT;
+            scale: 1;
+            description { state: "default" 0.0;
+               rel1.relative: 0.0 1.0;
+               rel2.relative: 1.0 1.0;
+               align: 0.5 0.0;
+               color_class: "event";
+               text { font: "Sans"; size: 10;
+                  min: 1 1;
+                  align: 0.5 0.0;
+               }
+            }
+         }
+      }
+   }
+}
