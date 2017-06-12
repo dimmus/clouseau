@@ -79,8 +79,10 @@ gui_main_win_create(Eo *__main_parent)
 
    pub_widgets->ext_selector_menu = elm_toolbar_item_menu_get(ext_selector);
 
+   /*
    Eo *settings_it = elm_toolbar_item_append(tb, "system-run", "Settings", NULL, NULL);
    elm_toolbar_item_menu_set(settings_it, EINA_TRUE);
+   */
 
    elm_box_pack_end(main_box, tb);
    efl_gfx_visible_set(tb, EINA_TRUE);
