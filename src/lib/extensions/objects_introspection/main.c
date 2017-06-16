@@ -441,11 +441,11 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
    buffer_size += snprintf(buffer + buffer_size,
          _MAX_LABEL - buffer_size,  "%s:  ",
          eolian_function_name_get(func->efunc));
-   buffer[0] = toupper(buffer[0]);
 
    Eolian_Debug_Parameter *param;
    EINA_LIST_FOREACH(func->params, itr, param)
      {
+        Eina_Stringshare *pname = eolian_parameter_name_get(param->eparam);
         if(full)
           {
              char c_type[_MAX_LABEL];
@@ -453,8 +453,11 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
              buffer_size += snprintf(buffer + buffer_size,
                    _MAX_LABEL - buffer_size, "%s ", c_type);
           }
-        buffer_size += snprintf(buffer + buffer_size,
-              _MAX_LABEL - buffer_size, "%s: ", eolian_parameter_name_get(param->eparam));
+        if (pname && eina_list_count(func->params) != 1)
+          {
+             buffer_size += snprintf(buffer + buffer_size,
+                   _MAX_LABEL - buffer_size, "%s: ", pname);
+          }
         buffer_size += _eolian_value_to_string(&(param->value),
               buffer + buffer_size,  _MAX_LABEL - buffer_size);
         if(full)
@@ -471,8 +474,6 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
              buffer_size += snprintf(buffer + buffer_size,
                    _MAX_LABEL - buffer_size, "%s ", c_type);
           }
-        buffer_size += snprintf(buffer + buffer_size,
-              _MAX_LABEL - buffer_size, "%s: ", "");
         buffer_size += _eolian_value_to_string(&(func->ret.value),
               buffer + buffer_size,  _MAX_LABEL - buffer_size);
         if(full)
