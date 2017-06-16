@@ -281,7 +281,7 @@ _extension_configs_validate()
      }
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, ext_cfg)
      {
-        if (ext_cfg->menu_item) continue;
+        if (ext_cfg->menu_item || !ext_cfg->name) continue;
         ext_cfg->menu_item = elm_menu_item_add(_main_widgets->ext_selector_menu,
               NULL, NULL, ext_cfg->name, _extension_view, ext_cfg);
         efl_wref_add(ext_cfg->menu_item, &ext_cfg->menu_item);
