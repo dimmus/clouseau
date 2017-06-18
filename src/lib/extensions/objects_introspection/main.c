@@ -428,6 +428,20 @@ _eolian_value_to_string(Eolian_Debug_Value *value, char *buffer, int max)
                                        (long)value->value.value);
       case EOLIAN_DEBUG_UINT: return snprintf(buffer, max, "%u ",
                                        (unsigned int)value->value.value);
+      case EOLIAN_DEBUG_LIST:
+                              {
+                                 Eina_List *l = value->complex_type_values, *itr;
+                                 int len = 0;
+                                 len += snprintf(buffer+len, max-len, "%lX [", value->value.value);
+                                 EINA_LIST_FOREACH(l, itr, value)
+                                   {
+                                      len += snprintf(buffer+len, max-len, "%s%lX",
+                                            l != itr ? ", " : "",
+                                            value->value.value);
+                                   }
+                                 len += snprintf(buffer+len, max-len, "]");
+                                 return len;
+                              }
       default: return snprintf(buffer, max, "%lX ", value->value.value);
      }
 }

@@ -1,5 +1,5 @@
 #ifndef _CLOUSEAU_DEBUG_H
-#define _CLOUSEAUEO_DEBUG_H
+#define _CLOUSEAU_DEBUG_H
 
 #ifdef EAPI
 # undef EAPI
@@ -48,6 +48,7 @@ typedef enum
    EOLIAN_DEBUG_BOOLEAN,
    EOLIAN_DEBUG_LONG,
    EOLIAN_DEBUG_UINT,
+   EOLIAN_DEBUG_LIST,
    EOLIAN_DEBUG_VOID
 } Eolian_Debug_Basic_Type;
 
@@ -58,6 +59,7 @@ typedef struct
      {
         uint64_t value;
      } value;
+   Eina_List *complex_type_values;
 } Eolian_Debug_Value;
 
 typedef struct
