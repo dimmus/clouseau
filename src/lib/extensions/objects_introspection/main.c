@@ -370,11 +370,13 @@ _obj_info_contracted_cb(void *data EINA_UNUSED, const Efl_Event *event)
 static void
 _eolian_type_to_string(const Eolian_Type *param_eolian_type, char *c_type)
 {
+   Eolian_Type_Type type = eolian_type_type_get(param_eolian_type);
    c_type[0] = '\0';
-   if ((eolian_type_type_get(param_eolian_type) == EOLIAN_TYPE_REGULAR)//if its one of the base type or alias
-         && !eolian_type_base_type_get(param_eolian_type))
+   //if its one of the base type or alias
+   if ((type == EOLIAN_TYPE_REGULAR || type == EOLIAN_TYPE_CLASS) &&
+         !eolian_type_base_type_get(param_eolian_type))
      {
-        sprintf(c_type, "%s", eolian_type_name_get(param_eolian_type));
+        sprintf(c_type, "%s", eolian_type_full_name_get(param_eolian_type));
      }
    else
      {
@@ -460,7 +462,7 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
    EINA_LIST_FOREACH(func->params, itr, param)
      {
         Eina_Stringshare *pname = eolian_parameter_name_get(param->eparam);
-        if(full)
+        if (full)
           {
              char c_type[_MAX_LABEL];
              _eolian_type_to_string(eolian_parameter_type_get(param->eparam), c_type);
@@ -474,12 +476,9 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
           }
         buffer_size += _eolian_value_to_string(&(param->value),
               buffer + buffer_size,  _MAX_LABEL - buffer_size);
-        if(full)
-           buffer_size += snprintf(buffer + buffer_size,
-                 _MAX_LABEL - buffer_size, "(%lX) ", param->value.value.value);
 
      }
-   if(func->params == NULL)
+   if (func->params == NULL)
      {
         if(full)
           {
@@ -490,9 +489,6 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
           }
         buffer_size += _eolian_value_to_string(&(func->ret.value),
               buffer + buffer_size,  _MAX_LABEL - buffer_size);
-        if(full)
-           buffer_size += snprintf(buffer + buffer_size,
-                 _MAX_LABEL - buffer_size, "(%lX) ", func->ret.value.value.value);
      }
 }
 
