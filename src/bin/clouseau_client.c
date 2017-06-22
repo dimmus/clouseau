@@ -79,7 +79,6 @@ struct _Extension_Config
    const char *lib_path;
    Eina_Module *module;
    const char *name;
-   const char *nickname;
    Eo *menu_item;
    Ext_Start_Cb start_fn;
    Ext_Stop_Cb stop_fn;
@@ -89,12 +88,12 @@ struct _Extension_Config
 typedef struct
 {
    Eina_List *extensions_cfgs;
-   const char *last_extension_nickname;
+   const char *last_extension_name;
 } Config;
 
 typedef struct
 {
-   const char *nickname;
+   const char *name;
    void *data;
    unsigned int data_count;
    int version;
@@ -161,8 +160,8 @@ _config_eet_load()
    _config_edd = eet_data_descriptor_stream_new(&eddc);
 
    EET_DATA_DESCRIPTOR_ADD_LIST(_config_edd, Config, "extensions_cfgs", extensions_cfgs, ext_edd);
-   EET_DATA_DESCRIPTOR_ADD_BASIC(_config_edd, Config, "last_extension_nickname",
-         last_extension_nickname, EET_T_STRING);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(_config_edd, Config, "last_extension_name",
+         last_extension_name, EET_T_STRING);
 }
 
 static void
@@ -185,7 +184,7 @@ _snapshot_eet_load()
 
    EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Extension_Snapshot);
    ext_edd = eet_data_descriptor_stream_new(&eddc);
-   EET_DATA_DESCRIPTOR_ADD_BASIC(ext_edd, Extension_Snapshot, "nickname", nickname, EET_T_STRING);
+   EET_DATA_DESCRIPTOR_ADD_BASIC(ext_edd, Extension_Snapshot, "name", name, EET_T_STRING);
    EET_DATA_DESCRIPTOR_ADD_BASIC(ext_edd, Extension_Snapshot, "data_count", data_count, EET_T_INT);
    EET_DATA_DESCRIPTOR_ADD_BASIC(ext_edd, Extension_Snapshot, "version", version, EET_T_INT);
 
@@ -223,13 +222,13 @@ _ext_cfg_find_by_path(const char *path)
 }
 
 static Extension_Config *
-_ext_cfg_find_by_nickname(const char *nick)
+_ext_cfg_find_by_name(const char *name)
 {
    Extension_Config *cfg;
    Eina_List *itr;
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, cfg)
      {
-        if (!strcmp(cfg->nickname, nick)) return cfg;
+        if (!strcmp(cfg->name, name)) return cfg;
      }
    return NULL;
 }
@@ -256,13 +255,6 @@ _extension_configs_validate()
              continue;
           }
         ext_cfg->name = name_fn();
-        const char *(*nickname_fn)(void) = eina_module_symbol_get(ext_cfg->module, "extension_nickname_get");
-        if (!nickname_fn)
-          {
-             printf("Can not find extension_nickname_get function for %s\n", ext_cfg->name);
-             continue;
-          }
-        ext_cfg->nickname = nickname_fn();
         Ext_Start_Cb start_fn = eina_module_symbol_get(ext_cfg->module, "extension_start");
         if (!start_fn)
           {
@@ -648,7 +640,7 @@ _extension_instantiate(Extension_Config *cfg)
    _session_populate();
    _app_populate();
 
-   _config->last_extension_nickname = cfg->nickname;
+   _config->last_extension_name = cfg->name;
    _config_save();
    return ext;
 }
@@ -834,7 +826,7 @@ _export_to_file(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
                   void *data = e->export_data_cb(e, &data_count, &version);
                   if (!data) continue;
                   e_s = alloca(sizeof(*e_s));
-                  e_s->nickname = e->ext_cfg->nickname;
+                  e_s->name = e->ext_cfg->name;
                   e_s->data = data;
                   e_s->data_count = data_count;
                   e_s->version = version;
@@ -879,7 +871,7 @@ _file_import(void *_data EINA_UNUSED, Evas_Object *fs EINA_UNUSED, void *ev)
              void *data = malloc(e_s->data_count);
              if (fread(data, 1, e_s->data_count, fp) == e_s->data_count)
                {
-                  Extension_Config *e_cfg = _ext_cfg_find_by_nickname(e_s->nickname);
+                  Extension_Config *e_cfg = _ext_cfg_find_by_name(e_s->name);
                   if (e_cfg)
                     {
                        Clouseau_Extension *e = _extension_instantiate(e_cfg);
@@ -1011,15 +1003,15 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
          NULL, NULL, "Import ...", _fs_extension_import_show, NULL);
    _extension_configs_validate();
 
-   if (!_config->last_extension_nickname)
+   if (!_config->last_extension_name)
      {
         ext_cfg = _ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_objects_introspection.so");
-        if (ext_cfg) _config->last_extension_nickname = ext_cfg->nickname;
+        if (ext_cfg) _config->last_extension_name = ext_cfg->name;
         _config_save();
      }
    else
      {
-        ext_cfg = _ext_cfg_find_by_nickname(_config->last_extension_nickname);
+        ext_cfg = _ext_cfg_find_by_name(_config->last_extension_name);
      }
    if (ext_cfg) _extension_instantiate(ext_cfg);
 

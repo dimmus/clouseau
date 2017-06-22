@@ -1085,12 +1085,6 @@ extension_name_get()
    return "Objects introspection";
 }
 
-EAPI const char *
-extension_nickname_get()
-{
-   return "objs_intro";
-}
-
 EAPI Eina_Bool
 extension_start(Clouseau_Extension *ext, Eo *parent)
 {
