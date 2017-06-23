@@ -216,7 +216,7 @@ _ext_cfg_find_by_path(const char *path)
    Eina_List *itr;
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, cfg)
      {
-        if (!strcmp(cfg->lib_path, path)) return cfg;
+        if (cfg->lib_path && !strcmp(cfg->lib_path, path)) return cfg;
      }
    return NULL;
 }
@@ -228,7 +228,7 @@ _ext_cfg_find_by_name(const char *name)
    Eina_List *itr;
    EINA_LIST_FOREACH(_config->extensions_cfgs, itr, cfg)
      {
-        if (!strcmp(cfg->name, name)) return cfg;
+        if (cfg->name && !strcmp(cfg->name, name)) return cfg;
      }
    return NULL;
 }
