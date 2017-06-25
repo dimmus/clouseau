@@ -447,7 +447,7 @@ _complex_buffer_fill(const Eolian_Unit *unit, char *buf, const Eolian_Type *eo_t
 }
 
 static unsigned int
-_class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *ekl, char *buf)
+_class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *okl, const Eolian_Class *ekl, char *buf)
 {
    unsigned int size = 0;
    Eina_Iterator *funcs = eolian_class_functions_get(ekl, EOLIAN_PROPERTY);
@@ -455,7 +455,7 @@ _class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *ekl, ch
    EINA_ITERATOR_FOREACH(funcs, func)
      {
         if (eolian_function_type_get(func) == EOLIAN_PROP_SET ||
-              !_eolian_function_is_implemented(func, EOLIAN_PROP_GET, unit, ekl)) continue;
+              !_eolian_function_is_implemented(func, EOLIAN_PROP_GET, unit, okl)) continue;
         Eina_Iterator *keys_itr = eolian_property_keys_get(func, EOLIAN_PROP_GET);
         eina_iterator_free(keys_itr);
         /* We dont support functions with key parameters */
@@ -552,10 +552,10 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
 
    const char *class_name = efl_class_name_get(obj);
    const Eolian_Unit *unit = NULL;
-   const Eolian_Class *kl = _class_find_by_name(class_name, &unit);
+   const Eolian_Class *okl = _class_find_by_name(class_name, &unit), *kl;
    char *buf;
    unsigned int size_curr = 0;
-   if (!kl)
+   if (!okl)
      {
         printf("Class %s not found.\n", class_name);
         goto end;
@@ -565,13 +565,13 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
    size_curr = sizeof(uint64_t);
 
    Eina_List *itr, *list2;
-   Eina_List *list = eina_list_append(NULL, kl);
+   Eina_List *list = eina_list_append(NULL, okl);
    EINA_LIST_FOREACH(list, itr, kl)
      {
         const char *inherit_name;
         Eina_Iterator *inherits_itr = eolian_class_inherits_get(kl);
 
-        size_curr += _class_buffer_fill(obj, unit, kl, buf + size_curr);
+        size_curr += _class_buffer_fill(obj, unit, okl, kl, buf + size_curr);
         EINA_ITERATOR_FOREACH(inherits_itr, inherit_name)
           {
              const Eolian_Class *inherit = eolian_class_get_by_name(unit, inherit_name);
