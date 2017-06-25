@@ -797,52 +797,41 @@ _main_loop_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid E
 
 WRAPPER_TO_XFER_MAIN_LOOP(_obj_highlight_cb)
 
-static void
-_main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+typedef struct
 {
+   uint64_t ptr64;
+   Eina_Debug_Session *session;
+   Evas_Object *snapshot;
+   int cid;
+} Screenshot_Async_Info;
+
+static void
+_screenshot_pixels_cb(void *data, Evas *e, void *event_info)
+{
+   unsigned int hdr_size = sizeof(uint64_t) + 5 * sizeof(int);
+   Evas_Event_Render_Post *post = event_info;
+   Screenshot_Async_Info *info = data;
+   Evas_Object *snapshot = info->snapshot;
    struct tm *t = NULL;
    time_t now = time(NULL);
-   uint64_t ptr64 = 0;
-   Ecore_Evas *ee = NULL;
-   Ecore_X_Image *img;
-   Ecore_X_Window_Attributes att;
-   unsigned char *img_src;
    unsigned char *resp = NULL, *tmp;
-   int bpl = 0, rows = 0, bpp = 0;
+   const void *pixels;
    int w, h, val;
-   unsigned int hdr_size = sizeof(uint64_t) + 5 * sizeof(int);
 
-   if (size != sizeof(uint64_t)) return;
-   memcpy(&ptr64, buffer, sizeof(ptr64));
-   Eo *e = (Eo *)SWAP_64(ptr64);
-   if (!efl_isa(e, EVAS_CANVAS_CLASS)) goto end;
-
-   ee = ecore_evas_ecore_evas_get(e);
-   if (!ee) goto end;
-
-   Ecore_X_Window win = (Ecore_X_Window) ecore_evas_window_get(ee);
-
-   if (!win)
-     {
-        printf("Can't grab window.\n");
-        goto end;
-     }
+   // Nothing was updated, so let's not bother sending nothingness
+   if (!post->updated_area) return;
+   pixels = evas_object_image_data_get(snapshot, EINA_FALSE);
+   if (!pixels) return;
+   evas_object_geometry_get(snapshot, NULL, NULL, &w, &h);
 
    t = localtime(&now);
    t->tm_zone = NULL;
 
-   memset(&att, 0, sizeof(Ecore_X_Window_Attributes));
-   ecore_x_window_attributes_get(win, &att);
-   w = att.w;
-   h = att.h;
-   img = ecore_x_image_new(w, h, att.visual, att.depth);
-   ecore_x_image_get(img, win, 0, 0, 0, 0, w, h);
-   img_src = ecore_x_image_data_get(img, &bpl, &rows, &bpp);
    resp = tmp = malloc(hdr_size + (w * h * sizeof(int)));
    t->tm_sec = SWAP_32(t->tm_sec);
    t->tm_min = SWAP_32(t->tm_min);
    t->tm_hour = SWAP_32(t->tm_hour);
-   STORE(tmp, &ptr64, sizeof(ptr64));
+   STORE(tmp, &info->ptr64, sizeof(uint64_t));
    STORE(tmp, &t->tm_sec, sizeof(int));
    STORE(tmp, &t->tm_min, sizeof(int));
    STORE(tmp, &t->tm_hour, sizeof(int));
@@ -850,25 +839,42 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
    STORE(tmp, &val, sizeof(int));
    val = SWAP_32(h);
    STORE(tmp, &val, sizeof(int));
-   if (!ecore_x_image_is_argb32_get(img))
-     {  /* Fill resp buffer with image convert */
-        ecore_x_image_to_argb_convert(img_src, bpp, bpl, att.colormap, att.visual,
-              0, 0, w, h, (unsigned int *)tmp,
-              (w * sizeof(int)), 0, 0);
-     }
-   else
-     {  /* Fill resp buffer by copy */
-        memcpy(tmp, img_src, (w * h * sizeof(int)));
-     }
+   memcpy(tmp, pixels, (w * h * sizeof(int)));
 
-   /* resp now holds window bitmap */
-   ecore_x_image_free(img);
-
-   eina_debug_session_send(session, srcid, _win_screenshot_op, resp,
+   eina_debug_session_send(info->session, info->cid, _win_screenshot_op, resp,
          hdr_size + (w * h * sizeof(int)));
-
-end:
    if (resp) free(resp);
+   evas_object_del(info->snapshot);
+   evas_event_callback_del_full(e, EVAS_CALLBACK_RENDER_POST, _screenshot_pixels_cb, info);
+}
+
+static void
+_main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+{
+   uint64_t ptr64;
+   Screenshot_Async_Info *info;
+   Evas_Object *snapshot;
+   int w, h;
+
+   if (size != sizeof(uint64_t)) return;
+   memcpy(&ptr64, buffer, sizeof(ptr64));
+   Eo *e = (Eo *)SWAP_64(ptr64);
+   if (!efl_isa(e, EVAS_CANVAS_CLASS)) return;
+
+   snapshot = evas_object_image_filled_add(e);
+   if (!snapshot) return;
+   evas_object_image_snapshot_set(snapshot, EINA_TRUE);
+
+   info = calloc(1, sizeof(*info));
+   info->ptr64 = ptr64;
+   info->snapshot = snapshot;
+   info->session = session;
+   info->cid = srcid;
+
+   evas_output_size_get(e, &w, &h);
+   evas_object_geometry_set(snapshot, 0, 0, w, h);
+   efl_gfx_visible_set(snapshot, EINA_TRUE);
+   evas_event_callback_add(e, EVAS_CALLBACK_RENDER_POST, _screenshot_pixels_cb, info);
 }
 
 WRAPPER_TO_XFER_MAIN_LOOP(_win_screenshot_cb)
