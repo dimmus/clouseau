@@ -368,15 +368,14 @@ _obj_info_contracted_cb(void *data EINA_UNUSED, const Efl_Event *event)
 }
 
 static void
-_eolian_type_to_string(const Eolian_Type *param_eolian_type, char *c_type)
+_eolian_type_to_string(const Eolian_Type *param_eolian_type, Eina_Strbuf *buf)
 {
    Eolian_Type_Type type = eolian_type_type_get(param_eolian_type);
-   c_type[0] = '\0';
    //if its one of the base type or alias
    if ((type == EOLIAN_TYPE_REGULAR || type == EOLIAN_TYPE_CLASS) &&
          !eolian_type_base_type_get(param_eolian_type))
      {
-        sprintf(c_type, "%s", eolian_type_full_name_get(param_eolian_type));
+        eina_strbuf_append_printf(buf, "%s", eolian_type_full_name_get(param_eolian_type));
      }
    else
      {
@@ -384,78 +383,100 @@ _eolian_type_to_string(const Eolian_Type *param_eolian_type, char *c_type)
         if ((eolian_type_type_get(base) == EOLIAN_TYPE_REGULAR) ||
               (eolian_type_type_get(base) == EOLIAN_TYPE_CLASS))
           {
-             sprintf(c_type, "%s *", eolian_type_full_name_get(base));
+             eina_strbuf_append_printf(buf, "%s *", eolian_type_full_name_get(base));
           }
         else if (eolian_type_type_get(base) == EOLIAN_TYPE_VOID)
           {
-             sprintf(c_type, "void *");
+             eina_strbuf_append(buf, "void *");
           }
-#if 0
-        else if (eolian_type_type_get(base) == EOLIAN_TYPE_ENUM)
-          {
-             sprintf(c_type, "%s",  eolian_type_full_name_get(param_eolian_type));
-          }
-        else if (eolian_type_type_get(base) == EOLIAN_TYPE_ALIAS)
-          {
-             sprintf(c_type, "%s", eolian_type_full_name_get(base));
-          }
-#endif
         else
           {
-             sprintf(c_type, "%s *", eolian_type_is_const(base) ? "const " : "");
+             eina_strbuf_append_printf(buf, "%s *", eolian_type_is_const(base) ? "const " : "");
           }
      }
 }
 
-static int
-_eolian_value_to_string(Eolian_Debug_Value *value, char *buffer, int max)
+static void
+_eolian_value_to_string(Eolian_Debug_Value *value, Eina_Strbuf *buf)
 {
    switch(value->type)
      {
-      case EOLIAN_DEBUG_STRING: return snprintf(buffer, max, "%s ",
-                                      (char *)value->value.value);
-      case EOLIAN_DEBUG_POINTER: return snprintf(buffer, max, "%p ",
-                                       (void *)value->value.value);
-      case EOLIAN_DEBUG_CHAR: return snprintf(buffer, max, "%c ",
-                                    (char)value->value.value);
-      case EOLIAN_DEBUG_INT: return snprintf(buffer, max, "%d ",
-                                   (int)value->value.value);
-      case EOLIAN_DEBUG_SHORT: return snprintf(buffer, max, "%u ",
-                                     (unsigned int)value->value.value);
-      case EOLIAN_DEBUG_DOUBLE: return snprintf(buffer, max, "%f ",
-                                      (double)value->value.value);
-      case EOLIAN_DEBUG_BOOLEAN: return snprintf(buffer, max, "%s ",
-                                       (value->value.value ? "true" : "false"));
-      case EOLIAN_DEBUG_LONG: return snprintf(buffer, max, "%ld ",
-                                       (long)value->value.value);
-      case EOLIAN_DEBUG_UINT: return snprintf(buffer, max, "%u ",
-                                       (unsigned int)value->value.value);
+      case EOLIAN_DEBUG_STRING:
+           {
+              eina_strbuf_append_printf(buf, "%s ",
+                    (char *)value->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_POINTER:
+           {
+              eina_strbuf_append_printf(buf, "%p ",
+                    (void *)value->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_CHAR:
+           {
+              eina_strbuf_append_printf(buf, "%c ",
+                    (char)value->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_INT:
+           {
+              eina_strbuf_append_printf(buf, "%d ",
+                    (int)value->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_SHORT:
+           {
+              eina_strbuf_append_printf(buf, "%u ",
+                    (unsigned int)value->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_DOUBLE:
+           {
+              eina_strbuf_append_printf(buf, "%f ",
+                    (double)value->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_BOOLEAN:
+           {
+              eina_strbuf_append_printf(buf, "%s ",
+                    (value->value.value ? "true" : "false"));
+              break;
+           }
+      case EOLIAN_DEBUG_LONG:
+           {
+              eina_strbuf_append_printf(buf, "%ld ",
+                    (long)value->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_UINT:
+           {
+              eina_strbuf_append_printf(buf, "%u ",
+                    (unsigned int)value->value.value);
+              break;
+           }
       case EOLIAN_DEBUG_LIST:
-                              {
-                                 Eina_List *l = value->complex_type_values, *itr;
-                                 int len = 0;
-                                 len += snprintf(buffer+len, max-len, "%lX [", value->value.value);
-                                 EINA_LIST_FOREACH(l, itr, value)
-                                   {
-                                      len += snprintf(buffer+len, max-len, "%s%lX",
-                                            l != itr ? ", " : "",
-                                            value->value.value);
-                                   }
-                                 len += snprintf(buffer+len, max-len, "]");
-                                 return len;
-                              }
-      default: return snprintf(buffer, max, "%lX ", value->value.value);
+           {
+              Eina_List *l = value->complex_type_values, *itr;
+              eina_strbuf_append_printf(buf, "%lX [", value->value.value);
+              EINA_LIST_FOREACH(l, itr, value)
+                {
+                   eina_strbuf_append_printf(buf, "%s%lX",
+                         l != itr ? ", " : "",
+                         value->value.value);
+                }
+              eina_strbuf_append(buf, "]");
+              break;
+           }
+      default: eina_strbuf_append_printf(buf, "%lX ", value->value.value);
      }
 }
 
-#define _MAX_LABEL 2000
 static void
-_func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full)
+_func_params_to_string(Eolian_Debug_Function *func, Eina_Strbuf *buffer, Eina_Bool full)
 {
    Eina_List *itr;
-   int buffer_size = 0;
-   buffer_size += snprintf(buffer + buffer_size,
-         _MAX_LABEL - buffer_size,  "%s:  ",
+   eina_strbuf_append_printf(buffer, "%s:  ",
          eolian_function_name_get(func->efunc));
 
    Eolian_Debug_Parameter *param;
@@ -464,31 +485,21 @@ _func_params_to_string(Eolian_Debug_Function *func, char *buffer, Eina_Bool full
         Eina_Stringshare *pname = eolian_parameter_name_get(param->eparam);
         if (full)
           {
-             char c_type[_MAX_LABEL];
-             _eolian_type_to_string(eolian_parameter_type_get(param->eparam), c_type);
-             buffer_size += snprintf(buffer + buffer_size,
-                   _MAX_LABEL - buffer_size, "%s ", c_type);
+             _eolian_type_to_string(eolian_parameter_type_get(param->eparam), buffer);
           }
         if (pname && eina_list_count(func->params) != 1)
           {
-             buffer_size += snprintf(buffer + buffer_size,
-                   _MAX_LABEL - buffer_size, "%s: ", pname);
+             eina_strbuf_append_printf(buffer, "%s: ", pname);
           }
-        buffer_size += _eolian_value_to_string(&(param->value),
-              buffer + buffer_size,  _MAX_LABEL - buffer_size);
-
+        _eolian_value_to_string(&(param->value), buffer);
      }
    if (func->params == NULL)
      {
         if(full)
           {
-             char c_type[_MAX_LABEL];
-             _eolian_type_to_string(func->ret.etype, c_type);
-             buffer_size += snprintf(buffer + buffer_size,
-                   _MAX_LABEL - buffer_size, "%s ", c_type);
+             _eolian_type_to_string(func->ret.etype, buffer);
           }
-        buffer_size += _eolian_value_to_string(&(func->ret.value),
-              buffer + buffer_size,  _MAX_LABEL - buffer_size);
+        _eolian_value_to_string(&(func->ret.value), buffer);
      }
 }
 
@@ -499,12 +510,12 @@ _obj_info_tootip(void *data,
               void *item   EINA_UNUSED)
 {
    Evas_Object *l = elm_label_add(tt);
-   char buffer[_MAX_LABEL];
-   buffer[0] = '\0';
-   _func_params_to_string(data, buffer, EINA_TRUE);
-   elm_object_text_set(l, buffer);
+   Eina_Strbuf *buf = eina_strbuf_new();
+   _func_params_to_string(data, buf, EINA_TRUE);
+   elm_object_text_set(l, eina_strbuf_string_get(buf));
    elm_label_line_wrap_set(l, ELM_WRAP_NONE);
 
+   eina_strbuf_free(buf);
    return l;
 }
 
@@ -520,13 +531,14 @@ static char *
 _obj_func_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
-   char buffer[_MAX_LABEL];
-   buffer[0] = '\0';
+   char *ret;
+   Eina_Strbuf *buf = eina_strbuf_new();
    Eolian_Debug_Function *func = data;
-   _func_params_to_string(func, buffer, EINA_FALSE);
-   return strdup(buffer);
+   _func_params_to_string(func, buf, EINA_FALSE);
+   ret = eina_strbuf_string_steal(buf);
+   eina_strbuf_free(buf);
+   return ret;
 }
-#undef _MAX_LABEL
 
 static void
 _obj_info_realize(Clouseau_Extension *ext, Eolian_Debug_Object_Information *e_info)
