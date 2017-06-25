@@ -193,7 +193,6 @@ gui_show_screenshot_win_create(Eo *__main_parent)
    efl_gfx_size_set(win, 300, 300);
    evas_object_size_hint_weight_set(win, 1.000000, 1.000000);
    elm_win_title_set(win, "Screenshot");
-   elm_win_modal_set(win, EINA_TRUE);
    bg = efl_add(ELM_BG_CLASS, win);
    pub_widgets->bg = bg;
    evas_object_size_hint_weight_set(bg, 1.000000, 1.000000);
