@@ -1124,6 +1124,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
           }
         func->ret.etype = eo_type = eolian_function_return_type_get(
               func->efunc, EOLIAN_PROP_GET);
+        func->ret.value.type = EOLIAN_DEBUG_VOID;
         if(eo_type)
           {
              Eolian_Debug_Basic_Type type = _eolian_type_resolve(kl->unit, eo_type);
