@@ -14,6 +14,18 @@
    _buf += sz; \
 }
 
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define SWAP_64(x) x
+#define SWAP_32(x) x
+#define SWAP_16(x) x
+#define SWAP_DBL(x) x
+#else
+#define SWAP_64(x) eina_swap64(x)
+#define SWAP_32(x) eina_swap32(x)
+#define SWAP_16(x) eina_swap16(x)
+#define SWAP_DBL(x) SWAP_64(x)
+#endif
+
 static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _klids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
@@ -171,6 +183,15 @@ _objs_tree_free(Eina_List *parents)
         _objs_tree_free(info->children);
         free(info);
      }
+}
+
+static void
+_obj_highlight(Clouseau_Extension *ext, uint64_t obj)
+{
+   if (!_config->highlight) return;
+   obj = SWAP_64(obj);
+   eina_debug_session_send(ext->session, ext->app_id,
+         _obj_highlight_op, &obj, sizeof(uint64_t));
 }
 
 static void
@@ -341,6 +362,45 @@ _obj_info_contract_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
 }
 
 static void
+_ptr_highlight(Clouseau_Extension *ext, Eolian_Debug_Value *v)
+{
+   switch (v->type)
+     {
+      case EOLIAN_DEBUG_POINTER:
+           {
+              _obj_highlight(ext, v->value.value);
+              break;
+           }
+      case EOLIAN_DEBUG_LIST:
+           {
+              Eina_List *itr;
+              EINA_LIST_FOREACH(v->complex_type_values, itr, v)
+                {
+                   _obj_highlight(ext, v->value.value);
+                }
+              break;
+           }
+      default: break;
+     }
+}
+
+static void
+_obj_info_gl_selected(void *data EINA_UNUSED, Evas_Object *pobj,
+      void *event_info)
+{
+   Clouseau_Extension *ext = _ext_get(pobj);
+   Eolian_Debug_Function *func = elm_object_item_data_get(event_info);
+   Eolian_Debug_Parameter *p;
+
+   if (eina_list_count(func->params) == 1)
+     {
+        p = eina_list_data_get(func->params);
+        _ptr_highlight(ext, &(p->value));
+     }
+   _ptr_highlight(ext, &(func->ret.value));
+}
+
+static void
 _obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
 {
    Elm_Object_Item *glit = event->info;
@@ -354,7 +414,7 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
           {
             Elm_Genlist_Item *glist =  elm_genlist_item_append(
                    event->object, _obj_func_info_itc, func, glit,
-                   ELM_GENLIST_ITEM_NONE, NULL, NULL);
+                   ELM_GENLIST_ITEM_NONE, _obj_info_gl_selected, NULL);
             elm_genlist_item_tooltip_content_cb_set(glist, _obj_info_tootip, func, NULL);
           }
      }
@@ -617,11 +677,7 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
    inst->selected_obj = info;
 
    elm_genlist_clear(inst->wdgs->object_infos_list);
-   if (_config->highlight)
-     {
-        eina_debug_session_send(ext->session, ext->app_id,
-              _obj_highlight_op, &(info->obj), sizeof(uint64_t));
-     }
+   _obj_highlight(ext, info->obj);
    if (info->eolian_info) _obj_info_realize(ext, info->eolian_info);
 }
 
