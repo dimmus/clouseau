@@ -125,7 +125,7 @@ const Param_Type_Info param_types[] =
 {
      {EOLIAN_TYPE_REGULAR, "",  EOLIAN_DEBUG_INVALID_TYPE, "",   &ffi_type_pointer, 0},
      {EOLIAN_TYPE_COMPLEX, "pointer", EOLIAN_DEBUG_POINTER,  "%p", &ffi_type_pointer, 8},
-     {EOLIAN_TYPE_COMPLEX, "char", EOLIAN_DEBUG_STRING,  "%s", &ffi_type_pointer, 8},
+     {EOLIAN_TYPE_REGULAR, "string", EOLIAN_DEBUG_STRING,  "%s", &ffi_type_pointer, 8},
      {EOLIAN_TYPE_REGULAR, "char", EOLIAN_DEBUG_CHAR,  "%c", &ffi_type_uint, 1},
      {EOLIAN_TYPE_REGULAR, "int",  EOLIAN_DEBUG_INT, "%d", &ffi_type_sint, 4},
      {EOLIAN_TYPE_REGULAR, "short",  EOLIAN_DEBUG_SHORT,    "%d", &ffi_type_sint, 4},

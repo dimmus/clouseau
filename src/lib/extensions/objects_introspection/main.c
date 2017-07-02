@@ -463,7 +463,7 @@ _eolian_value_to_string(Eolian_Debug_Value *value, Eina_Strbuf *buf)
      {
       case EOLIAN_DEBUG_STRING:
            {
-              eina_strbuf_append_printf(buf, "%s ",
+              eina_strbuf_append_printf(buf, "\"%s\" ",
                     (char *)value->value.value);
               break;
            }
