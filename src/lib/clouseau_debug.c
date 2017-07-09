@@ -446,6 +446,23 @@ _complex_buffer_fill(const Eolian_Unit *unit, char *buf, const Eolian_Type *eo_t
    return size;
 }
 
+static Eina_Bool
+_api_resolvable(Eo *obj, const Eolian_Function *function)
+{
+   Efl_Object_Op_Call_Data call_data = {};
+   Efl_Object_Call_Cache call_cache = {};
+   const char *func_c_name;
+   void *func_api;
+
+   func_c_name = eolian_function_full_c_name_get(function, EOLIAN_PROP_GET, EINA_FALSE);
+   func_api = dlsym(RTLD_DEFAULT, func_c_name);
+   call_cache.op = _efl_object_op_api_id_get(func_api, obj, func_c_name, __FILE__, __LINE__);
+   call_cache.generation = _efl_object_init_generation;
+   _efl_object_call_resolve(obj, func_c_name, &call_data, &call_cache, __FILE__, __LINE__);
+
+   return !!call_data.func;
+}
+
 static unsigned int
 _class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *okl, const Eolian_Class *ekl, char *buf)
 {
@@ -454,8 +471,10 @@ _class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *okl, co
    const Eolian_Function *func;
    EINA_ITERATOR_FOREACH(funcs, func)
      {
-        if (eolian_function_type_get(func) == EOLIAN_PROP_SET ||
-              !_eolian_function_is_implemented(func, EOLIAN_PROP_GET, unit, okl)) continue;
+        if (eolian_function_type_get(func) == EOLIAN_PROP_SET) continue;
+
+        if (!_api_resolvable(obj, func)) continue;
+
         Eina_Iterator *keys_itr = eolian_property_keys_get(func, EOLIAN_PROP_GET);
         eina_iterator_free(keys_itr);
         /* We dont support functions with key parameters */
