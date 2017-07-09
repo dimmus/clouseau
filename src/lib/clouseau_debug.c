@@ -317,6 +317,8 @@ success:
    return argc;
 }
 
+#if 0
+/* Commented until we are sure it is not needed anymore */
 static Eina_Bool
 _eolian_function_is_implemented(
       const Eolian_Function *function_id, Eolian_Function_Type func_type,
@@ -379,6 +381,7 @@ end:
    eina_list_free(list);
    return found;
 }
+#endif
 
 static int
 _param_buffer_fill(char *buf, uint64_t v, int size)
@@ -446,16 +449,35 @@ _complex_buffer_fill(const Eolian_Unit *unit, char *buf, const Eolian_Type *eo_t
    return size;
 }
 
+static Eina_Bool
+_api_resolvable(Eo *obj, const Eolian_Function *function)
+{
+   Efl_Object_Op_Call_Data call_data = {};
+   Efl_Object_Call_Cache call_cache = {};
+   const char *func_c_name;
+   void *func_api;
+
+   func_c_name = eolian_function_full_c_name_get(function, EOLIAN_PROP_GET, EINA_FALSE);
+   func_api = dlsym(RTLD_DEFAULT, func_c_name);
+   call_cache.op = _efl_object_op_api_id_get(func_api, obj, func_c_name, __FILE__, __LINE__);
+   call_cache.generation = _efl_object_init_generation;
+   _efl_object_call_resolve(obj, func_c_name, &call_data, &call_cache, __FILE__, __LINE__);
+
+   return !!call_data.func;
+}
+
 static unsigned int
-_class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *okl, const Eolian_Class *ekl, char *buf)
+_class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *ekl, char *buf)
 {
    unsigned int size = 0;
    Eina_Iterator *funcs = eolian_class_functions_get(ekl, EOLIAN_PROPERTY);
    const Eolian_Function *func;
    EINA_ITERATOR_FOREACH(funcs, func)
      {
-        if (eolian_function_type_get(func) == EOLIAN_PROP_SET ||
-              !_eolian_function_is_implemented(func, EOLIAN_PROP_GET, unit, okl)) continue;
+        if (eolian_function_type_get(func) == EOLIAN_PROP_SET) continue;
+
+        if (!_api_resolvable(obj, func)) continue;
+
         Eina_Iterator *keys_itr = eolian_property_keys_get(func, EOLIAN_PROP_GET);
         eina_iterator_free(keys_itr);
         /* We dont support functions with key parameters */
@@ -571,7 +593,7 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
         const char *inherit_name;
         Eina_Iterator *inherits_itr = eolian_class_inherits_get(kl);
 
-        size_curr += _class_buffer_fill(obj, unit, okl, kl, buf + size_curr);
+        size_curr += _class_buffer_fill(obj, unit, kl, buf + size_curr);
         EINA_ITERATOR_FOREACH(inherits_itr, inherit_name)
           {
              const Eolian_Class *inherit = eolian_class_get_by_name(unit, inherit_name);
