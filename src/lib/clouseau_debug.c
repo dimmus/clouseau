@@ -759,14 +759,14 @@ _main_loop_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid E
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *obj = (Eo *)SWAP_64(ptr64);
-   if (!efl_isa(obj, EFL_CANVAS_OBJECT_CLASS) && !efl_isa(obj, EVAS_CANVAS_CLASS)) return;
+   if (!efl_isa(obj, EFL_GFX_INTERFACE) && !efl_isa(obj, EVAS_CANVAS_CLASS)) return;
    Evas *e = evas_object_evas_get(obj);
    Eo *rect = evas_object_polygon_add(e);
    evas_object_move(rect, 0, 0);
-   if (efl_isa(obj, EFL_CANVAS_OBJECT_CLASS))
+   if (efl_isa(obj, EFL_GFX_INTERFACE))
      {
         Evas_Coord x = 0, y = 0, w = 0, h = 0;
-        evas_object_geometry_get(obj, &x, &y, &w, &h);
+        efl_gfx_geometry_get(obj, &x, &y, &w, &h);
         if (efl_isa(obj, EFL_UI_WIN_CLASS)) x = y = 0;
 
         evas_object_polygon_point_add(rect, x, y);
