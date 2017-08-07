@@ -106,7 +106,7 @@ gui_win_create(Eo *__main_parent)
         pub_widgets->highlight_ck = ck;
      }
 
-   panes = efl_add(ELM_PANES_CLASS, box);
+   panes = efl_add(EFL_UI_PANES_CLASS, box);
    elm_obj_panes_content_right_size_set(panes, 0.600000);
    evas_object_size_hint_weight_set(panes, 1.000000, 1.000000);
    efl_gfx_size_set(panes, 75, 75);
