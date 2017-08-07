@@ -107,7 +107,7 @@ gui_win_create(Eo *__main_parent)
      }
 
    panes = efl_add(EFL_UI_PANES_CLASS, box);
-   elm_obj_panes_content_right_size_set(panes, 0.600000);
+   elm_panes_content_right_size_set(panes, 0.600000);
    evas_object_size_hint_weight_set(panes, 1.000000, 1.000000);
    efl_gfx_size_set(panes, 75, 75);
    efl_gfx_visible_set(panes, EINA_TRUE);
