@@ -30,6 +30,7 @@ target_link_libraries(clouseau_objects_introspection
    ${EINA_LIBRARIES}
    ${EET_LIBRARIES}
    ${EOLIAN_LIBRARIES}
+   clouseau_debug
    )
 
 INSTALL(TARGETS clouseau_objects_introspection LIBRARY DESTINATION lib)
