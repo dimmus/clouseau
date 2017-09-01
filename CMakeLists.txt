@@ -18,6 +18,7 @@ find_package(Elementary REQUIRED)
 find_package(Ecore REQUIRED)
 find_package(Evas REQUIRED)
 find_package(Ffi REQUIRED)
+find_package(efl_profiler)
 
 add_subdirectory(src/bin)
 add_subdirectory(src/lib)

@@ -317,6 +317,13 @@ _configs_load()
         _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
      }
 
+   if (!_ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_profiling_viewer.so"))
+     {
+        ext_cfg = calloc(1, sizeof(*ext_cfg));
+        ext_cfg->lib_path = eina_stringshare_add(INSTALL_PREFIX"/lib/libclouseau_profiling_viewer.so");
+        _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
+     }
+
    _config_save();
 }
 
