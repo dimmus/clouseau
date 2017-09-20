@@ -109,7 +109,7 @@ gui_win_create(Eo *__main_parent)
    panes = efl_add(EFL_UI_PANES_CLASS, box);
    elm_panes_content_right_size_set(panes, 0.600000);
    evas_object_size_hint_weight_set(panes, 1.000000, 1.000000);
-   efl_gfx_size_set(panes, 75, 75);
+   efl_gfx_size_set(panes, EINA_SIZE2D(75, 75));
    efl_gfx_visible_set(panes, EINA_TRUE);
    evas_object_size_hint_weight_set(panes, 1.000000, 1.000000);
    evas_object_size_hint_align_set(panes, -1.000000, -1.000000);
@@ -165,13 +165,13 @@ gui_show_screenshot_button_create(Eo *__main_parent)
    pub_widgets->bt = bt;
    evas_object_size_hint_weight_set(bt, 1.000000, 1.000000);
    efl_gfx_visible_set(bt, EINA_TRUE);
-   efl_gfx_size_set(bt, 73, 30);
+   efl_gfx_size_set(bt, EINA_SIZE2D(73, 30));
    efl_event_callback_add(bt, EFL_UI_EVENT_CLICKED, show_screenshot_button_clicked, NULL);
 
    elm_icon1 = elm_icon_add(bt);
    evas_object_size_hint_weight_set(elm_icon1, 1.000000, 1.000000);
    efl_gfx_visible_set(elm_icon1, EINA_TRUE);
-   efl_gfx_size_set(elm_icon1, 40, 40);
+   efl_gfx_size_set(elm_icon1, EINA_SIZE2D(40, 40));
    efl_file_set(elm_icon1, SHOW_SCREENSHOT_ICON, NULL);
    elm_object_part_content_set(bt, "icon", elm_icon1);
    efl_event_callback_add(bt, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
@@ -190,7 +190,7 @@ gui_show_screenshot_win_create(Eo *__main_parent)
    win = elm_win_add(__main_parent, "Screenshot", ELM_WIN_BASIC);
    pub_widgets->win = win;
    elm_win_autodel_set(win, EINA_TRUE);
-   efl_gfx_size_set(win, 300, 300);
+   efl_gfx_size_set(win, EINA_SIZE2D(300, 300));
    evas_object_size_hint_weight_set(win, 1.000000, 1.000000);
    elm_win_title_set(win, "Screenshot");
    bg = efl_add(ELM_BG_CLASS, win);

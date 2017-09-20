@@ -43,12 +43,12 @@ gui_main_win_create(Eo *__main_parent)
    pub_widgets->main_win = main_win;
    elm_win_autodel_set(main_win, EINA_TRUE);
    elm_win_title_set(main_win, "Clouseau");
-   efl_gfx_size_set(main_win, 478, 484);
+   efl_gfx_size_set(main_win, EINA_SIZE2D(478, 484));
 
    bg = efl_add(ELM_BG_CLASS, main_win);
    evas_object_size_hint_weight_set(bg, 1.000000, 1.000000);
    efl_gfx_visible_set(bg, EINA_TRUE);
-   efl_gfx_position_set(bg, 0, 0);
+   efl_gfx_position_set(bg, EINA_POSITION2D(0, 0));
    elm_win_resize_object_add(main_win, bg);
 
    main_box = elm_box_add(main_win);

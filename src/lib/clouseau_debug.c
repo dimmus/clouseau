@@ -787,14 +787,14 @@ _main_loop_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid E
    evas_object_move(rect, 0, 0);
    if (efl_isa(obj, EFL_GFX_INTERFACE))
      {
-        Evas_Coord x = 0, y = 0, w = 0, h = 0;
-        efl_gfx_geometry_get(obj, &x, &y, &w, &h);
-        if (efl_isa(obj, EFL_UI_WIN_CLASS)) x = y = 0;
+        Eina_Rect obj_geom = {.x = 0, .y = 0, .w = 0, .h = 0};
+        obj_geom = efl_gfx_geometry_get(obj);
+        if (efl_isa(obj, EFL_UI_WIN_CLASS)) obj_geom.x = obj_geom.y = 0;
 
-        evas_object_polygon_point_add(rect, x, y);
-        evas_object_polygon_point_add(rect, x + w, y);
-        evas_object_polygon_point_add(rect, x + w, y + h);
-        evas_object_polygon_point_add(rect, x, y + h);
+        evas_object_polygon_point_add(rect, obj_geom.x, obj_geom.y);
+        evas_object_polygon_point_add(rect, obj_geom.x + obj_geom.w, obj_geom.y);
+        evas_object_polygon_point_add(rect, obj_geom.x + obj_geom.w, obj_geom.y + obj_geom.h);
+        evas_object_polygon_point_add(rect, obj_geom.x, obj_geom.y + obj_geom.h);
      }
    else
      {

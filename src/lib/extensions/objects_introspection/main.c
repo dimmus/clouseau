@@ -802,17 +802,18 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
      {
         Eina_List *itr;
         Evas_Debug_Screenshot *s;
-        int x = 0, y = 0, h = 0;
         Clouseau_Extension *ext = _ext_get(bt);
         Instance *inst = ext->data;
+        Eina_Position2D bt_pos = {.x = 0, .y = 0};
+        Eina_Size2D bt_size = {.w = 0, .h = 0};
 
         if (info->screenshots_menu) efl_del(info->screenshots_menu);
         info->screenshots_menu = elm_menu_add(inst->wdgs->main);
         efl_wref_add(info->screenshots_menu, &info->screenshots_menu);
 
-        efl_gfx_position_get(bt, &x, &y);
-        efl_gfx_size_get(bt, NULL, &h);
-        elm_menu_move(info->screenshots_menu, x, y + h);
+        bt_pos = efl_gfx_position_get(bt);
+        bt_size = efl_gfx_size_get(bt);
+        elm_menu_move(info->screenshots_menu, bt_pos.x, bt_pos.y + bt_size.w);
         efl_gfx_visible_set(info->screenshots_menu, EINA_TRUE);
         EINA_LIST_FOREACH(info->screenshots, itr, s)
           {
