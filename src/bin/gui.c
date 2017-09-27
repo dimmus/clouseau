@@ -45,7 +45,7 @@ gui_main_win_create(Eo *__main_parent)
    elm_win_title_set(main_win, "Clouseau");
    efl_gfx_size_set(main_win, EINA_SIZE2D(478, 484));
 
-   bg = efl_add(ELM_BG_CLASS, main_win);
+   bg = elm_bg_add(main_win);
    evas_object_size_hint_weight_set(bg, 1.000000, 1.000000);
    efl_gfx_visible_set(bg, EINA_TRUE);
    efl_gfx_position_set(bg, EINA_POSITION2D(0, 0));
