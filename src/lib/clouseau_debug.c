@@ -116,25 +116,58 @@ typedef struct
    Eolian_Type_Type etype;
    const char *name;
    Eolian_Debug_Basic_Type type;
+} Eolian_Param_Info;
+
+typedef struct
+{
+   Eolian_Debug_Basic_Type type;
    const char *print_format;
    void *ffi_type_p;//ffi_type
    const unsigned int size;
-} Param_Type_Info;
+} Debug_Param_Info;
 
-const Param_Type_Info param_types[] =
+const Eolian_Param_Info eolian_types[] =
 {
-     {EOLIAN_TYPE_REGULAR, "",  EOLIAN_DEBUG_INVALID_TYPE, "",   &ffi_type_pointer, 0},
-     {EOLIAN_TYPE_COMPLEX, "pointer", EOLIAN_DEBUG_POINTER,  "%p", &ffi_type_pointer, 8},
-     {EOLIAN_TYPE_REGULAR, "string", EOLIAN_DEBUG_STRING,  "%s", &ffi_type_pointer, 8},
-     {EOLIAN_TYPE_REGULAR, "char", EOLIAN_DEBUG_CHAR,  "%c", &ffi_type_uint, 1},
-     {EOLIAN_TYPE_REGULAR, "int",  EOLIAN_DEBUG_INT, "%d", &ffi_type_sint, 4},
-     {EOLIAN_TYPE_REGULAR, "short",  EOLIAN_DEBUG_SHORT,    "%d", &ffi_type_sint, 4},
-     {EOLIAN_TYPE_REGULAR, "double", EOLIAN_DEBUG_DOUBLE,   "%f", &ffi_type_pointer, 8},
-     {EOLIAN_TYPE_REGULAR, "bool", EOLIAN_DEBUG_BOOLEAN,     "%d", &ffi_type_uint, 1},
-     {EOLIAN_TYPE_REGULAR, "long", EOLIAN_DEBUG_LONG,     "%f", &ffi_type_pointer, 8},
-     {EOLIAN_TYPE_REGULAR, "uint", EOLIAN_DEBUG_UINT,     "%u", &ffi_type_uint, 4},
-     {0, NULL, 0, NULL, NULL, 0}
+     {EOLIAN_TYPE_REGULAR, "",         EOLIAN_DEBUG_INVALID_TYPE  },
+     {EOLIAN_TYPE_REGULAR, "pointer",  EOLIAN_DEBUG_POINTER       },
+     {EOLIAN_TYPE_REGULAR, "string",   EOLIAN_DEBUG_STRING        },
+     {EOLIAN_TYPE_REGULAR, "char",     EOLIAN_DEBUG_CHAR          },
+     {EOLIAN_TYPE_REGULAR, "int",      EOLIAN_DEBUG_INT           },
+     {EOLIAN_TYPE_REGULAR, "short",    EOLIAN_DEBUG_SHORT         },
+     {EOLIAN_TYPE_REGULAR, "double",   EOLIAN_DEBUG_DOUBLE        },
+     {EOLIAN_TYPE_REGULAR, "bool",     EOLIAN_DEBUG_BOOLEAN       },
+     {EOLIAN_TYPE_REGULAR, "long",     EOLIAN_DEBUG_LONG          },
+     {EOLIAN_TYPE_REGULAR, "uint",     EOLIAN_DEBUG_UINT          },
+     {EOLIAN_TYPE_REGULAR, "list",     EOLIAN_DEBUG_LIST          },
+     {EOLIAN_TYPE_REGULAR, "iterator", EOLIAN_DEBUG_LIST          },
+     {EOLIAN_TYPE_CLASS,   "",         EOLIAN_DEBUG_OBJECT        },
+     {0,                   NULL,       0}
 };
+
+const Debug_Param_Info debug_types[] =
+{
+     {EOLIAN_DEBUG_INVALID_TYPE, "",   &ffi_type_pointer,   0},
+     {EOLIAN_DEBUG_POINTER,      "%p", &ffi_type_pointer,   8},
+     {EOLIAN_DEBUG_STRING,       "%s", &ffi_type_pointer,   8},
+     {EOLIAN_DEBUG_CHAR,         "%c", &ffi_type_uint,      1},
+     {EOLIAN_DEBUG_INT,          "%d", &ffi_type_sint,      4},
+     {EOLIAN_DEBUG_SHORT,        "%d", &ffi_type_sint,      4},
+     {EOLIAN_DEBUG_DOUBLE,       "%f", &ffi_type_pointer,   8},
+     {EOLIAN_DEBUG_BOOLEAN,      "%d", &ffi_type_uint,      1},
+     {EOLIAN_DEBUG_LONG,         "%f", &ffi_type_pointer,   8},
+     {EOLIAN_DEBUG_UINT,         "%u", &ffi_type_uint,      4},
+     {EOLIAN_DEBUG_LIST,         "%p", &ffi_type_pointer,   8},
+     {EOLIAN_DEBUG_OBJECT,       "%p", &ffi_type_pointer,   8},
+     {0, NULL, 0, 0}
+};
+
+typedef struct
+{
+   const Eolian_Unit *unit;
+   const Eolian_Class *kl;
+} Eolian_Info;
+
+static Eina_Hash *_eolian_kls_hash = NULL;
 
 static Eolian_Debug_Basic_Type
 _eolian_type_resolve(const Eolian_Unit *unit, const Eolian_Type *eo_type)
@@ -142,8 +175,7 @@ _eolian_type_resolve(const Eolian_Unit *unit, const Eolian_Type *eo_type)
    Eolian_Type_Type type = eolian_type_type_get(eo_type);
    Eolian_Type_Type type_base = type;
 
-   if (type == EOLIAN_TYPE_COMPLEX || type == EOLIAN_TYPE_CLASS)
-      return EOLIAN_DEBUG_POINTER;
+   if (type == EOLIAN_TYPE_CLASS) return EOLIAN_DEBUG_OBJECT;
 
    if (type_base == EOLIAN_TYPE_REGULAR)
      {
@@ -151,22 +183,21 @@ _eolian_type_resolve(const Eolian_Unit *unit, const Eolian_Type *eo_type)
         const Eolian_Typedecl *alias = eolian_typedecl_alias_get_by_name(unit, full_name);
         if (alias)
           {
-            eo_type = eolian_typedecl_base_type_get(alias);
-            type_base = eolian_type_type_get(eo_type);
-            full_name = eolian_type_full_name_get(eo_type);
+             eo_type = eolian_typedecl_base_type_get(alias);
+             type_base = eolian_type_type_get(eo_type);
+             full_name = eolian_type_full_name_get(eo_type);
           }
 
-        if(full_name)
+        if (full_name)
           {
-           int i;
-           for (i = 0; param_types[i].name; i++)
-              if (!strcmp(full_name, param_types[i].name) &&
-                      param_types[i].etype == type)  return i;
+             int i;
+             for (i = 0; eolian_types[i].name; i++)
+                if (!strcmp(full_name, eolian_types[i].name) &&
+                      eolian_types[i].etype == type)  return i;
           }
      }
 
    return EOLIAN_DEBUG_INVALID_TYPE;
-
 }
 
 static const Eolian_Class *
@@ -174,6 +205,14 @@ _class_find_by_name(const char *eo_klname, const Eolian_Unit **unit)
 {
    const Eolian_Class *kl = NULL;
    if (!eo_klname) return NULL;
+
+   Eolian_Info *info = eina_hash_find(_eolian_kls_hash, eo_klname);
+   if (info)
+     {
+        *unit = info->unit;
+        return info->kl;
+     }
+
    char *klname = strdup(eo_klname);
 
    Eina_Strbuf *buf = eina_strbuf_new();
@@ -198,6 +237,13 @@ _class_find_by_name(const char *eo_klname, const Eolian_Unit **unit)
    printf("Class %s not found.\n", klname);
 
 end:
+   if(kl)
+     {
+        info = calloc(1, sizeof(*info));
+        info->unit = *unit;
+        info->kl = kl;
+        eina_hash_set(_eolian_kls_hash, eo_klname, info);
+     }
    free(klname);
    return kl;
 }
@@ -232,7 +278,7 @@ _function_invoke(Eo *ptr, const Eolian_Unit *unit, const Eolian_Function *foo, E
         ed_type = _eolian_type_resolve(unit, eolian_parameter_type_get(eo_param));
         if (!ed_type) goto error;
 
-        types[ffi_argc] = param_types[ed_type].ffi_type_p;
+        types[ffi_argc] = debug_types[ed_type].ffi_type_p;
         values[ffi_argc] = &(params[argc].value.value.value);
         params[argc].eparam = eo_param;
         ffi_argc++;
@@ -260,7 +306,7 @@ _function_invoke(Eo *ptr, const Eolian_Unit *unit, const Eolian_Function *foo, E
         else
           {
              /* In parameter */
-             types[ffi_argc] = param_types[ed_type].ffi_type_p;
+             types[ffi_argc] = debug_types[ed_type].ffi_type_p;
              values[ffi_argc] = &(params[argc].value.value.value);
           }
         ffi_argc++;
@@ -274,7 +320,7 @@ _function_invoke(Eo *ptr, const Eolian_Unit *unit, const Eolian_Function *foo, E
         ed_type = _eolian_type_resolve(unit, eo_type);
         if (!ed_type) goto error;
 
-        ffi_ret_type = param_types[ed_type].ffi_type_p;
+        ffi_ret_type = debug_types[ed_type].ffi_type_p;
      }
    else if (argc == 1 && foo_type == EOLIAN_PROP_GET)
      {
@@ -282,7 +328,7 @@ _function_invoke(Eo *ptr, const Eolian_Unit *unit, const Eolian_Function *foo, E
          * be returned by the function.
          * So we need FFI to not take it into account when invoking the function.
          */
-        ffi_ret_type = param_types[params[0].value.type].ffi_type_p;
+        ffi_ret_type = debug_types[params[0].value.type].ffi_type_p;
         ffi_argc--;
      }
 
@@ -444,7 +490,7 @@ _complex_buffer_fill(const Eolian_Unit *unit, char *buf, const Eolian_Type *eo_t
    EINA_LIST_FREE(l, data)
      {
         if (count == -1) continue;
-        size += _param_buffer_fill(buf+size, (uint64_t)data, param_types[type].size);
+        size += _param_buffer_fill(buf+size, (uint64_t)data, debug_types[type].size);
      }
    return size;
 }
@@ -522,8 +568,8 @@ _class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *ekl, ch
                {
                   const Eolian_Type *eo_type = eolian_parameter_type_get(params[i].eparam);
                   size += _param_buffer_fill(buf+size, params[i].value.value.value,
-                        param_types[params[i].value.type].size);
-                  if (eolian_type_type_get(eo_type) == EOLIAN_TYPE_COMPLEX)
+                        debug_types[params[i].value.type].size);
+                  if (params[i].value.type == EOLIAN_DEBUG_LIST)
                     {
                        size += _complex_buffer_fill(unit, buf+size, eo_type,
                              params[i].value.value.value);
@@ -551,8 +597,8 @@ _class_buffer_fill(Eo *obj, const Eolian_Unit *unit, const Eolian_Class *ekl, ch
              else
                {
                   size += _param_buffer_fill(buf+size, ret.value.value.value,
-                        param_types[ret.value.type].size);
-                  if (eolian_type_type_get(ret.etype) == EOLIAN_TYPE_COMPLEX)
+                        debug_types[ret.value.type].size);
+                  if (ret.value.type == EOLIAN_DEBUG_LIST)
                     {
                        size += _complex_buffer_fill(unit, buf+size,
                              ret.etype, ret.value.value.value);
@@ -919,6 +965,8 @@ clouseau_debug_init(void)
    eolian_init();
    evas_init();
 
+   _eolian_kls_hash = eina_hash_string_superfast_new(NULL);
+
    eolian_system_directory_scan();
 
    eina_debug_opcodes_register(NULL, _debug_ops(), NULL, NULL);
@@ -1036,15 +1084,15 @@ _complex_buffer_decode(const Eolian_Unit *unit, char *buffer, const Eolian_Type 
    buffer += 4;
    size += 4;
 
-   type = _eolian_type_resolve(unit, eolian_type_base_type_get(eo_type));
+   if (count > 0) type = _eolian_type_resolve(unit, eolian_type_base_type_get(eo_type));
 
    while (count > 0)
      {
         Eolian_Debug_Value *v2 = calloc(1, sizeof(*v2));
         v2->type = type;
-        EXTRACT(buffer, &(v2->value), param_types[type].size);
+        EXTRACT(buffer, &(v2->value), debug_types[type].size);
         v2->value = SWAP_64(v2->value);
-        size += param_types[type].size;
+        size += debug_types[type].size;
         l = eina_list_append(l, v2);
         count--;
      }
@@ -1092,7 +1140,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
         size -= len;
 
         func = calloc(1, sizeof(*func));
-        printf("Class name = %s function = %s\n", eolian_class_name_get(kl->ekl), buffer);
+//        printf("Class name = %s function = %s\n", eolian_class_name_get(kl->ekl), buffer);
         kl->functions = eina_list_append(kl->functions, func);
         func->efunc = eolian_class_function_get_by_name(kl->ekl, buffer, EOLIAN_PROP_GET);
         if(!func->efunc)
@@ -1126,10 +1174,10 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
                   else
                     {
                        uint64_t value = 0;;
-                       EXTRACT(buffer, &value, param_types[type].size);
+                       EXTRACT(buffer, &value, debug_types[type].size);
                        p->value.value.value = SWAP_64(value);
-                       size -= param_types[type].size;
-                       if (eolian_type_type_get(eo_type) == EOLIAN_TYPE_COMPLEX)
+                       size -= debug_types[type].size;
+                       if (type == EOLIAN_DEBUG_LIST)
                          {
                             len = _complex_buffer_decode(kl->unit, buffer, eo_type, &(p->value));
                             buffer += len;
@@ -1163,10 +1211,10 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
                   else
                     {
                        uint64_t value;
-                       EXTRACT(buffer, &value, param_types[type].size);
+                       EXTRACT(buffer, &value, debug_types[type].size);
                        func->ret.value.value.value = SWAP_64(value);
-                       size -= param_types[type].size;
-                       if (eolian_type_type_get(eo_type) == EOLIAN_TYPE_COMPLEX)
+                       size -= debug_types[type].size;
+                       if (type == EOLIAN_DEBUG_LIST)
                          {
                             len = _complex_buffer_decode(kl->unit, buffer, eo_type, &(func->ret.value));
                             buffer += len;

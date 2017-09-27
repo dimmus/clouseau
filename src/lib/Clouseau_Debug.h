@@ -49,6 +49,7 @@ typedef enum
    EOLIAN_DEBUG_LONG,
    EOLIAN_DEBUG_UINT,
    EOLIAN_DEBUG_LIST,
+   EOLIAN_DEBUG_OBJECT,
    EOLIAN_DEBUG_VOID
 } Eolian_Debug_Basic_Type;
 
