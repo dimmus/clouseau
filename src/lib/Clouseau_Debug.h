@@ -31,6 +31,7 @@
 
 #include <Eo.h>
 #include <Eolian.h>
+#include <Elementary.h>
 
 typedef void (*Eo_Debug_Class_Extract_Cb)(void *data, uint64_t kl, char *kl_name);
 
@@ -106,6 +107,19 @@ typedef struct
    int tm_min;
    int tm_hour;
 } Evas_Debug_Screenshot;
+
+typedef struct {
+   Eo *redirect_manager;
+   Eo *focused;
+   const char *class_name;
+   Eina_List *relations;
+} Clouseau_Focus_Manager_Data;
+
+typedef struct {
+   Efl_Ui_Focus_Relations relation;
+   const char *class_name;
+} Clouseau_Focus_Relation;
+
 
 EAPI void *eo_debug_eoids_request_prepare(int *size, ...);
 

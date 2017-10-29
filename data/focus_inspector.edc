@@ -1,0 +1,91 @@
+collections {
+   images {
+      image: "focus_inspector_history.svg" COMP;
+      image: "focus_inspector_logical.svg" COMP;
+      image: "focus_inspector_regular.svg" COMP;
+      image: "focus_inspector_redirect.svg" COMP;
+   }
+   group { "focus_inspector/regular";
+      parts {
+         image { "indicator";
+            desc { "default";
+               rel1.to: "widget_name";
+               rel1.offset: -3px -3px;
+               rel2.to: "widget_name";
+               rel2.offset: 3px 3px;
+
+               image {
+                  border: 1 1 1 1;
+                  normal: "focus_inspector_regular.svg";
+               }
+            }
+         }
+         text { "widget_name";
+            desc { "default";
+               text {
+                  font: Sans;
+                  text: "<widget-name>";
+                  size: 8;
+                  min: 1 1;
+                  max: 1 1;
+               }
+            }
+         }
+
+      }
+   }
+   group { "focus_inspector/logical";
+      inherit: "focus_inspector/regular";
+      parts {
+         image { "indicator";
+            desc { "default";
+               rel1.to: "widget_name";
+               rel1.offset: -3px -3px;
+               rel2.to: "widget_name";
+               rel2.offset: 3px 3px;
+
+               image {
+                  border: 1 1 1 1;
+                  normal: "focus_inspector_logical.svg";
+               }
+            }
+         }
+      }
+   }
+   group { "focus_inspector/history";
+      inherit: "focus_inspector/regular";
+      parts {
+         image { "indicator";
+            desc { "default";
+               rel1.to: "widget_name";
+               rel1.offset: -3px -3px;
+               rel2.to: "widget_name";
+               rel2.offset: 3px 3px;
+
+               image {
+                  border: 1 1 1 1;
+                  normal: "focus_inspector_history.svg";
+               }
+            }
+         }
+      }
+   }
+   group { "focus_inspector/redirect";
+      inherit: "focus_inspector/regular";
+      parts {
+         image { "indicator";
+            desc { "default";
+               rel1.to: "widget_name";
+               rel1.offset: -3px -3px;
+               rel2.to: "widget_name";
+               rel2.offset: 3px 3px;
+
+               image {
+                  border: 1 1 1 1;
+                  normal: "focus_inspector_redirect.svg";
+               }
+            }
+         }
+      }
+   }
+}

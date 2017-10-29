@@ -71,6 +71,11 @@ static int _eoids_get_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_info_op = EINA_DEBUG_OPCODE_INVALID;
 static int _obj_highlight_op = EINA_DEBUG_OPCODE_INVALID;
 static int _win_screenshot_op = EINA_DEBUG_OPCODE_INVALID;
+static int _focus_manager_list_op = EINA_DEBUG_OPCODE_INVALID;
+static int _focus_manager_detail_op = EINA_DEBUG_OPCODE_INVALID;
+
+static Eet_Data_Descriptor *managers = NULL, *manager_details = NULL;
+#include "clouseau_focus_serialization.x"
 
 enum {
    HIGHLIGHT_R = 255,
@@ -915,6 +920,142 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
 
 WRAPPER_TO_XFER_MAIN_LOOP(_win_screenshot_cb)
 
+static Eina_Bool
+_only_manager(const void *container, void *data, void *fdata)
+{
+   return efl_isa(data, EFL_UI_FOCUS_MANAGER_INTERFACE);
+}
+
+static void
+_main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+{
+   Eina_Iterator *obj_iterator, *manager_iterator;
+   Eina_Array *array;
+   Eo *obj;
+
+   array = eina_array_new(10);
+   obj_iterator = eo_objects_iterator_new();
+   manager_iterator = eina_iterator_filter_new(obj_iterator, _only_manager, NULL, NULL);
+
+   EINA_ITERATOR_FOREACH(manager_iterator, obj)
+     {
+        eina_array_push(array, obj);
+     }
+
+   eina_debug_session_send(session, srcid, _focus_manager_list_op, array->data, array->count * sizeof(void*));
+}
+
+WRAPPER_TO_XFER_MAIN_LOOP(_focus_manager_list_cb)
+
+EAPI Efl_Dbg_Info*
+clouseau_eo_info_find(Efl_Dbg_Info *root, const char *name)
+{
+   Eina_Value_List eo_list;
+   Eina_List *n;
+   Efl_Dbg_Info *info;
+
+   if (!root) return NULL;
+
+   eina_value_pget(&(root->value), &eo_list);
+
+   EINA_LIST_FOREACH(eo_list.list, n, info)
+     {
+        if (!strcmp(info->name, name))
+          {
+             return info;
+          }
+     }
+   return NULL;
+}
+
+static Eina_List*
+_fetch_children(Efl_Ui_Focus_Manager *m)
+{
+   Efl_Dbg_Info *manager_data, *children_data, *root;
+   Eina_List *lst = NULL, *n;
+   Eina_Value_List result;
+   Efl_Dbg_Info *elem;
+
+   root = EFL_DBG_INFO_LIST_APPEND(NULL, "Root");
+
+   efl_dbg_info_get(m, root);
+
+   manager_data = clouseau_eo_info_find(root, "Efl.Ui.Focus.Manager");
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(manager_data, NULL);
+
+   children_data = clouseau_eo_info_find(manager_data, "children");
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(children_data, NULL);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(eina_value_type_get(&children_data->value) == EINA_VALUE_TYPE_LIST, NULL);
+
+   eina_value_pget(&children_data->value, &result);
+
+   EINA_LIST_FOREACH(result.list, n, elem)
+     {
+        void *ptr;
+
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(eina_value_type_get(&elem->value) == EINA_VALUE_TYPE_UINT64, NULL);
+        eina_value_get(&elem->value, &ptr);
+
+        lst = eina_list_append(lst, ptr);
+     }
+
+   efl_dbg_info_free(root);
+
+   return lst;
+}
+
+static Eina_Bool
+_main_loop_focus_manager_detail_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+{
+   Clouseau_Focus_Manager_Data *res;
+   uint64_t ptr64;
+   Eo *elem, *manager;
+
+   if (!manager_details) _init_data_descriptors();
+
+   memcpy(&ptr64, buffer, sizeof(ptr64));
+   manager = (Eo *)SWAP_64(ptr64);
+   if (!efl_isa(manager, EFL_UI_FOCUS_MANAGER_INTERFACE)) return EINA_TRUE;
+
+   Eina_List *children = _fetch_children(manager);
+
+   res = alloca(sizeof(Clouseau_Focus_Manager_Data));
+   res->class_name = efl_class_name_get(manager);
+   res->relations = NULL;
+   res->focused = efl_ui_focus_manager_focus_get(manager);
+   res->redirect_manager = efl_ui_focus_manager_redirect_get(manager);
+
+   EINA_LIST_FREE(children, elem)
+     {
+        Clouseau_Focus_Relation *crel = calloc(1, sizeof(Clouseau_Focus_Relation));
+        Efl_Ui_Focus_Relations *rel;
+
+        rel = efl_ui_focus_manager_fetch(manager, elem);
+        memcpy(&crel->relation, rel, sizeof(Efl_Ui_Focus_Relations));
+
+        crel->class_name = efl_class_name_get(elem);
+
+        res->relations = eina_list_append(res->relations, crel);
+
+        free(rel);
+     }
+
+   int blob_size;
+   void *blob = eet_data_descriptor_encode(manager_details, res, &blob_size);
+
+   Clouseau_Focus_Manager_Data *aaah = eet_data_descriptor_decode(manager_details, blob, blob_size);
+
+   if (eina_list_count(aaah->relations) != eina_list_count(res->relations)) abort();
+
+   eina_debug_session_send(session, srcid, _focus_manager_detail_op, blob, blob_size);
+
+   return EINA_TRUE;
+}
+
+WRAPPER_TO_XFER_MAIN_LOOP(_focus_manager_detail_cb)
+
 EINA_DEBUG_OPCODES_ARRAY_DEFINE(_debug_ops,
      {"Clouseau/Object_Introspection/snapshot_start", &_snapshot_start_op, &_snapshot_start_cb},
      {"Clouseau/Object_Introspection/snapshot_done", &_snapshot_done_op, NULL},
@@ -923,6 +1064,8 @@ EINA_DEBUG_OPCODES_ARRAY_DEFINE(_debug_ops,
      {"Clouseau/Eolian/object/info_get", &_obj_info_op, &_obj_info_req_cb},
      {"Clouseau/Evas/object/highlight", &_obj_highlight_op, &_obj_highlight_cb},
      {"Clouseau/Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_cb},
+     {"Clouseau/Elementary_Focus/list", &_focus_manager_list_op, &_focus_manager_list_cb},
+     {"Clouseau/Elementary_Focus/detail", &_focus_manager_detail_op, &_focus_manager_detail_cb},
      {NULL, NULL, NULL}
 );
 
