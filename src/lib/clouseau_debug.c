@@ -63,30 +63,6 @@
    _buf += sz; \
 }
 
-#define WRAPPER_TO_XFER_MAIN_LOOP(foo) \
-static void \
-_intern_main_loop ## foo(void *data) \
-{ \
-   Main_Loop_Info *info = data; \
-   _main_loop ## foo(info->session, info->srcid, info->buffer, info->size); \
-   free(info->buffer); \
-   free(info); \
-} \
-static Eina_Bool \
-foo(Eina_Debug_Session *session, int srcid, void *buffer, int size) \
-{ \
-   Main_Loop_Info *info = calloc(1, sizeof(*info)); \
-   info->session = session; \
-   info->srcid = srcid; \
-   info->size = size; \
-   if (info->size) \
-     { \
-        info->buffer = malloc(info->size); \
-        memcpy(info->buffer, buffer, info->size); \
-     } \
-   ecore_main_loop_thread_safe_call_async(_intern_main_loop ## foo, info); \
-   return EINA_TRUE; \
-}
 
 static int _snapshot_start_op = EINA_DEBUG_OPCODE_INVALID;
 static int _snapshot_done_op = EINA_DEBUG_OPCODE_INVALID;
@@ -102,14 +78,6 @@ enum {
    HIGHLIGHT_B = 128,
    HIGHLIGHT_A = 255
 };
-
-typedef struct
-{
-   Eina_Debug_Session *session;
-   int srcid;
-   void *buffer;
-   unsigned int size;
-} Main_Loop_Info;
 
 typedef struct
 {
