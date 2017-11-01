@@ -118,6 +118,7 @@ typedef struct {
 typedef struct {
    Efl_Ui_Focus_Relations relation;
    const char *class_name;
+   Evas_Object *vis;
 } Clouseau_Focus_Relation;
 
 

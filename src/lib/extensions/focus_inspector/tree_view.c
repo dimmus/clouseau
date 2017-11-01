@@ -57,6 +57,8 @@ tree_level(void *data, Instance *inst, Clouseau_Focus_Relation *relation)
    evas_object_size_hint_max_set(vis, maxw, maxh);
    evas_object_size_hint_min_set(vis, minw, minh);
 
+   relation->vis = vis;
+
    PUSH_CLEANUP(inst, vis);
 
    childbox = evas_object_box_add(evas_object_evas_get(data));
@@ -88,4 +90,86 @@ tree_view_update(Instance *inst, Evas_Object *scroller)
      find(inst, NULL, tree_level, box);
 
    elm_object_content_set(scroller, box);
+
+   tree_view_relation_display(inst, RELATION_NEXT);
+}
+
+static void
+_geom_change(void *data, Evas *e, Evas_Object *obj, void *event_info)
+{
+   Eina_Rectangle pos1, pos2;
+   Eina_Position2D calc_from, calc_to, from, to;
+   Evas_Object *line, *vis1, *vis2;
+
+   line = data;
+   vis1 = evas_object_data_get(line, "__from");
+   vis2 = evas_object_data_get(line, "__to");
+
+   evas_object_geometry_get(vis1, &pos1.x, &pos1.y, &pos1.w, &pos1.h);
+   evas_object_geometry_get(vis2, &pos2.x, &pos2.y, &pos2.w, &pos2.h);
+
+   from.x = pos1.x + pos1.w / 2;
+   from.y = pos1.y + pos1.h / 2;
+   to.x = pos2.x + pos2.w / 2;
+   to.y = pos2.y + pos2.h / 2;
+
+   evas_object_line_xy_set(line, from.x, from.y, to.x, to.y);
+}
+
+static void
+_relation_display(Instance *inst, Evas_Object *vis1, Evas_Object *vis2)
+{
+   Evas_Object *line;
+
+   line = evas_object_line_add(evas_object_evas_get(vis1));
+   evas_object_anti_alias_set(line, EINA_FALSE);
+   evas_object_geometry_set(line, 0, 0, 1000, 1000);
+   evas_object_pass_events_set(line, EINA_TRUE);
+   evas_object_data_set(line, "__from", vis1);
+   evas_object_data_set(line, "__to", vis2);
+   evas_object_show(line);
+
+   PUSH_CLEANUP(inst, line);
+
+   evas_object_event_callback_add(vis1, EVAS_CALLBACK_MOVE, _geom_change, line);
+   evas_object_event_callback_add(vis1, EVAS_CALLBACK_RESIZE, _geom_change, line);
+   evas_object_event_callback_add(vis2, EVAS_CALLBACK_MOVE, _geom_change, line);
+   evas_object_event_callback_add(vis2, EVAS_CALLBACK_RESIZE, _geom_change, line);
+}
+
+EAPI void
+tree_view_relation_display(Instance *inst, Relations rel_type)
+{
+   if (rel_type == RELATION_TREE || rel_type == RELATION_NEXT || rel_type == RELATION_PREV)
+     {
+        Clouseau_Focus_Relation *rel;
+        Eina_List *n;
+
+        EINA_LIST_FOREACH(inst->realized.data->relations, n, rel)
+          {
+             Eo *relation_partner;
+
+             if (rel_type == RELATION_TREE)
+               {
+                  relation_partner = rel->relation.parent;
+                  if (!rel->relation.parent) continue;
+               }
+             else if (rel_type == RELATION_NEXT)
+               {
+                  relation_partner = rel->relation.next;
+               }
+             else if (rel_type == RELATION_PREV)
+               {
+                  relation_partner = rel->relation.prev;
+               }
+
+             Clouseau_Focus_Relation *c = eina_hash_find(inst->realized.focusable_to_cfr, &relation_partner);
+
+             EINA_SAFETY_ON_NULL_GOTO(c, next);
+
+             _relation_display(inst, c->vis, rel->vis);
+             next:
+             n = n;
+          }
+     }
 }

@@ -98,6 +98,8 @@ ui_manager_data_arrived(Instance *inst, Clouseau_Focus_Manager_Data *data)
    EINA_LIST_FREE(inst->realized.objects, o)
       evas_object_del(o);
 
+   inst->realized.focusable_to_cfr = eina_hash_pointer_new(NULL);
+
    inst->realized.data = data;
 
    elm_hoversel_clear(history);
@@ -106,6 +108,7 @@ ui_manager_data_arrived(Instance *inst, Clouseau_Focus_Manager_Data *data)
      {
         if (rel->relation.position_in_history != -1)
           sorted = eina_list_sorted_insert(sorted, _sort, rel);
+        eina_hash_add(inst->realized.focusable_to_cfr, &rel->relation.node, rel);
      }
 
    EINA_LIST_FOREACH(sorted, n, rel)
