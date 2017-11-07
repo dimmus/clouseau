@@ -800,7 +800,7 @@ _main_loop_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid E
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *obj = (Eo *)SWAP_64(ptr64);
-   if (!efl_isa(obj, EFL_GFX_INTERFACE) && !efl_isa(obj, EVAS_CANVAS_CLASS)) return;
+   if (!efl_isa(obj, EFL_GFX_INTERFACE) && !efl_isa(obj, EFL_CANVAS_INTERFACE)) return;
    Evas *e = evas_object_evas_get(obj);
    Eo *rect = evas_object_polygon_add(e);
    evas_object_move(rect, 0, 0);
@@ -900,7 +900,7 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *e = (Eo *)SWAP_64(ptr64);
-   if (!efl_isa(e, EVAS_CANVAS_CLASS)) return;
+   if (!efl_isa(e, EFL_CANVAS_INTERFACE)) return;
 
    snapshot = evas_object_image_filled_add(e);
    if (!snapshot) return;
