@@ -119,7 +119,7 @@ gui_win_create(Eo *__main_parent)
    pub_widgets->object_infos_list = object_infos_list;
    evas_object_size_hint_weight_set(object_infos_list, 1.000000, 1.000000);
    efl_gfx_visible_set(object_infos_list, EINA_TRUE);
-   objects_list = efl_add(ELM_GENLIST_CLASS, panes);
+   objects_list = elm_genlist_add(panes);
    pub_widgets->objects_list = objects_list;
    evas_object_size_hint_weight_set(objects_list, 1.000000, 1.000000);
    efl_gfx_visible_set(objects_list, EINA_TRUE);

@@ -577,10 +577,10 @@ _connection_type_change(Connection_Type conn_type)
 }
 
 void
-remote_port_entry_changed(void *data, const Efl_Event *event)
+remote_port_entry_changed(void *data, Evas_Object *obj, void *event_info)
 {
    Eo *inwin = data;
-   const char *ptr = elm_entry_entry_get(event->object);
+   const char *ptr = elm_entry_entry_get(obj);
    _selected_port = atoi(ptr);
    _connection_type_change(REMOTE_CONNECTION);
    efl_del(inwin);
@@ -780,7 +780,7 @@ _extensions_cfgs_inwin_create(const char *filename)
    evas_object_size_hint_align_set(box, -1, -1);
    efl_gfx_visible_set(box, EINA_TRUE);
 
-   Eo *label = efl_add(ELM_LABEL_CLASS, box);
+   Eo *label = elm_label_add(box);
    elm_object_text_set(label, "Choose an extension to open the file with:");
    evas_object_size_hint_align_set(label, 0, -1);
    evas_object_size_hint_weight_set(label, 1, 1);

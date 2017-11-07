@@ -348,16 +348,16 @@ _snapshot_load(Clouseau_Extension *ext, void *buffer, int size, int version EINA
 }
 
 static void
-_obj_info_expand_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_obj_info_expand_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
-   Elm_Object_Item *glit = event->info;
+   Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_TRUE);
 }
 
 static void
-_obj_info_contract_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_obj_info_contract_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
-   Elm_Object_Item *glit = event->info;
+   Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_FALSE);
 }
 
@@ -401,9 +401,9 @@ _obj_info_gl_selected(void *data EINA_UNUSED, Evas_Object *pobj,
 }
 
 static void
-_obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_obj_info_expanded_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
-   Elm_Object_Item *glit = event->info;
+   Elm_Object_Item *glit = event_info;
    const Elm_Genlist_Item_Class *itc = elm_genlist_item_item_class_get(glit);
    if (itc == _obj_kl_info_itc)
      {
@@ -413,7 +413,7 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
         EINA_LIST_FOREACH(kl->functions, itr, func)
           {
             Elm_Genlist_Item *glist =  elm_genlist_item_append(
-                   event->object, _obj_func_info_itc, func, glit,
+                   obj, _obj_func_info_itc, func, glit,
                    ELM_GENLIST_ITEM_NONE, _obj_info_gl_selected, NULL);
             elm_genlist_item_tooltip_content_cb_set(glist, _obj_info_tootip, func, NULL);
           }
@@ -421,9 +421,9 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
 }
 
 static void
-_obj_info_contracted_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_obj_info_contracted_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
-   Elm_Object_Item *glit = event->info;
+   Elm_Object_Item *glit = event_info;
    elm_genlist_item_subitems_clear(glit);
 }
 
@@ -651,16 +651,16 @@ _obj_info_get(Eina_Debug_Session *session, int src, void *buffer, int size)
 }
 
 static void
-_objs_expand_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_objs_expand_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
-   Elm_Object_Item *glit = event->info;
+   Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_TRUE);
 }
 
 static void
-_objs_contract_request_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_objs_contract_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
-   Elm_Object_Item *glit = event->info;
+   Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_FALSE);
 }
 
@@ -682,16 +682,16 @@ _objs_sel_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 }
 
 static void
-_objs_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_objs_expanded_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
    Eina_List *itr;
-   Clouseau_Extension *ext = _ext_get(event->object);
-   Elm_Object_Item *glit = event->info;
+   Clouseau_Extension *ext = _ext_get(obj);
+   Elm_Object_Item *glit = event_info;
    Obj_Info *info = elm_object_item_data_get(glit), *it_data;
    if (!ext) return;
    EINA_LIST_FOREACH(info->children, itr, it_data)
      {
-        it_data->glitem = elm_genlist_item_append(event->object, _objs_itc,
+        it_data->glitem = elm_genlist_item_append(obj, _objs_itc,
               it_data, glit,
               it_data->children ? ELM_GENLIST_ITEM_TREE : ELM_GENLIST_ITEM_NONE,
               _objs_sel_cb, ext);
@@ -701,9 +701,9 @@ _objs_expanded_cb(void *data EINA_UNUSED, const Efl_Event *event)
 }
 
 static void
-_objs_contracted_cb(void *data EINA_UNUSED, const Efl_Event *event)
+_objs_contracted_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 {
-   Elm_Object_Item *glit = event->info;
+   Elm_Object_Item *glit = event_info;
    elm_genlist_item_subitems_clear(glit);
 }
 
@@ -1042,9 +1042,9 @@ _item_realize(Instance *inst, Obj_Info *info)
 }
 
 static void
-_jump_entry_changed(void *data, const Efl_Event *event)
+_jump_entry_changed(void *data, Evas_Object *obj, void *event_info)
 {
-   Eo *en = event->object;
+   Eo *en = obj;
    Eo *inwin = data;
    const char *ptr = elm_entry_entry_get(en);
    Clouseau_Extension *ext = efl_key_data_get(en, "__extension");
@@ -1083,7 +1083,7 @@ jump_to_ptr_inwin_show(void *data EINA_UNUSED, Evas_Object *obj, void *event_inf
    elm_entry_scrollable_set(entry, EINA_TRUE);
    elm_entry_single_line_set(entry, EINA_TRUE);
    elm_object_part_text_set(entry, "guide", "Jump To Pointer");
-   efl_event_callback_add(entry, ELM_ENTRY_EVENT_ACTIVATED, _jump_entry_changed, inwin);
+   evas_object_smart_callback_add(entry, "activated", _jump_entry_changed, inwin);
    efl_key_data_set(entry, "__extension", ext);
    evas_object_show(entry);
    elm_win_inwin_content_set(inwin, entry);
@@ -1122,10 +1122,10 @@ _ui_get(Clouseau_Extension *ext, Eo *parent)
         _objs_itc->func.text_get = _objs_item_label_get;
         _objs_itc->func.content_get = _objs_item_content_get;
      }
-   efl_event_callback_add(inst->wdgs->objects_list, ELM_GENLIST_EVENT_EXPAND_REQUEST, _objs_expand_request_cb, NULL);
-   efl_event_callback_add(inst->wdgs->objects_list, ELM_GENLIST_EVENT_CONTRACT_REQUEST, _objs_contract_request_cb, NULL);
-   efl_event_callback_add(inst->wdgs->objects_list, ELM_GENLIST_EVENT_EXPANDED, _objs_expanded_cb, NULL);
-   efl_event_callback_add(inst->wdgs->objects_list, ELM_GENLIST_EVENT_CONTRACTED, _objs_contracted_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->objects_list, "expand,request", _objs_expand_request_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->objects_list, "contract,request", _objs_contract_request_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->objects_list, "expanded", _objs_expanded_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->objects_list, "contracted", _objs_contracted_cb, NULL);
 
    //Init object class info itc
    if (!_obj_kl_info_itc)
@@ -1141,10 +1141,10 @@ _ui_get(Clouseau_Extension *ext, Eo *parent)
         _obj_func_info_itc->item_style = "default";
         _obj_func_info_itc->func.text_get = _obj_func_info_item_label_get;
      }
-   efl_event_callback_add(inst->wdgs->object_infos_list, ELM_GENLIST_EVENT_EXPAND_REQUEST, _obj_info_expand_request_cb, NULL);
-   efl_event_callback_add(inst->wdgs->object_infos_list, ELM_GENLIST_EVENT_CONTRACT_REQUEST, _obj_info_contract_request_cb, NULL);
-   efl_event_callback_add(inst->wdgs->object_infos_list, ELM_GENLIST_EVENT_EXPANDED, _obj_info_expanded_cb, NULL);
-   efl_event_callback_add(inst->wdgs->object_infos_list, ELM_GENLIST_EVENT_CONTRACTED, _obj_info_contracted_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->object_infos_list, "expand,request", _obj_info_expand_request_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->object_infos_list, "contract,request", _obj_info_contract_request_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->object_infos_list, "expanded", _obj_info_expanded_cb, NULL);
+   evas_object_smart_callback_add(inst->wdgs->object_infos_list, "contracted", _obj_info_contracted_cb, NULL);
    return inst->wdgs->main;
 }
 

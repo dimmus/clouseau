@@ -18,7 +18,7 @@ conn_menu_show(void *data, Evas_Object *obj, void *event_info);
 extern void
 save_load_perform(void *data, Evas_Object *obj, void *event_info);
 extern void
-remote_port_entry_changed(void *data, const Efl_Event *event);
+remote_port_entry_changed(void *data, Evas_Object *obj, void *event_info);
 
 static void
 _pubs_free_cb(void *data, const Efl_Event *event EINA_UNUSED)
@@ -129,7 +129,7 @@ gui_remote_port_win_create(Eo *__main_parent)
    elm_entry_scrollable_set(entry, EINA_TRUE);
    elm_entry_single_line_set(entry, EINA_TRUE);
    elm_object_part_text_set(entry, "guide", "Port to connect to remote device");
-   efl_event_callback_add(entry, ELM_ENTRY_EVENT_ACTIVATED, remote_port_entry_changed, inwin);
+   evas_object_smart_callback_add(entry, "activated", remote_port_entry_changed, inwin);
    evas_object_show(entry);
 
    elm_win_inwin_content_set(inwin, entry);
