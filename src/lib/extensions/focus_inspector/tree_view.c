@@ -135,7 +135,7 @@ _arrow_from_to(Evas_Object *vg, Eina_Position2D from, Eina_Position2D to)
    Eina_Rect pos;
    Eina_Matrix3 tmp, root_m;
    Efl_VG *shape;
-   double distance;
+   double distance, deg;
 
    shape = evas_object_vg_root_node_get(vg);
 
@@ -153,12 +153,39 @@ _arrow_from_to(Evas_Object *vg, Eina_Position2D from, Eina_Position2D to)
 
    evas_vg_node_transformation_set(evas_vg_container_child_get(shape, "tail"), &tmp);
 
-   double deg = atan(((double)to.y - from.y) / ((double)to.x - from.x));
+   Eina_Size2D size = EINA_SIZE2D((from.x - to.x), (from.y - to.y));
 
-   Eina_Size2D size = EINA_SIZE2D((to.x - from.x), (to.y - from.y));
+   if (from.y - to.y == 0)
+     {
+        deg = 0;
+     }
+   else if (from.x - to.x == 0)
+     {
+        if (from.y > to.y)
+          deg = M_PI_2;
+        else
+          deg = M_PI + M_PI_2;
+     }
+   else
+     {
+        double di = ((double)(double)from.y - to.y) / ((double)from.x - to.x);
+        deg = atan(di);
+     }
 
-   size.h = MAX(size.h, 0) + 10;
-   size.w = MAX(size.w, 0) + 10;
+   if (from.x >= to.x)
+     {
+        size.w = 0;
+        deg += M_PI;
+     }
+
+   if (to.y <= from.y)
+     {
+       size.h = 0;
+     }
+
+
+   size.h = MAX(abs(size.h), 0) + 10;
+   size.w = MAX(abs(size.w), 0) + 10;
 
    eina_matrix3_identity(&root_m);
    eina_matrix3_identity(&tmp);
