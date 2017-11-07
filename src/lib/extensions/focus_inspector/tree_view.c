@@ -250,28 +250,36 @@ tree_view_relation_display(Instance *inst, Relations rel_type)
 
    EINA_LIST_FOREACH(inst->realized.data->relations, n, rel)
      {
-        Eo *relation_partner;
+        Eo *from;
+        Eo *to;
 
         if (rel_type == RELATION_TREE)
           {
-             relation_partner = rel->relation.parent;
              if (!rel->relation.parent) continue;
+             from = rel->relation.parent;
+             to = rel->relation.node;
           }
         else if (rel_type == RELATION_NEXT)
           {
-             relation_partner = rel->relation.next;
              if (!rel->relation.next) continue;
+             to = rel->relation.next;
+             from = rel->relation.node;
           }
         else if (rel_type == RELATION_PREV)
           {
-             relation_partner = rel->relation.prev;
              if (!rel->relation.prev) continue;
+             to = rel->relation.prev;
+             from = rel->relation.node;
           }
 
-        Clouseau_Focus_Relation *c = eina_hash_find(inst->realized.focusable_to_cfr, &relation_partner);
-        EINA_SAFETY_ON_NULL_GOTO(c, next);
+        Clouseau_Focus_Relation *c_from, *c_to;
 
-        _relation_display(inst, c->vis, rel->vis);
+        c_from = eina_hash_find(inst->realized.focusable_to_cfr, &from);
+        c_to = eina_hash_find(inst->realized.focusable_to_cfr, &to);
+        EINA_SAFETY_ON_NULL_GOTO(c_from, next);
+        EINA_SAFETY_ON_NULL_GOTO(c_to, next);
+
+        _relation_display(inst, c_from->vis, c_to->vis);
         next:
         (void) n;
       }
