@@ -87,7 +87,8 @@ struct _Extension_Config
 
 typedef struct
 {
-   Eina_List *extensions_cfgs;
+   Eina_List *import_extensions_cfgs;
+   Eina_List *extensions_cfgs; /* Imported + auto-loaded*/
    const char *last_extension_name;
 } Config;
 
@@ -159,7 +160,7 @@ _config_eet_load()
    EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Config);
    _config_edd = eet_data_descriptor_stream_new(&eddc);
 
-   EET_DATA_DESCRIPTOR_ADD_LIST(_config_edd, Config, "extensions_cfgs", extensions_cfgs, ext_edd);
+   EET_DATA_DESCRIPTOR_ADD_LIST(_config_edd, Config, "import_extensions_cfgs", import_extensions_cfgs, ext_edd);
    EET_DATA_DESCRIPTOR_ADD_BASIC(_config_edd, Config, "last_extension_name",
          last_extension_name, EET_T_STRING);
 }
@@ -282,9 +283,25 @@ _extension_configs_validate()
 }
 
 static void
+_ext_cfg_load(const char *name, const char *path, void *data EINA_UNUSED)
+{
+   if (strncmp(name, "libclouseau_", 12)) return;
+   if (!eina_str_has_suffix(name, ".so")) return;
+
+   if (!_ext_cfg_find_by_path(path))
+     {
+        Extension_Config *ext_cfg;
+        char fname[1024];
+        sprintf(fname, "%s/%s", path, name);
+        ext_cfg = calloc(1, sizeof(*ext_cfg));
+        ext_cfg->lib_path = eina_stringshare_add(fname);
+        _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
+     }
+}
+
+static void
 _configs_load()
 {
-   Extension_Config *ext_cfg;
    char path[1024];
 
    sprintf(path, "%s/clouseau", efreet_config_home_get());
@@ -303,26 +320,8 @@ _configs_load()
         eet_close(file);
      }
 
-   if (!_ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_objects_introspection.so"))
-     {
-        ext_cfg = calloc(1, sizeof(*ext_cfg));
-        ext_cfg->lib_path = eina_stringshare_add(INSTALL_PREFIX"/lib/libclouseau_objects_introspection.so");
-        _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
-     }
-
-   if (!_ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_evlog.so"))
-     {
-        ext_cfg = calloc(1, sizeof(*ext_cfg));
-        ext_cfg->lib_path = eina_stringshare_add(INSTALL_PREFIX"/lib/libclouseau_evlog.so");
-        _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
-     }
-
-   if (!_ext_cfg_find_by_path(INSTALL_PREFIX"/lib/libclouseau_profiling_viewer.so"))
-     {
-        ext_cfg = calloc(1, sizeof(*ext_cfg));
-        ext_cfg->lib_path = eina_stringshare_add(INSTALL_PREFIX"/lib/libclouseau_profiling_viewer.so");
-        _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
-     }
+   _config->extensions_cfgs = eina_list_clone(_config->import_extensions_cfgs);
+   eina_file_dir_list(INSTALL_PREFIX"/lib", EINA_TRUE, _ext_cfg_load, NULL);
 
    _config_save();
 }
@@ -577,7 +576,7 @@ _connection_type_change(Connection_Type conn_type)
 }
 
 void
-remote_port_entry_changed(void *data, Evas_Object *obj, void *event_info)
+remote_port_entry_changed(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    Eo *inwin = data;
    const char *ptr = elm_entry_entry_get(obj);
@@ -672,6 +671,7 @@ _fs_extension_import(void *data, Evas_Object *fs EINA_UNUSED, void *ev)
      {
         Extension_Config *ext_cfg = calloc(1, sizeof(*ext_cfg));
         ext_cfg->lib_path = eina_stringshare_add(filename);
+        _config->import_extensions_cfgs = eina_list_append(_config->import_extensions_cfgs, ext_cfg);
         _config->extensions_cfgs = eina_list_append(_config->extensions_cfgs, ext_cfg);
         _config_save();
         _extension_configs_validate();
