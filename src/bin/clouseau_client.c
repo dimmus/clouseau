@@ -277,6 +277,7 @@ _extension_configs_validate()
         if (ext_cfg->menu_item || !ext_cfg->name) continue;
         ext_cfg->menu_item = elm_menu_item_add(_main_widgets->ext_selector_menu,
               NULL, NULL, ext_cfg->name, _extension_view, ext_cfg);
+        elm_object_item_tooltip_text_set(ext_cfg->menu_item, ext_cfg->lib_path);
         efl_wref_add(ext_cfg->menu_item, &ext_cfg->menu_item);
         if (!ext_cfg->ready) elm_object_item_disabled_set(ext_cfg->menu_item, EINA_TRUE);
      }
