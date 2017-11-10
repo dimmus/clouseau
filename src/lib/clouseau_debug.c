@@ -1033,13 +1033,15 @@ _main_loop_focus_manager_detail_cb(Eina_Debug_Session *session, int srcid, void 
         Efl_Ui_Focus_Relations *rel;
 
         rel = efl_ui_focus_manager_fetch(manager, elem);
-        memcpy(&crel->relation, rel, sizeof(Efl_Ui_Focus_Relations));
+        if (rel)
+          {
+             memcpy(&crel->relation, rel, sizeof(Efl_Ui_Focus_Relations));
+            crel->class_name = efl_class_name_get(elem);
 
-        crel->class_name = efl_class_name_get(elem);
+            res->relations = eina_list_append(res->relations, crel);
 
-        res->relations = eina_list_append(res->relations, crel);
-
-        free(rel);
+            free(rel);
+          }
      }
 
    int blob_size;
