@@ -9,19 +9,19 @@ static Instance inst;
 static int _focus_manager_list_op = EINA_DEBUG_OPCODE_INVALID;
 static int _focus_manager_detail_op = EINA_DEBUG_OPCODE_INVALID;
 
-static Eet_Data_Descriptor *managers = NULL, *manager_details = NULL;
+static Eet_Data_Descriptor *manager_details = NULL;
 #include "../../clouseau_focus_serialization.x"
 
 static Eina_Bool
-_main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
+_main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int src EINA_UNUSED, void *buffer, int size)
 {
-   int managers = size / sizeof(Efl_Ui_Focus_Manager*);
-   Efl_Ui_Focus_Manager *manager_arr[managers];
+   int nb_managers = size / sizeof(Efl_Ui_Focus_Manager*);
+   Efl_Ui_Focus_Manager *manager_arr[nb_managers];
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
 
    memcpy(manager_arr, buffer, size);
 
-   ui_managers_add(ext->data, manager_arr, managers);
+   ui_managers_add(ext->data, manager_arr, nb_managers);
 
    return EINA_TRUE;
 }
@@ -29,7 +29,7 @@ _main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int src, void *buf
 WRAPPER_TO_XFER_MAIN_LOOP(_focus_manager_list_cb)
 
 static Eina_Bool
-_main_loop_focus_manager_detail_cb(Eina_Debug_Session *session, int src, void *buffer, int size)
+_main_loop_focus_manager_detail_cb(Eina_Debug_Session *session, int src EINA_UNUSED, void *buffer, int size)
 {
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
    Clouseau_Focus_Manager_Data *pd;
@@ -53,7 +53,6 @@ static void
 _session_changed(Clouseau_Extension *ext)
 {
    int i = 0;
-   Instance *inst = ext->data;
    Eina_Debug_Opcode *ops = _ops();
 
    while (ops[i].opcode_name)
@@ -74,18 +73,18 @@ _app_changed(Clouseau_Extension *ext)
 }
 
 EAPI void
-com_refresh_managers(Instance *inst)
+com_refresh_managers(Instance *ext_inst)
 {
-   int i = eina_debug_session_send(inst->ext->session, inst->ext->app_id, _focus_manager_list_op, NULL, 0);
+   eina_debug_session_send(ext_inst->ext->session, ext_inst->ext->app_id, _focus_manager_list_op, NULL, 0);
 }
 
 EAPI void
-com_defailt_manager(Instance *inst, Efl_Ui_Focus_Manager *manager)
+com_defailt_manager(Instance *ext_inst, Efl_Ui_Focus_Manager *manager)
 {
    void *tmp[1];
    tmp[0] = manager;
 
-   int i = eina_debug_session_send(inst->ext->session, inst->ext->app_id, _focus_manager_detail_op, tmp, sizeof(void*));
+   eina_debug_session_send(ext_inst->ext->session, ext_inst->ext->app_id, _focus_manager_detail_op, tmp, sizeof(void*));
 }
 
 EAPI const char *

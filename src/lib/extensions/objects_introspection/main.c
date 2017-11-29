@@ -348,14 +348,14 @@ _snapshot_load(Clouseau_Extension *ext, void *buffer, int size, int version EINA
 }
 
 static void
-_obj_info_expand_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
+_obj_info_expand_request_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_TRUE);
 }
 
 static void
-_obj_info_contract_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
+_obj_info_contract_request_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_FALSE);
@@ -421,7 +421,7 @@ _obj_info_expanded_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info
 }
 
 static void
-_obj_info_contracted_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
+_obj_info_contracted_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    elm_genlist_item_subitems_clear(glit);
@@ -651,14 +651,14 @@ _obj_info_get(Eina_Debug_Session *session, int src, void *buffer, int size)
 }
 
 static void
-_objs_expand_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
+_objs_expand_request_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_TRUE);
 }
 
 static void
-_objs_contract_request_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
+_objs_contract_request_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    elm_genlist_item_expanded_set(glit, EINA_FALSE);
@@ -701,7 +701,7 @@ _objs_expanded_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
 }
 
 static void
-_objs_contracted_cb(void *data EINA_UNUSED, Evas_Object *obj, void *event_info)
+_objs_contracted_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Elm_Object_Item *glit = event_info;
    elm_genlist_item_subitems_clear(glit);
@@ -1042,7 +1042,7 @@ _item_realize(Instance *inst, Obj_Info *info)
 }
 
 static void
-_jump_entry_changed(void *data, Evas_Object *obj, void *event_info)
+_jump_entry_changed(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    Eo *en = obj;
    Eo *inwin = data;

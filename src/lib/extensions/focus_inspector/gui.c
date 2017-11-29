@@ -6,7 +6,7 @@ static Evas_Object *table, *managers, *redirect, *history, *scroller;
 static Elm_Genlist_Item_Class *itc;
 
 static char*
-_text_get(void *data, Elm_Genlist *list, const char *part)
+_text_get(void *data, Elm_Genlist *list EINA_UNUSED, const char *part EINA_UNUSED)
 {
    Efl_Ui_Focus_Manager *manager = data;
    Eina_Strbuf *res = eina_strbuf_new();
@@ -16,7 +16,7 @@ _text_get(void *data, Elm_Genlist *list, const char *part)
 }
 
 static void
-_sel_relation_func(void *data, Evas_Object *obj, void *event_info)
+_sel_relation_func(void *data EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    Instance *inst = evas_object_data_get(obj, "__instance");
    tree_view_relation_display(inst, elm_radio_state_value_get(obj));
@@ -95,7 +95,7 @@ ui_create(Instance *inst, Evas_Object *obj)
 }
 
 static void
-_sel(void *data, Evas_Object *obj, void *event_info)
+_sel(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    com_defailt_manager(data, elm_object_item_data_get(event_info));
 }
@@ -129,7 +129,7 @@ EAPI void
 ui_manager_data_arrived(Instance *inst, Clouseau_Focus_Manager_Data *data)
 {
    Clouseau_Focus_Relation *rel;
-   Evas_Object *box, *o;
+   Evas_Object *o;
    Eina_List *n, *sorted = NULL;
 
    EINA_LIST_FREE(inst->realized.objects, o)

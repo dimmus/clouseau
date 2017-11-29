@@ -74,7 +74,7 @@ static int _win_screenshot_op = EINA_DEBUG_OPCODE_INVALID;
 static int _focus_manager_list_op = EINA_DEBUG_OPCODE_INVALID;
 static int _focus_manager_detail_op = EINA_DEBUG_OPCODE_INVALID;
 
-static Eet_Data_Descriptor *managers = NULL, *manager_details = NULL;
+static Eet_Data_Descriptor *manager_details = NULL;
 #include "clouseau_focus_serialization.x"
 
 enum {
@@ -921,13 +921,13 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
 WRAPPER_TO_XFER_MAIN_LOOP(_win_screenshot_cb)
 
 static Eina_Bool
-_only_manager(const void *container, void *data, void *fdata)
+_only_manager(const void *container EINA_UNUSED, void *data, void *fdata EINA_UNUSED)
 {
    return efl_isa(data, EFL_UI_FOCUS_MANAGER_INTERFACE);
 }
 
 static void
-_main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+_main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int srcid, void *buffer EINA_UNUSED, int size EINA_UNUSED)
 {
    Eina_Iterator *obj_iterator, *manager_iterator;
    Eina_Array *array;
@@ -1007,7 +1007,7 @@ _fetch_children(Efl_Ui_Focus_Manager *m)
 }
 
 static Eina_Bool
-_main_loop_focus_manager_detail_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size)
+_main_loop_focus_manager_detail_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size EINA_UNUSED)
 {
    Clouseau_Focus_Manager_Data *res;
    uint64_t ptr64;

@@ -5,7 +5,7 @@
 static void
 find(Instance *pd, void *parent, void (*found)(void *data, Instance *pd, Clouseau_Focus_Relation *relation), void *data)
 {
-   for (int i = 0; pd->realized.data->relations && i < eina_list_count(pd->realized.data->relations); ++i)
+   for (unsigned int i = 0; pd->realized.data->relations && i < eina_list_count(pd->realized.data->relations); ++i)
      {
         Clouseau_Focus_Relation *rel;
         rel = eina_list_nth(pd->realized.data->relations, i);
@@ -201,7 +201,7 @@ _arrow_from_to(Evas_Object *vg, Eina_Position2D from, Eina_Position2D to)
 }
 
 static void
-_geom_change(void *data, Evas *e, Evas_Object *obj, void *event_info)
+_geom_change(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Eina_Rectangle pos1, pos2;
    Eina_Position2D from, to;
