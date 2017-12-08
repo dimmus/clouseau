@@ -935,6 +935,14 @@ save_load_perform(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *ev
    else _fs_activate(EINA_FALSE);
 }
 
+static void
+_main_window_del(void *data EINA_UNUSED,
+                 Evas_Object *obj EINA_UNUSED,
+                 void *event_info EINA_UNUSED)
+{
+   _all_extensions_delete();
+}
+
 EAPI_MAIN int
 elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 {
@@ -999,6 +1007,8 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
 
    elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
    _main_widgets = gui_main_win_create(NULL);
+   evas_object_smart_callback_add(_main_widgets->main_win, "delete,request",
+                                  _main_window_del, NULL);
 
    for (i = 0; i < LAST_CONNECTION; i++)
      {
