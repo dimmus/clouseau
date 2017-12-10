@@ -1161,6 +1161,8 @@ extension_start(Clouseau_Extension *ext, Eo *parent)
 
    eina_init();
    eolian_init();
+   Eolian *eos = eolian_new();
+
 
    ext->data = inst;
    ext->session_changed_cb = _session_changed;
@@ -1175,11 +1177,12 @@ extension_start(Clouseau_Extension *ext, Eo *parent)
 
    memset(&(inst->snapshot), 0, sizeof(inst->snapshot));
 
-   eolian_directory_scan(EOLIAN_EO_DIR);
+   eolian_directory_scan(eos, EOLIAN_EO_DIR);
 
    _config_load(ext);
 
    ext->ui_object = _ui_get(ext, parent);
+   eolian_free(eos);
    return !!ext->ui_object;
 }
 

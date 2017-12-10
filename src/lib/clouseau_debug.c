@@ -186,6 +186,7 @@ _class_find_by_name(const char *eo_klname, const Eolian_Unit **unit)
         return info->kl;
      }
 
+   Eolian *eos = eolian_new();
    char *klname = strdup(eo_klname);
 
    Eina_Strbuf *buf = eina_strbuf_new();
@@ -195,7 +196,7 @@ _class_find_by_name(const char *eo_klname, const Eolian_Unit **unit)
    char *tmp = eina_strbuf_string_steal(buf);
    eina_strbuf_free(buf);
    eina_str_tolower(&tmp);
-   *unit = eolian_file_parse(tmp);
+   *unit = eolian_file_parse(eos, tmp);
    free(tmp);
 
    tmp = klname;
@@ -218,6 +219,7 @@ end:
         eina_hash_set(_eolian_kls_hash, eo_klname, info);
      }
    free(klname);
+   eolian_free(eos);
    return kl;
 }
 
@@ -1078,13 +1080,15 @@ clouseau_debug_init(void)
    eolian_init();
    evas_init();
 
+   Eolian *eos = eolian_new();
    _eolian_kls_hash = eina_hash_string_superfast_new(NULL);
 
-   eolian_system_directory_scan();
+   eolian_system_directory_scan(eos);
 
    eina_debug_opcodes_register(NULL, _debug_ops(), NULL, NULL);
 
    printf("%s - In\n", __FUNCTION__);
+   eolian_free(eos);
    return EINA_TRUE;
 }
 
