@@ -474,15 +474,14 @@ static Eina_Bool
 _api_resolvable(Eo *obj, const Eolian_Function *function)
 {
    Efl_Object_Op_Call_Data call_data = {};
-   Efl_Object_Call_Cache call_cache = {};
+   Efl_Object_Op op;
    const char *func_c_name;
    void *func_api;
 
    func_c_name = eolian_function_full_c_name_get(function, EOLIAN_PROP_GET, EINA_FALSE);
    func_api = dlsym(RTLD_DEFAULT, func_c_name);
-   call_cache.op = _efl_object_op_api_id_get(func_api, obj, func_c_name, __FILE__, __LINE__);
-   call_cache.generation = _efl_object_init_generation;
-   _efl_object_call_resolve(obj, func_c_name, &call_data, &call_cache, __FILE__, __LINE__);
+   op = _efl_object_op_api_id_get(func_api, obj, func_c_name, __FILE__, __LINE__);
+   _efl_object_call_resolve(obj, func_c_name, &call_data, op, __FILE__, __LINE__);
 
    return !!call_data.func;
 }
