@@ -21,9 +21,9 @@ include_directories(
 
 link_directories (${PC_LIBELEMENTARY_LIBRARY_DIRS})
 
-add_library(focus_inspector SHARED main.c gui.c tree_view.c)
+add_library(clouseau_focus_inspector SHARED main.c gui.c tree_view.c)
 
-target_link_libraries(focus_inspector
+target_link_libraries(clouseau_focus_inspector
    ${ELEMENTARY_LIBRARIES}
    ${EVAS_LIBRARIES}
    ${EO_LIBRARIES}
@@ -33,6 +33,6 @@ target_link_libraries(focus_inspector
    clouseau_debug
    )
 
-add_dependencies(focus_inspector focus_inspector_theme)
+add_dependencies(clouseau_focus_inspector focus_inspector_theme)
 
-INSTALL(TARGETS focus_inspector LIBRARY DESTINATION lib)
+INSTALL(TARGETS clouseau_focus_inspector LIBRARY DESTINATION lib)
