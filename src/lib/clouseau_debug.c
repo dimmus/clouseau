@@ -537,17 +537,104 @@ _class_buffer_fill(Eo *obj, const Eolian_Class *ekl, char *buf)
    return size;
 }
 
+/* Mapping from legacy classes to installed class files*/
+static const char *legacy_installed_map[][2] =
+{
+     { "Efl.Ui.Bg_Widget_Legacy", "Efl.Ui.Bg_Widget" },
+     { "Efl.Ui.Button_Legacy", "Efl.Ui.Button" },
+     { "Efl.Ui.Check_Legacy", "Efl.Ui.Check" },
+     { "Efl.Ui.Clock_Legacy", "Efl.Ui.Clock" },
+     { "Efl.Ui.Flip_Legacy", "Efl.Ui.Flip" },
+     { "Efl.Ui.Frame_Legacy", "Efl.Ui.Flip" },
+     { "Efl.Ui.Image_Legacy", "Efl.Ui.Image" },
+     { "Efl.Ui.Image_Zoomable_Legacy", "Efl.Ui.Image_Zoomable" },
+     { "Efl.Ui.Layout_Legacy", "Efl.Ui.Layout" },
+     { "Efl.Ui.Multibuttonentry_Legacy", "Efl.Ui.Multibuttonentry" },
+     { "Efl.Ui.Panes_Legacy", "Efl.Ui.Panes" },
+     { "Efl.Ui.Progressbar_Legacy", "Efl.Ui.Progressbar" },
+     { "Efl.Ui.Radio_Legacy", "Efl.Ui.Radio" },
+     { "Efl.Ui.Slider_Legacy", "Efl.Ui.Slider" },
+     { "Efl.Ui.Video_Legacy", "Efl.Ui.Video" },
+     { "Efl.Ui.Win_Legacy", "Efl.Ui.Win" },
+     { "Elm.Code_Widget_Legacy", "Elm.Code_Widget" },
+     { "Elm.Ctxpopup", "Efl.Ui.Layout" },
+     { "Elm.Entry", "Efl.Ui.Layout" },
+     { "Elm.Colorselector", "Efl.Ui.Layout" },
+     { "Elm.List", "Efl.Ui.Layout" },
+     { "Elm.Photo", "Efl.Ui.Widget" },
+     { "Elm.Actionslider", "Efl.Ui.Layout" },
+     { "Elm.Box", "Efl.Ui.Widget" },
+     { "Elm.Table", "Efl.Ui.Widget" },
+     { "Elm.Thumb", "Efl.Ui.Layout" },
+     { "Elm.Menu", "Efl.Ui.Widget" },
+     { "Elm.Icon", "Efl.Ui.Image" },
+     { "Elm.Prefs", "Efl.Ui.Widget" },
+     { "Elm.Map", "Efl.Ui.Widget" },
+     { "Elm.Glview", "Efl.Ui.Widget" },
+     { "Elm.Web", "Efl.Ui.Widget" },
+     { "Elm.Toolbar", "Efl.Ui.Widget" },
+     { "Elm.Grid", "Efl.Ui.Widget" },
+     { "Elm.Diskselector", "Efl.Ui.Widget" },
+     { "Elm.Notify", "Efl.Ui.Widget" },
+     { "Elm.Mapbuf", "Efl.Ui.Widget" },
+     { "Elm.Separator", "Efl.Ui.Layout" },
+     { "Elm.Calendar", "Efl.Ui.Layout" },
+     { "Elm.Inwin", "Efl.Ui.Layout" },
+     { "Elm.Gengrid", "Efl.Ui.Layout" },
+     { "Elm.Scroller", "Efl.Ui.Layout" },
+     { "Elm.Player", "Efl.Ui.Layout" },
+     { "Elm.Segment_Control", "Efl.Ui.Layout" },
+     { "Elm.Fileselector", "Efl.Ui.Layout" },
+     { "Elm.Fileselector_Button", "Efl.Ui.Button" },
+     { "Elm.Fileselector_Entry", "Efl.Ui.Layout" },
+     { "Elm.Flipselector", "Efl.Ui.Layout" },
+     { "Elm.Hoversel", "Efl.Ui.Button" },
+     { "Elm.Naviframe", "Efl.Ui.Layout" },
+     { "Elm.Popup", "Efl.Ui.Layout" },
+     { "Elm.Bubble", "Efl.Ui.Layout" },
+     { "Elm.Clock", "Efl.Ui.Layout" },
+     { "Elm.Conformant", "Efl.Ui.Layout" },
+     { "Elm.Dayselector", "Efl.Ui.Layout" },
+     { "Elm.Genlist", "Efl.Ui.Layout" },
+     { "Elm.Hover", "Efl.Ui.Layout" },
+     { "Elm.Index", "Efl.Ui.Layout" },
+     { "Elm.Label", "Efl.Ui.Layout" },
+     { "Elm.Panel", "Efl.Ui.Layout" },
+     { "Elm.Slideshow", "Efl.Ui.Layout" },
+     { "Elm.Spinner", "Efl.Ui.Layout" },
+     { "Elm.Plug", "Efl.Ui.Widget" },
+     { "Elm.Web.None", "Efl.Ui.Widget" },
+     { NULL, NULL }
+};
+
 static Eina_Bool
 _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size EINA_UNUSED)
 {
    uint64_t ptr64;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *obj = (Eo *)SWAP_64(ptr64);
-
-   const char *class_name = efl_class_name_get(obj);
-   const Eolian_Class *kl, *okl = eolian_class_get_by_name((Eolian_Unit*) eos, class_name);
-   char *buf;
+   const char *class_name = NULL;
+   const Eolian_Class *kl, *okl;
    unsigned int size_curr = 0;
+   char *buf;
+
+   if (!obj) return EINA_FALSE;
+
+   class_name = efl_class_name_get(obj);
+
+   if (efl_isa(obj, EFL_UI_LEGACY_INTERFACE))
+     {
+        for (int i = 0; legacy_installed_map[i][0]; ++i)
+          {
+             if (!strcmp(legacy_installed_map[i][0], class_name))
+               {
+                  class_name = legacy_installed_map[i][1];
+                  break;
+               }
+          }
+     }
+
+   okl = eolian_class_get_by_name((Eolian_Unit*) eos, class_name);
    if (!okl)
      {
         printf("Class %s not found.\n", class_name);
