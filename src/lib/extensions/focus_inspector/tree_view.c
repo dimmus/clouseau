@@ -111,7 +111,7 @@ _create_arrow(Evas *e)
    evas_vg_shape_stroke_join_set(tail, EFL_GFX_JOIN_MITER);
    evas_vg_shape_append_move_to(tail, 0, 0);
    evas_vg_shape_append_line_to(tail, -100, 0);
-   evas_vg_node_name_set(tail, "tail");
+   efl_name_set(tail, "tail");
 
    front = evas_vg_shape_add(cont);
    evas_vg_node_color_set(front, 0, 0, 0, 255);
@@ -122,7 +122,7 @@ _create_arrow(Evas *e)
    evas_vg_shape_append_line_to(front, 0, 0);
    evas_vg_shape_append_line_to(front, -6, 6);
    evas_vg_shape_append_line_to(front, -6, -6);
-   evas_vg_node_name_set(front, "front");
+   efl_name_set(front, "front");
 
    evas_object_vg_root_node_set(vg, cont);
 
