@@ -648,14 +648,14 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
    Eina_List *list = eina_list_append(NULL, okl);
    EINA_LIST_FOREACH(list, itr, kl)
      {
-        const char *inherit_name;
-        Eina_Iterator *inherits_itr = eolian_class_inherits_get(kl);
+        const Eolian_Class *inherit;
+        Eina_Iterator *inherits_itr;
 
+        inherits_itr = eolian_class_inherits_get(kl);
         size_curr += _class_buffer_fill(obj, kl, buf + size_curr);
-        EINA_ITERATOR_FOREACH(inherits_itr, inherit_name)
+
+        EINA_ITERATOR_FOREACH(inherits_itr, inherit)
           {
-             const Eolian_Class *inherit = eolian_class_get_by_name((Eolian_Unit*) eos, inherit_name);
-             if (!inherit) printf("class not found for name: \"%s\"", inherit_name);
              /* Avoid duplicates in MRO list. */
              if (!eina_list_data_find(list, inherit))
                 list2 = eina_list_append(list, inherit);
