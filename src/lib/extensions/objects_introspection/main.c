@@ -197,7 +197,7 @@ _obj_highlight(Clouseau_Extension *ext, uint64_t obj)
 static void
 _app_snapshot_request(Clouseau_Extension *ext)
 {
-   const char *obj_kl_name = _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Elm.Widget";
+   const char *obj_kl_name = _config->wdgs_show_type == 0 ? "Efl.Canvas.Object" : "Efl.Ui.Widget";
    const char *canvas_kl_name = "Efl.Canvas";
    int size = strlen(obj_kl_name) + 1 + strlen(canvas_kl_name) + 1;
    char *buf = alloca(size);
