@@ -1175,8 +1175,6 @@ extension_start(Clouseau_Extension *ext, Eo *parent)
 
    memset(&(inst->snapshot), 0, sizeof(inst->snapshot));
 
-   eolian_directory_scan(EOLIAN_EO_DIR);
-
    _config_load(ext);
 
    ext->ui_object = _ui_get(ext, parent);
