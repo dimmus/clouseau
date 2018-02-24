@@ -545,7 +545,7 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
    Eo *obj = (Eo *)SWAP_64(ptr64);
 
    const char *class_name = efl_class_name_get(obj);
-   const Eolian_Class *okl, *kl = eolian_class_get_by_name((Eolian_Unit*) eos, class_name);
+   const Eolian_Class *kl, *okl = eolian_class_get_by_name((Eolian_Unit*) eos, class_name);
    char *buf;
    unsigned int size_curr = 0;
    if (!okl)
