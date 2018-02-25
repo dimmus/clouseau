@@ -16,6 +16,7 @@ target_link_libraries(clouseau_debug
    ${EINA_LIBRARIES}
    ${EO_LIBRARIES}
    ${EOLIAN_LIBRARIES}
+   ${EVAS_LIBRARIES}
    ${FFI_LIBRARIES}
    )
 
