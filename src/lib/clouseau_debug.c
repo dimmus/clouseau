@@ -74,7 +74,7 @@ static int _win_screenshot_op = EINA_DEBUG_OPCODE_INVALID;
 static int _focus_manager_list_op = EINA_DEBUG_OPCODE_INVALID;
 static int _focus_manager_detail_op = EINA_DEBUG_OPCODE_INVALID;
 
-static Eolian *eos = NULL;
+static Eolian_State *eos = NULL;
 
 static Eet_Data_Descriptor *manager_details = NULL;
 #include "clouseau_focus_serialization.x"
@@ -155,7 +155,7 @@ _eolian_type_resolve(const Eolian_Type *eo_type)
    if (type_base == EOLIAN_TYPE_REGULAR)
      {
         const char *full_name = eolian_type_full_name_get(eo_type);
-        const Eolian_Typedecl *alias = eolian_typedecl_alias_get_by_name((Eolian_Unit*) eos, full_name);
+        const Eolian_Typedecl *alias = eolian_state_alias_by_name_get(eos, full_name);
         if (alias)
           {
              eo_type = eolian_typedecl_base_type_get(alias);
@@ -634,7 +634,7 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
           }
      }
 
-   okl = eolian_class_get_by_name((Eolian_Unit*) eos, class_name);
+   okl = eolian_state_class_by_name_get(eos, class_name);
    if (!okl)
      {
         printf("Class %s not found.\n", class_name);
@@ -1117,13 +1117,13 @@ clouseau_debug_init(void)
    eolian_init();
    evas_init();
 
-   eos = eolian_new();
+   eos = eolian_state_new();
    _eolian_kls_hash = eina_hash_string_superfast_new(NULL);
 
-   eolian_system_directory_scan(eos);
+   eolian_state_system_directory_add(eos);
 
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(eolian_all_eo_files_parse(eos), EINA_FALSE);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(eolian_all_eot_files_parse(eos), EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(eolian_state_all_eo_files_parse(eos), EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(eolian_state_all_eot_files_parse(eos), EINA_FALSE);
 
    eina_debug_opcodes_register(NULL, _debug_ops(), NULL, NULL);
 
@@ -1284,7 +1284,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
         if (len > 1) // if class_name is not NULL, we begin a new class
           {
              kl = calloc(1, sizeof(*kl));
-             kl->ekl = eolian_class_get_by_name((Eolian_Unit*) eos, buffer);
+             kl->ekl = eolian_state_class_by_name_get(eos, buffer);
              ret->classes = eina_list_append(ret->classes, kl);
           }
         if (!kl)
