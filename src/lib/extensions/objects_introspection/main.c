@@ -435,7 +435,7 @@ _eolian_type_to_string(const Eolian_Type *param_eolian_type, Eina_Strbuf *buf)
    if ((type == EOLIAN_TYPE_REGULAR || type == EOLIAN_TYPE_CLASS) &&
          !eolian_type_base_type_get(param_eolian_type))
      {
-        eina_strbuf_append_printf(buf, "%s", eolian_type_full_name_get(param_eolian_type));
+        eina_strbuf_append_printf(buf, "%s", eolian_type_name_get(param_eolian_type));
      }
    else
      {
@@ -443,7 +443,7 @@ _eolian_type_to_string(const Eolian_Type *param_eolian_type, Eina_Strbuf *buf)
         if ((eolian_type_type_get(base) == EOLIAN_TYPE_REGULAR) ||
               (eolian_type_type_get(base) == EOLIAN_TYPE_CLASS))
           {
-             eina_strbuf_append_printf(buf, "%s *", eolian_type_full_name_get(base));
+             eina_strbuf_append_printf(buf, "%s *", eolian_type_name_get(base));
           }
         else if (eolian_type_type_get(base) == EOLIAN_TYPE_VOID)
           {
@@ -584,7 +584,7 @@ _obj_kl_info_item_label_get(void *data, Evas_Object *obj EINA_UNUSED,
       const char *part EINA_UNUSED)
 {
    Eolian_Debug_Class *kl = data;
-   return strdup(eolian_class_full_name_get(kl->ekl));
+   return strdup(eolian_class_name_get(kl->ekl));
 }
 
 static char *

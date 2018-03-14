@@ -154,13 +154,13 @@ _eolian_type_resolve(const Eolian_Type *eo_type)
 
    if (type_base == EOLIAN_TYPE_REGULAR)
      {
-        const char *full_name = eolian_type_full_name_get(eo_type);
+        const char *full_name = eolian_type_name_get(eo_type);
         const Eolian_Typedecl *alias = eolian_state_alias_by_name_get(eos, full_name);
         if (alias)
           {
              eo_type = eolian_typedecl_base_type_get(alias);
              type_base = eolian_type_type_get(eo_type);
-             full_name = eolian_type_full_name_get(eo_type);
+             full_name = eolian_type_name_get(eo_type);
           }
 
         if (full_name)
@@ -464,7 +464,7 @@ _class_buffer_fill(Eo *obj, const Eolian_Class *ekl, char *buf)
         int len, i;
         if (!size) // only if its the first func to succeed
           {
-             const char *class_name = eolian_class_full_name_get(ekl);
+             const char *class_name = eolian_class_name_get(ekl);
              len = strlen(class_name) + 1;
              memcpy(buf, class_name, len);
              size += len;
@@ -1344,7 +1344,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
                }
              else
                {
-                  printf("Unknown parameter type %s\n", eolian_type_full_name_get(eo_type));
+                  printf("Unknown parameter type %s\n", eolian_type_name_get(eo_type));
                   goto error;
                }
           }
@@ -1380,7 +1380,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
                }
              else
                {
-                  printf("Unknown parameter type %s\n", eolian_type_full_name_get(eo_type));
+                  printf("Unknown parameter type %s\n", eolian_type_name_get(eo_type));
                   goto error;
                }
           }
