@@ -1298,7 +1298,7 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
         func = calloc(1, sizeof(*func));
 //        printf("Class name = %s function = %s\n", eolian_class_name_get(kl->ekl), buffer);
         kl->functions = eina_list_append(kl->functions, func);
-        func->efunc = eolian_class_function_get_by_name(kl->ekl, buffer, EOLIAN_PROP_GET);
+        func->efunc = eolian_class_function_by_name_get(kl->ekl, buffer, EOLIAN_PROP_GET);
         if(!func->efunc)
           {
              printf("Function %s not found!\n", buffer);
