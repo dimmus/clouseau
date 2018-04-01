@@ -959,10 +959,41 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
 
 WRAPPER_TO_XFER_MAIN_LOOP(_win_screenshot_cb)
 
+EAPI Efl_Dbg_Info*
+clouseau_eo_info_find(Efl_Dbg_Info *root, const char *name)
+{
+   Eina_Value_List eo_list;
+   Eina_List *n;
+   Efl_Dbg_Info *info;
+
+   if (!root) return NULL;
+
+   eina_value_pget(&(root->value), &eo_list);
+
+   EINA_LIST_FOREACH(eo_list.list, n, info)
+     {
+        if (!strcmp(info->name, name))
+          {
+             return info;
+          }
+     }
+   return NULL;
+}
+
 static Eina_Bool
 _only_manager(const void *container EINA_UNUSED, void *data, void *fdata EINA_UNUSED)
 {
-   return efl_isa(data, EFL_UI_FOCUS_MANAGER_INTERFACE);
+   Efl_Dbg_Info *manager_data, *root;
+
+   if (!efl_isa(data, EFL_UI_FOCUS_MANAGER_INTERFACE)) return EINA_FALSE;
+
+   //check for debug information
+   root = EFL_DBG_INFO_LIST_APPEND(NULL, "Root");
+   efl_dbg_info_get(data, root);
+   manager_data = clouseau_eo_info_find(root, "Efl.Ui.Focus.Manager");
+   if (!manager_data) return EINA_FALSE;
+
+   return EINA_TRUE;
 }
 
 static void
@@ -985,27 +1016,6 @@ _main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int srcid, void *b
 }
 
 WRAPPER_TO_XFER_MAIN_LOOP(_focus_manager_list_cb)
-
-EAPI Efl_Dbg_Info*
-clouseau_eo_info_find(Efl_Dbg_Info *root, const char *name)
-{
-   Eina_Value_List eo_list;
-   Eina_List *n;
-   Efl_Dbg_Info *info;
-
-   if (!root) return NULL;
-
-   eina_value_pget(&(root->value), &eo_list);
-
-   EINA_LIST_FOREACH(eo_list.list, n, info)
-     {
-        if (!strcmp(info->name, name))
-          {
-             return info;
-          }
-     }
-   return NULL;
-}
 
 static Eina_List*
 _fetch_children(Efl_Ui_Focus_Manager *m)
