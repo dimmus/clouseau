@@ -9,19 +9,19 @@ static Instance inst;
 static int _focus_manager_list_op = EINA_DEBUG_OPCODE_INVALID;
 static int _focus_manager_detail_op = EINA_DEBUG_OPCODE_INVALID;
 
-static Eet_Data_Descriptor *manager_details = NULL;
+static Eet_Data_Descriptor *manager_details = NULL, *manager_list = NULL;
 #include "../../clouseau_focus_serialization.x"
 
 static Eina_Bool
 _main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int src EINA_UNUSED, void *buffer, int size)
 {
-   int nb_managers = size / sizeof(Efl_Ui_Focus_Manager*);
-   Efl_Ui_Focus_Manager *manager_arr[nb_managers];
    Clouseau_Extension *ext = eina_debug_session_data_get(session);
+   Clouseau_Focus_Managers *managers;
+   if (!manager_list) _init_manager_list_descriptors();
 
-   memcpy(manager_arr, buffer, size);
+   managers = eet_data_descriptor_decode(manager_list, buffer, size);
 
-   ui_managers_add(ext->data, manager_arr, nb_managers);
+   ui_managers_add(ext->data, managers);
 
    return EINA_TRUE;
 }

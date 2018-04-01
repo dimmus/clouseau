@@ -8,10 +8,10 @@ static Elm_Genlist_Item_Class *itc;
 static char*
 _text_get(void *data, Elm_Genlist *list EINA_UNUSED, const char *part EINA_UNUSED)
 {
-   Efl_Ui_Focus_Manager *manager = data;
+   Clouseau_Focus_List_Item *it = data;
    Eina_Strbuf *res = eina_strbuf_new();
 
-   eina_strbuf_append_printf(res, "%p", manager);
+   eina_strbuf_append_printf(res, "%s - %p", it->helper_name, (void*)it->ptr);
    return eina_strbuf_release(res);
 }
 
@@ -97,17 +97,21 @@ ui_create(Instance *inst, Evas_Object *obj)
 static void
 _sel(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
-   com_defailt_manager(data, elm_object_item_data_get(event_info));
+   Clouseau_Focus_List_Item *it = elm_object_item_data_get(event_info);
+   com_defailt_manager(data, (void*)it->ptr);
 }
 
 EAPI void
-ui_managers_add(Instance *inst, Efl_Ui_Focus_Manager **manager, int size)
+ui_managers_add(Instance *inst, Clouseau_Focus_Managers *clouseau_managers)
 {
+   Clouseau_Focus_List_Item *it;
+   Eina_List *n;
+
    elm_genlist_clear(managers);
 
-   for (int i = 0; i < size; ++i)
+   EINA_LIST_FOREACH(clouseau_managers->managers, n, it)
      {
-        elm_genlist_item_append(managers, itc, manager[i], NULL, 0, _sel, inst);
+        elm_genlist_item_append(managers, itc, it, NULL, 0, _sel, inst);
      }
 }
 

@@ -76,7 +76,7 @@ static int _focus_manager_detail_op = EINA_DEBUG_OPCODE_INVALID;
 
 static Eolian_State *eos = NULL;
 
-static Eet_Data_Descriptor *manager_details = NULL;
+static Eet_Data_Descriptor *manager_details = NULL, *manager_list = NULL;
 #include "clouseau_focus_serialization.x"
 
 enum {
@@ -1000,19 +1000,31 @@ static void
 _main_loop_focus_manager_list_cb(Eina_Debug_Session *session, int srcid, void *buffer EINA_UNUSED, int size EINA_UNUSED)
 {
    Eina_Iterator *obj_iterator, *manager_iterator;
-   Eina_Array *array;
+   Clouseau_Focus_Managers *managers;
    Eo *obj;
 
-   array = eina_array_new(10);
+   if (!manager_list) _init_data_descriptors();
+
+   managers = alloca(sizeof(Clouseau_Focus_Managers));
+   managers->managers = NULL;
    obj_iterator = eo_objects_iterator_new();
    manager_iterator = eina_iterator_filter_new(obj_iterator, _only_manager, NULL, NULL);
 
    EINA_ITERATOR_FOREACH(manager_iterator, obj)
      {
-        eina_array_push(array, obj);
+        Clouseau_Focus_List_Item *item = alloca(sizeof(Clouseau_Focus_List_Item));
+
+        item->ptr = (uintptr_t)(void*)obj;
+        item->helper_name = efl_class_name_get(efl_ui_focus_manager_root_get(obj));
+
+        managers->managers = eina_list_append(managers->managers, item);
      }
 
-   eina_debug_session_send(session, srcid, _focus_manager_list_op, array->data, array->count * sizeof(void*));
+   int blob_size;
+   void *blob = eet_data_descriptor_encode(manager_list, managers, &blob_size);
+   eina_debug_session_send(session, srcid, _focus_manager_list_op, blob, blob_size);
+
+   managers->managers = eina_list_free(managers->managers);
 }
 
 WRAPPER_TO_XFER_MAIN_LOOP(_focus_manager_list_cb)

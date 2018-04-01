@@ -1,6 +1,6 @@
 
 static void
-_init_data_descriptors(void)
+_init_manager_details_descriptors(void)
 {
    Eet_Data_Descriptor_Class klass;
    Eet_Data_Descriptor *relations_eed;
@@ -35,4 +35,35 @@ _init_data_descriptors(void)
    EET_DATA_DESCRIPTOR_ADD_BASIC(manager_details, Clouseau_Focus_Manager_Data, "focused", focused, EET_T_UINT);
    EET_DATA_DESCRIPTOR_ADD_BASIC(manager_details, Clouseau_Focus_Manager_Data, "class_name", class_name, EET_T_STRING);
    EET_DATA_DESCRIPTOR_ADD_LIST(manager_details, Clouseau_Focus_Manager_Data, "relations", relations, relations_eed);
+
+
+}
+
+static void
+_init_manager_list_descriptors(void)
+{
+   Eet_Data_Descriptor_Class klass;
+   Eet_Data_Descriptor *detail_eed;
+
+   EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&klass, Clouseau_Focus_List_Item);
+   detail_eed = eet_data_descriptor_file_new(&klass);
+   #define BASIC(field, type)    EET_DATA_DESCRIPTOR_ADD_BASIC(detail_eed, Clouseau_Focus_List_Item, #field , field, type)
+
+   BASIC(helper_name, EET_T_STRING);
+   BASIC(ptr, EET_T_LONG_LONG);
+
+   #undef BASIC
+
+
+   EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&klass, Clouseau_Focus_Managers);
+   manager_list = eet_data_descriptor_file_new(&klass);
+
+   EET_DATA_DESCRIPTOR_ADD_LIST(manager_list, Clouseau_Focus_Managers, "managers", managers, detail_eed);
+}
+
+static void
+_init_data_descriptors(void)
+{
+   _init_manager_list_descriptors();
+   _init_manager_details_descriptors();
 }

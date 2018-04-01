@@ -121,6 +121,14 @@ typedef struct {
    Evas_Object *vis;
 } Clouseau_Focus_Relation;
 
+typedef struct {
+   uintptr_t ptr;
+   const char *helper_name;
+} Clouseau_Focus_List_Item;
+
+typedef struct {
+   Eina_List *managers;
+} Clouseau_Focus_Managers;
 
 EAPI void *eo_debug_eoids_request_prepare(int *size, ...);
 

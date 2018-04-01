@@ -25,8 +25,7 @@ typedef enum {
 
 EAPI void tree_view_update(Instance *inst, Evas_Object *scroller);
 EAPI void tree_view_relation_display(Instance *inst, Relations rel);
-
-EAPI void ui_managers_add(Instance *inst, Efl_Ui_Focus_Manager **manager, int size);
+EAPI void ui_managers_add(Instance *inst, Clouseau_Focus_Managers *clouseau_managers);
 EAPI void ui_manager_data_arrived(Instance *inst, Clouseau_Focus_Manager_Data *data);
 EAPI Evas_Object* ui_create(Instance *inst, Evas_Object *obj);
 
