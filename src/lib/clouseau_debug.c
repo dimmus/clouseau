@@ -1096,10 +1096,6 @@ _main_loop_focus_manager_detail_cb(Eina_Debug_Session *session, int srcid, void 
    int blob_size;
    void *blob = eet_data_descriptor_encode(manager_details, res, &blob_size);
 
-   Clouseau_Focus_Manager_Data *aaah = eet_data_descriptor_decode(manager_details, blob, blob_size);
-
-   if (eina_list_count(aaah->relations) != eina_list_count(res->relations)) abort();
-
    eina_debug_session_send(session, srcid, _focus_manager_detail_op, blob, blob_size);
 
    return EINA_TRUE;
