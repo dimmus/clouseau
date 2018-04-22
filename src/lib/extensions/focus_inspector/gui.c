@@ -4,6 +4,7 @@
 
 static Evas_Object *table, *managers, *redirect, *history, *scroller;
 static Elm_Genlist_Item_Class *itc;
+static Clouseau_Focus_List_Item *selected_manager = NULL;
 
 static char*
 _text_get(void *data, Elm_Genlist *list EINA_UNUSED, const char *part EINA_UNUSED)
@@ -23,44 +24,61 @@ _sel_relation_func(void *data EINA_UNUSED, Evas_Object *obj, void *event_info EI
    elm_radio_value_set(obj, elm_radio_state_value_get(obj));
 }
 
+static void
+_reload(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
+{
+   if (selected_manager)
+     com_defailt_manager(data, (void*)selected_manager->ptr);
+}
+
 EAPI Evas_Object*
 ui_create(Instance *inst, Evas_Object *obj)
 {
-   Evas_Object *o, *table2, *group = NULL;
+   Evas_Object *o, *ic, *table2, *group = NULL;
 
    o = table = elm_table_add(obj);
    evas_object_size_hint_weight_set(o, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(o, EVAS_HINT_FILL, EVAS_HINT_FILL);
    evas_object_show(o);
 
+   ic = elm_icon_add(obj);
+   elm_icon_standard_set(ic, "edit-redo");
+   evas_object_show(ic);
+
+   o = elm_button_add(obj);
+   elm_object_part_content_set(o, "icon", ic);
+   evas_object_show(o);
+   elm_table_pack(table, o, 0, 0, 1, 1);
+   evas_object_smart_callback_add(o, "clicked", _reload, inst);
+
    o = managers = elm_combobox_add(obj);
    evas_object_size_hint_weight_set(o, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(o, EVAS_HINT_FILL, EVAS_HINT_FILL);
    elm_object_part_text_set(o, "guide", "Manager to inspect");
    evas_object_show(o);
-   elm_table_pack(table, o, 0, 0, 1, 1);
+   elm_table_pack(table, o, 1, 0, 1, 1);
    itc = elm_genlist_item_class_new();
    itc->func.text_get = _text_get;
 
    o = elm_label_add(obj);
    elm_object_text_set(o, "Redirect:");
    evas_object_show(o);
-   elm_table_pack(table, o, 1, 0, 1, 1);
+   elm_table_pack(table, o, 2, 0, 1, 1);
 
    o = redirect = elm_label_add(obj);
    evas_object_show(o);
-   elm_table_pack(table, o, 2, 0, 1, 1);
+   elm_table_pack(table, o, 3, 0, 1, 1);
 
    o = history = elm_hoversel_add(obj);
    elm_object_text_set(o, "History");
    evas_object_show(o);
-   elm_table_pack(table, o, 3, 0, 1, 1);
+   elm_table_pack(table, o, 4, 0, 1, 1);
 
    o = scroller = elm_scroller_add(table);
    evas_object_size_hint_weight_set(o, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
    evas_object_size_hint_align_set(o, EVAS_HINT_FILL, EVAS_HINT_FILL);
    evas_object_show(o);
-   elm_table_pack(table, o, 0, 1, 4, 1);
+   elm_table_pack(table, o, 0, 1, 5, 1);
 
    o = table2 = elm_table_add(obj);
    evas_object_size_hint_weight_set(o, EVAS_HINT_EXPAND, 0.0);
@@ -78,7 +96,7 @@ ui_create(Instance *inst, Evas_Object *obj)
         evas_object_size_hint_align_set(o, EVAS_HINT_FILL, EVAS_HINT_FILL);
         elm_object_text_set(o, text[i]);
         evas_object_show(o);
-        elm_table_pack(table2, o, i % 4, i/4, 1, 1);
+        elm_table_pack(table2, o, i % 5, i/5, 1, 1);
 
         if (!group)
           group = o;
@@ -89,7 +107,7 @@ ui_create(Instance *inst, Evas_Object *obj)
      }
 
    elm_radio_value_set(group, RELATION_NONE);
-   elm_table_pack(table, table2, 0, 2, 4, 1);
+   elm_table_pack(table, table2, 0, 2, 5, 1);
 
    return table;
 }
@@ -99,6 +117,7 @@ _sel(void *data, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
    Clouseau_Focus_List_Item *it = elm_object_item_data_get(event_info);
    com_defailt_manager(data, (void*)it->ptr);
+   selected_manager = it;
 }
 
 EAPI void
@@ -108,6 +127,7 @@ ui_managers_add(Instance *inst, Clouseau_Focus_Managers *clouseau_managers)
    Eina_List *n;
 
    elm_genlist_clear(managers);
+   selected_manager = NULL;
 
    if (!clouseau_managers) return;
 
