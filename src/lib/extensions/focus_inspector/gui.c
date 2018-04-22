@@ -135,6 +135,8 @@ ui_managers_add(Instance *inst, Clouseau_Focus_Managers *clouseau_managers)
      {
         elm_genlist_item_append(managers, itc, it, NULL, 0, _sel, inst);
      }
+
+   free(clouseau_managers);
 }
 
 static int
@@ -163,11 +165,14 @@ ui_manager_data_arrived(Instance *inst, Clouseau_Focus_Manager_Data *data)
 
    inst->realized.focusable_to_cfr = eina_hash_pointer_new(NULL);
 
+   if (inst->realized.data)
+     free(inst->realized.data);
+
    inst->realized.data = data;
 
    elm_hoversel_clear(history);
 
-   if (!data) return;
+   if (!inst->realized.data) return;
 
    EINA_LIST_FOREACH(data->relations, n, rel)
      {
