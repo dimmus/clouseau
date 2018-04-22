@@ -65,10 +65,18 @@ _session_changed(Clouseau_Extension *ext)
         eina_debug_session_data_set(ext->session, ext);
         eina_debug_opcodes_register(ext->session, ops, NULL, ext);
      }
+
+   ui_managers_add(ext->data, NULL);
+   ui_manager_data_arrived(ext->data, NULL);
+
 }
+
 static void
 _app_changed(Clouseau_Extension *ext)
 {
+   ui_managers_add(ext->data, NULL);
+   ui_manager_data_arrived(ext->data, NULL);
+
    com_refresh_managers(ext->data);
 }
 

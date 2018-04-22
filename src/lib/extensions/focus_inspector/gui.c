@@ -109,6 +109,8 @@ ui_managers_add(Instance *inst, Clouseau_Focus_Managers *clouseau_managers)
 
    elm_genlist_clear(managers);
 
+   if (!clouseau_managers) return;
+
    EINA_LIST_FOREACH(clouseau_managers->managers, n, it)
      {
         elm_genlist_item_append(managers, itc, it, NULL, 0, _sel, inst);
@@ -144,6 +146,8 @@ ui_manager_data_arrived(Instance *inst, Clouseau_Focus_Manager_Data *data)
    inst->realized.data = data;
 
    elm_hoversel_clear(history);
+
+   if (!data) return;
 
    EINA_LIST_FOREACH(data->relations, n, rel)
      {
