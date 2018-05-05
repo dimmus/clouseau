@@ -1501,7 +1501,7 @@ _ui_get(Clouseau_Extension *ext, Eo *parent)
    o2 = elm_button_add(bar_box);
    elm_object_part_content_set(o2, "icon", o);
    elm_box_pack_end(bar_box, o2);
-   efl_gfx_visible_set(o2, EINA_TRUE);
+   efl_gfx_entity_visible_set(o2, EINA_TRUE);
    evas_object_smart_callback_add(o2, "clicked", _evlog_clear, ext);
 
    inf->record_icon = o = elm_icon_add(bar_box);
@@ -1511,23 +1511,23 @@ _ui_get(Clouseau_Extension *ext, Eo *parent)
    inf->record_button = o = elm_button_add(bar_box);
    elm_object_part_content_set(o, "icon", inf->record_icon);
    elm_box_pack_end(bar_box, o);
-   efl_gfx_visible_set(o, EINA_TRUE);
+   efl_gfx_entity_visible_set(o, EINA_TRUE);
    evas_object_smart_callback_add(o, "clicked", _process_recording, ext);
 
    o = elm_separator_add(bar_box);
    elm_box_pack_end(bar_box, o);
-   efl_gfx_visible_set(o, EINA_TRUE);
+   efl_gfx_entity_visible_set(o, EINA_TRUE);
 
    o = elm_label_add(bar_box);
    elm_object_text_set(o, "Refresh interval (in seconds):");
    elm_box_pack_end(bar_box, o);
-   efl_gfx_visible_set(o, EINA_TRUE);
+   efl_gfx_entity_visible_set(o, EINA_TRUE);
 
    inf->refresh_interval_entry = o = elm_entry_add(bar_box);
    elm_entry_single_line_set(o, EINA_TRUE);
    elm_object_text_set(o, "0.2");
    elm_box_pack_end(bar_box, o);
-   efl_gfx_visible_set(o, EINA_TRUE);
+   efl_gfx_entity_visible_set(o, EINA_TRUE);
 
    inf->zoom_slider = o = elm_slider_add(inf->main);
    evas_object_data_set(o, "inf", inf);

@@ -811,10 +811,10 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
         info->screenshots_menu = elm_menu_add(inst->wdgs->main);
         efl_wref_add(info->screenshots_menu, &info->screenshots_menu);
 
-        bt_pos = efl_gfx_position_get(bt);
-        bt_size = efl_gfx_size_get(bt);
+        bt_pos = efl_gfx_entity_position_get(bt);
+        bt_size = efl_gfx_entity_size_get(bt);
         elm_menu_move(info->screenshots_menu, bt_pos.x, bt_pos.y + bt_size.w);
-        efl_gfx_visible_set(info->screenshots_menu, EINA_TRUE);
+        efl_gfx_entity_visible_set(info->screenshots_menu, EINA_TRUE);
         EINA_LIST_FOREACH(info->screenshots, itr, s)
           {
              char str[200];
@@ -899,7 +899,7 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
       Eo *box = elm_box_add(obj);
       evas_object_size_hint_weight_set(box, 1.000000, 1.000000);
       elm_box_horizontal_set(box, EINA_TRUE);
-      efl_gfx_visible_set(box, EINA_TRUE);
+      efl_gfx_entity_visible_set(box, EINA_TRUE);
 
       if (info->screenshots)
         {

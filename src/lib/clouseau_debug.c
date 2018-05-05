@@ -839,14 +839,14 @@ _main_loop_obj_highlight_cb(Eina_Debug_Session *session EINA_UNUSED, int srcid E
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *obj = (Eo *)SWAP_64(ptr64);
-   if (!efl_isa(obj, EFL_GFX_INTERFACE) && !efl_isa(obj, EFL_CANVAS_INTERFACE)) return;
+   if (!efl_isa(obj, EFL_GFX_ENTITY_INTERFACE) && !efl_isa(obj, EFL_CANVAS_SCENE_INTERFACE)) return;
    Evas *e = evas_object_evas_get(obj);
    Eo *rect = evas_object_polygon_add(e);
    evas_object_move(rect, 0, 0);
-   if (efl_isa(obj, EFL_GFX_INTERFACE))
+   if (efl_isa(obj, EFL_GFX_ENTITY_INTERFACE))
      {
         Eina_Rect obj_geom = {.x = 0, .y = 0, .w = 0, .h = 0};
-        obj_geom = efl_gfx_geometry_get(obj);
+        obj_geom = efl_gfx_entity_geometry_get(obj);
         if (efl_isa(obj, EFL_UI_WIN_CLASS)) obj_geom.x = obj_geom.y = 0;
 
         evas_object_polygon_point_add(rect, obj_geom.x, obj_geom.y);
@@ -939,7 +939,7 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *e = (Eo *)SWAP_64(ptr64);
-   if (!efl_isa(e, EFL_CANVAS_INTERFACE)) return;
+   if (!efl_isa(e, EFL_CANVAS_SCENE_INTERFACE)) return;
 
    snapshot = evas_object_image_filled_add(e);
    if (!snapshot) return;
@@ -953,7 +953,7 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
 
    evas_output_size_get(e, &w, &h);
    evas_object_geometry_set(snapshot, 0, 0, w, h);
-   efl_gfx_visible_set(snapshot, EINA_TRUE);
+   efl_gfx_entity_visible_set(snapshot, EINA_TRUE);
    evas_event_callback_add(e, EVAS_CALLBACK_RENDER_POST, _screenshot_pixels_cb, info);
 }
 

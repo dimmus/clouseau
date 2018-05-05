@@ -40,17 +40,17 @@ gui_main_win_create(Eo *__main_parent)
    pub_widgets->main_win = main_win;
    elm_win_autodel_set(main_win, EINA_TRUE);
    elm_win_title_set(main_win, "Clouseau");
-   efl_gfx_size_set(main_win, EINA_SIZE2D(478, 484));
+   efl_gfx_entity_size_set(main_win, EINA_SIZE2D(478, 484));
 
    bg = elm_bg_add(main_win);
    evas_object_size_hint_weight_set(bg, 1.000000, 1.000000);
-   efl_gfx_visible_set(bg, EINA_TRUE);
-   efl_gfx_position_set(bg, EINA_POSITION2D(0, 0));
+   efl_gfx_entity_visible_set(bg, EINA_TRUE);
+   efl_gfx_entity_position_set(bg, EINA_POSITION2D(0, 0));
    elm_win_resize_object_add(main_win, bg);
 
    main_box = elm_box_add(main_win);
    evas_object_size_hint_weight_set(main_box, 1.000000, 1.000000);
-   efl_gfx_visible_set(main_box, EINA_TRUE);
+   efl_gfx_entity_visible_set(main_box, EINA_TRUE);
    elm_win_resize_object_add(main_win, main_box);
 
    tb = elm_toolbar_add(main_win);
@@ -82,7 +82,7 @@ gui_main_win_create(Eo *__main_parent)
    */
 
    elm_box_pack_end(main_box, tb);
-   efl_gfx_visible_set(tb, EINA_TRUE);
+   efl_gfx_entity_visible_set(tb, EINA_TRUE);
 
    freeze_pulse = elm_progressbar_add(main_win);
    pub_widgets->freeze_pulse = freeze_pulse;
@@ -98,14 +98,14 @@ gui_main_win_create(Eo *__main_parent)
    pub_widgets->ext_box = ext_box;
    evas_object_size_hint_weight_set(ext_box, 1.000000, 1.000000);
    evas_object_size_hint_align_set(ext_box, -1.000000, -1.000000);
-   efl_gfx_visible_set(ext_box, EINA_TRUE);
+   efl_gfx_entity_visible_set(ext_box, EINA_TRUE);
    elm_box_pack_end(main_box, ext_box);
 
    freeze_inwin = elm_win_inwin_add(main_win);
    pub_widgets->freeze_inwin = freeze_inwin;
    elm_object_style_set(freeze_inwin, "minimal");
 
-   efl_gfx_visible_set(main_win, EINA_TRUE);
+   efl_gfx_entity_visible_set(main_win, EINA_TRUE);
    efl_event_callback_add(main_win, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
 
    return pub_widgets;
