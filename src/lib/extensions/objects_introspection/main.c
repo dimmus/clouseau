@@ -891,7 +891,7 @@ _objs_item_content_get(void *data, Evas_Object *obj, const char *part)
    Instance *inst = ext->data;
    if (!canvas_id)
      {
-        Class_Info *kl_info = eina_hash_find(inst->classes_hash_by_name, "Evas.Canvas");
+        Class_Info *kl_info = eina_hash_find(inst->classes_hash_by_name, "Efl.Ui.Win_Legacy");
         if (kl_info) canvas_id = kl_info->id;
      }
    if (info->kl_id == canvas_id && !strcmp(part, "elm.swallow.end"))

@@ -960,8 +960,9 @@ _main_loop_win_screenshot_cb(Eina_Debug_Session *session, int srcid, void *buffe
 
    if (size != sizeof(uint64_t)) return;
    memcpy(&ptr64, buffer, sizeof(ptr64));
-   Eo *e = (Eo *)SWAP_64(ptr64);
-   if (!efl_isa(e, EFL_CANVAS_SCENE_INTERFACE)) return;
+   Eo *obj = (Eo *)SWAP_64(ptr64);
+   Eo *e = evas_object_evas_get(obj);
+   if (!e) return;
 
    snapshot = evas_object_image_filled_add(e);
    if (!snapshot) return;
