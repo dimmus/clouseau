@@ -142,8 +142,6 @@ typedef struct
    const Eolian_Class *kl;
 } Eolian_Info;
 
-static Eina_Hash *_eolian_kls_hash = NULL;
-
 static Eolian_Debug_Basic_Type
 _eolian_type_resolve(const Eolian_Type *eo_type)
 {
@@ -610,11 +608,13 @@ static const char *legacy_installed_map[][2] =
 static Eina_Bool
 _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size EINA_UNUSED)
 {
+   static Eina_Hash *_parsed_kls = NULL;
    uint64_t ptr64;
    memcpy(&ptr64, buffer, sizeof(ptr64));
    Eo *obj = (Eo *)SWAP_64(ptr64);
    const char *class_name = NULL;
    const Eolian_Class *kl, *okl;
+   Eolian_State *s;
    unsigned int size_curr = 0;
    char *buf;
 
@@ -634,7 +634,29 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
           }
      }
 
-   okl = eolian_state_class_by_name_get(eos, class_name);
+   if (!_parsed_kls) _parsed_kls = eina_hash_string_superfast_new(NULL);
+   s = eina_hash_find(_parsed_kls, class_name);
+   if (!s)
+     {
+        const char *fname;
+        Eina_Strbuf *sb = eina_strbuf_new();
+        s = eos = eolian_state_new();
+        eina_strbuf_append(sb, class_name);
+        eina_strbuf_replace_all(sb, ".", "_");
+        eina_strbuf_tolower(sb);
+        eina_strbuf_append(sb, ".eo");
+        fname = eina_strbuf_string_get(sb);
+
+        eolian_state_system_directory_add(s);
+        if (!eolian_state_file_parse(s, fname))
+          {
+             printf("File %s cannot be parsed.\n", fname);
+             goto end;
+          }
+        eina_strbuf_free(sb);
+        eina_hash_add(_parsed_kls, class_name, s);
+     }
+   okl = eolian_state_class_by_name_get(s, class_name);
    if (!okl)
      {
         printf("Class %s not found.\n", class_name);
@@ -1135,14 +1157,6 @@ clouseau_debug_init(void)
    eolian_init();
    evas_init();
 
-   eos = eolian_state_new();
-   _eolian_kls_hash = eina_hash_string_superfast_new(NULL);
-
-   eolian_state_system_directory_add(eos);
-
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(eolian_state_all_eo_files_parse(eos), EINA_FALSE);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(eolian_state_all_eot_files_parse(eos), EINA_FALSE);
-
    eina_debug_opcodes_register(NULL, _debug_ops(), NULL, NULL);
 
    printf("%s - In\n", __FUNCTION__);
@@ -1283,6 +1297,7 @@ _complex_buffer_decode(char *buffer, const Eolian_Type *eo_type,
 EAPI Eolian_Debug_Object_Information *
 eolian_debug_object_information_decode(char *buffer, unsigned int size)
 {
+   static Eina_Hash *_parsed_kls = NULL;
    if (size < sizeof(uint64_t)) return NULL;
    Eolian_Debug_Object_Information *ret = calloc(1, sizeof(*ret));
    Eolian_Debug_Class *kl = NULL;
@@ -1301,8 +1316,31 @@ eolian_debug_object_information_decode(char *buffer, unsigned int size)
         int len = strlen(buffer) + 1;
         if (len > 1) // if class_name is not NULL, we begin a new class
           {
+             Eolian_State *s;
+             if (!_parsed_kls) _parsed_kls = eina_hash_string_superfast_new(NULL);
+             s = eina_hash_find(_parsed_kls, buffer);
+             if (!s)
+               {
+                  const char *fname;
+                  Eina_Strbuf *sb = eina_strbuf_new();
+                  s = eos = eolian_state_new();
+                  eina_strbuf_append(sb, buffer);
+                  eina_strbuf_replace_all(sb, ".", "_");
+                  eina_strbuf_tolower(sb);
+                  eina_strbuf_append(sb, ".eo");
+                  fname = eina_strbuf_string_get(sb);
+
+                  eolian_state_system_directory_add(s);
+                  if (!eolian_state_file_parse(s, fname))
+                    {
+                       printf("File %s cannot be parsed.\n", fname);
+                       goto error;
+                    }
+                  eina_strbuf_free(sb);
+                  eina_hash_add(_parsed_kls, buffer, s);
+               }
              kl = calloc(1, sizeof(*kl));
-             kl->ekl = eolian_state_class_by_name_get(eos, buffer);
+             kl->ekl = eolian_state_class_by_name_get(s, buffer);
              ret->classes = eina_list_append(ret->classes, kl);
           }
         if (!kl)
