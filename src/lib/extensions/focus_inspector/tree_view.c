@@ -102,7 +102,7 @@ _create_arrow(Evas *e)
 
    vg = evas_object_vg_add(e);
 
-   cont = evas_vg_container_add(NULL);
+   cont = evas_vg_container_add(vg);
 
    tail = evas_vg_shape_add(cont);
    evas_vg_node_color_set(tail, 0, 0, 0, 255);
