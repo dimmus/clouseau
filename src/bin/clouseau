@@ -1,0 +1,11 @@
+#!/bin/sh
+if [ $# -lt 1 ]
+then
+   echo "Usage: clouseau <executable> [executable parameters]"
+else
+   # Start the local daemon. In case it is already running, it exits directly.
+   efl_debugd &
+   # Start the application
+   $@ &
+   clouseau_client -l -p $!
+fi

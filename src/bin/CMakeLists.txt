@@ -37,3 +37,4 @@ target_link_libraries(clouseau_client
    )
 
 install(TARGETS clouseau_client DESTINATION bin)
+install(PROGRAMS clouseau DESTINATION bin)
