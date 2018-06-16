@@ -117,6 +117,7 @@ static Config *_config = NULL;
 static Eina_List *_extensions = NULL;
 
 static int _selected_port = -1;
+static int _arg_pid = -1;
 
 static Eina_Bool _clients_info_added_cb(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _clients_info_deleted_cb(Eina_Debug_Session *, int, void *, int);
@@ -426,6 +427,10 @@ _clients_info_added_cb(Eina_Debug_Session *session EINA_UNUSED, int src EINA_UNU
                   ai->menu_item = elm_menu_item_add(_main_widgets->apps_selector_menu,
                         NULL, "home", name, _menu_selected_app, ai);
                   efl_wref_add(ai->menu_item, &ai->menu_item);
+               }
+             if (_arg_pid == pid)
+               {
+                  _menu_selected_app(ai, _main_widgets->apps_selector_menu, ai->menu_item);
                }
           }
         len = strlen(buf) + 1;
@@ -962,12 +967,13 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
           {"help",      no_argument,        0, 'h'},
           {"local",     no_argument,        0, 'l'},
           {"remote",    required_argument,  0, 'r'},
+          {"pid",       required_argument,  0, 'p'},
           {"file",      required_argument,  0, 'f'},
           {0, 0, 0, 0}
      };
-   while ((opt = getopt_long(argc, argv,"hlr:f:", long_options, &long_index )) != -1)
+   while ((opt = getopt_long(argc, argv,"hlr:p:f:", long_options, &long_index )) != -1)
      {
-        if (conn_type != OFFLINE || offline_filename)
+        if (opt != 'p' && (conn_type != OFFLINE || offline_filename))
           {
              printf("You cannot use more than one option at a time\n");
              help = EINA_TRUE;
@@ -991,6 +997,11 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
                       offline_filename = eina_stringshare_add(optarg);
                       break;
                    }
+           case 'p':
+                   {
+                      _arg_pid = atoi(optarg);
+                      break;
+                   }
            case 'h': help = EINA_TRUE; break;
            default: help = EINA_TRUE;
         }
@@ -1001,6 +1012,7 @@ elm_main(int argc EINA_UNUSED, char **argv EINA_UNUSED)
         printf("       --help/-h Print that help\n");
         printf("       --local/-l Create a local connection\n");
         printf("       --remote/-r Create a remote connection by using the given port\n");
+        printf("       --pid/-p PID of the program to connect to\n");
         printf("       --file/-f Run in offline mode and load the given file\n");
         return 0;
      }
