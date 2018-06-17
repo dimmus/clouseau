@@ -501,8 +501,8 @@ _session_populate()
            case OFFLINE:
                 {
                    if (ext->session_changed_cb) ext->session_changed_cb(ext);
+                   break;
                 }
-              break;
            case LOCAL_CONNECTION:
                 {
                    ext->session = eina_debug_local_connect(EINA_TRUE);
