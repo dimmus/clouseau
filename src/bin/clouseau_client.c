@@ -13,6 +13,7 @@
 #include <Elementary.h>
 #include <Evas.h>
 #include <Ecore_File.h>
+#include <Eo.h>
 #include "gui.h"
 #include "Clouseau.h"
 
@@ -124,6 +125,8 @@ static Eina_Bool _clients_info_deleted_cb(Eina_Debug_Session *, int, void *, int
 
 static void _extension_view(void *, Evas_Object *, void *);
 static void _fs_extension_import_show(void *, Evas_Object *, void *);
+
+static void _connection_type_change(Connection_Type);
 
 EINA_DEBUG_OPCODES_ARRAY_DEFINE(_ops,
      {"Daemon/Client/register_observer", &_cl_stat_reg_op, NULL},
@@ -523,6 +526,88 @@ _session_populate()
 }
 
 static void
+_dialog_cancel(void *data, const Efl_Event *ev EINA_UNUSED)
+{
+   Eo *win = data;
+   efl_del(win);
+}
+
+static void
+_dialog_box_create(const char *title, const char *content, const char *but1_str, const char *but2_str,
+      Efl_Event_Cb cb1, Efl_Event_Cb cb2)
+{
+   Eo *win, *bx, *lb;
+
+   win = efl_add(EFL_UI_WIN_CLASS, _main_widgets->main_win,
+         efl_ui_win_type_set(efl_added, EFL_UI_WIN_DIALOG_BASIC),
+         efl_ui_win_autodel_set(efl_added, EINA_TRUE),
+         efl_text_set(efl_added, title),
+         efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
+
+   bx = efl_add(EFL_UI_BOX_CLASS, win,
+         efl_ui_direction_set(efl_added, EFL_UI_DIR_VERTICAL),
+         efl_gfx_size_hint_weight_set(efl_added, EFL_GFX_SIZE_HINT_EXPAND, EFL_GFX_SIZE_HINT_EXPAND),
+         efl_gfx_size_hint_align_set(efl_added, EFL_GFX_SIZE_HINT_FILL, EFL_GFX_SIZE_HINT_FILL),
+         efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
+   efl_content_set(win, bx);
+
+   lb = efl_add(EFL_UI_TEXT_CLASS, bx,
+         efl_text_multiline_set(efl_added, EINA_TRUE),
+         efl_text_halign_set(efl_added, 0.5),
+         efl_text_set(efl_added, content),
+         efl_gfx_size_hint_weight_set(efl_added, EFL_GFX_SIZE_HINT_EXPAND, EFL_GFX_SIZE_HINT_EXPAND),
+         efl_gfx_size_hint_align_set(efl_added, EFL_GFX_SIZE_HINT_FILL, EFL_GFX_SIZE_HINT_FILL),
+         efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
+   efl_pack(bx, lb);
+
+   if (but1_str || but2_str)
+     {
+        Eo *bx2;
+        bx2 = efl_add(EFL_UI_BOX_CLASS, win,
+              efl_ui_direction_set(efl_added, EFL_UI_DIR_HORIZONTAL),
+              efl_gfx_size_hint_weight_set(efl_added, EFL_GFX_SIZE_HINT_EXPAND, EFL_GFX_SIZE_HINT_EXPAND),
+              efl_gfx_size_hint_align_set(efl_added, EFL_GFX_SIZE_HINT_FILL, EFL_GFX_SIZE_HINT_FILL),
+              efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
+        efl_pack(bx, bx2);
+
+        if (but1_str)
+          {
+             Eo *bt1 = efl_add(EFL_UI_BUTTON_CLASS, bx2,
+                   efl_text_set(efl_added, but1_str),
+                   efl_gfx_size_hint_weight_set(efl_added, 0, 0),
+                   efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
+             if (cb1) efl_event_callback_add(bt1, EFL_UI_EVENT_CLICKED, cb1, win);
+             efl_pack(bx2, bt1);
+          }
+        if (but2_str)
+          {
+             Eo *bt2 = efl_add(EFL_UI_BUTTON_CLASS, bx2,
+                   efl_text_set(efl_added, but2_str),
+                   efl_gfx_size_hint_weight_set(efl_added, 0, 0),
+                   efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
+             if (cb2) efl_event_callback_add(bt2, EFL_UI_EVENT_CLICKED, cb2, win);
+             efl_pack(bx2, bt2);
+          }
+     }
+}
+
+static Eina_Bool
+_local_reconnect(void *data EINA_UNUSED)
+{
+   _connection_type_change(LOCAL_CONNECTION);
+   return ECORE_CALLBACK_CANCEL;
+}
+
+static void
+_daemon_launch(void *data, const Efl_Event *ev EINA_UNUSED)
+{
+   Eo *win = data;
+   ecore_exe_pipe_run("efl_debugd", ECORE_EXE_NONE, NULL);
+   ecore_timer_add(1.0, _local_reconnect, NULL);
+   efl_del(win);
+}
+
+static void
 _connection_type_change(Connection_Type conn_type)
 {
    Eina_List *itr;
@@ -549,16 +634,40 @@ _connection_type_change(Connection_Type conn_type)
       case LOCAL_CONNECTION:
            {
               _selected_port = -1;
-              elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
               _session = eina_debug_local_connect(EINA_TRUE);
-              eina_debug_session_dispatch_override(_session, _disp_cb);
+              if (!_session)
+                {
+                   _dialog_box_create("Can't connect",
+                         "Clouseau cannot connect to the local daemon.\nDo you want Clouseau to launch it?",
+                         "Launch", "Don't launch and stay offline",
+                         _daemon_launch, _dialog_cancel);
+                   _connection_type_change(OFFLINE);
+                   return;
+                }
+              else
+                {
+                   elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
+                   eina_debug_session_dispatch_override(_session, _disp_cb);
+                }
               break;
            }
       case REMOTE_CONNECTION:
            {
               elm_object_item_disabled_set(_main_widgets->apps_selector, EINA_FALSE);
               _session = eina_debug_remote_connect(_selected_port);
-              eina_debug_session_dispatch_override(_session, _disp_cb);
+              if (!_session)
+                {
+                   _dialog_box_create("Can't connect",
+                         "Clouseau cannot connect to the remote daemon.\nCheck it is running on the remote device and\nthat the port forwarding (e.g SSH) has been set.",
+                         "Ok", NULL,
+                         _dialog_cancel, NULL);
+                   _connection_type_change(OFFLINE);
+                   return;
+                }
+              else
+                {
+                   eina_debug_session_dispatch_override(_session, _disp_cb);
+                }
               break;
            }
       default: return;
