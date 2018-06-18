@@ -99,6 +99,7 @@ static Evas_Object * _obj_info_tootip(void *, Evas_Object *, Evas_Object *, void
 static Eina_Bool _eoids_get(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _klids_get(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _obj_info_get(Eina_Debug_Session *, int, void *, int);
+static Eina_Bool _snapshot_started_cb(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _snapshot_done_cb(Eina_Debug_Session *, int, void *, int);
 static Eina_Bool _win_screenshot_get(Eina_Debug_Session *, int, void *, int);
 
@@ -108,7 +109,7 @@ EINA_DEBUG_OPCODES_ARRAY_DEFINE(_ops,
      {"Clouseau/Evas/object/highlight",  &_obj_highlight_op, NULL},
      {"Clouseau/Evas/window/screenshot", &_win_screenshot_op, &_win_screenshot_get},
      {"Clouseau/Eolian/object/info_get", &_obj_info_op, &_obj_info_get},
-     {"Clouseau/Object_Introspection/snapshot_start",&_snapshot_do_op, NULL},
+     {"Clouseau/Object_Introspection/snapshot_start",&_snapshot_do_op, &_snapshot_started_cb},
      {"Clouseau/Object_Introspection/snapshot_done", &_snapshot_done_op, &_snapshot_done_cb},
      {NULL, NULL, NULL}
 );
@@ -202,7 +203,6 @@ _app_snapshot_request(Clouseau_Extension *ext)
    int size = strlen(obj_kl_name) + 1 + strlen(canvas_kl_name) + 1;
    char *buf = alloca(size);
 
-   ext->ui_freeze_cb(ext, EINA_TRUE);
    memcpy(buf, obj_kl_name, strlen(obj_kl_name) + 1);
    memcpy(buf + strlen(obj_kl_name) + 1, canvas_kl_name, strlen(canvas_kl_name) + 1);
    eina_debug_session_send(ext->session, ext->app_id, _snapshot_do_op, buf, size);
@@ -824,6 +824,15 @@ show_screenshot_button_clicked(void *data EINA_UNUSED, const Efl_Event *event)
                    NULL, NULL, str, _menu_screenshot_selected, s);
           }
      }
+}
+
+static Eina_Bool
+_snapshot_started_cb(Eina_Debug_Session *session, int src EINA_UNUSED,
+      void *buffer EINA_UNUSED, int size EINA_UNUSED)
+{
+   Clouseau_Extension *ext = eina_debug_session_data_get(session);
+   ext->ui_freeze_cb(ext, EINA_TRUE);
+   return EINA_TRUE;
 }
 
 static Eina_Bool

@@ -758,6 +758,8 @@ _main_loop_snapshot_start_cb(Eina_Debug_Session *session, int srcid, void *buffe
    Eina_List *kls_strs = NULL;
    int nb_kls = 0;
 
+   eina_debug_session_send(session, srcid, _snapshot_start_op, NULL, 0);
+
    tmp = buffer;
    while (size > 0)
      {
