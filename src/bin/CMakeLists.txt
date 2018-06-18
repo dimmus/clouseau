@@ -24,7 +24,6 @@ add_executable(clouseau_client ${SOURCES})
 
 target_link_libraries(clouseau_client
    pthread
-   clouseau_debug
    ${EFL_LIBRARIES}
    ${ELEMENTARY_LIBRARIES}
    ${EINA_LIBRARIES}
