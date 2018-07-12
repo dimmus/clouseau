@@ -528,6 +528,16 @@ _eolian_value_to_string(Eolian_Debug_Value *value, Eina_Strbuf *buf)
               eina_strbuf_append(buf, "]");
               break;
            }
+      case EOLIAN_DEBUG_STRUCT:
+           {
+              Eina_List *l = value->complex_type_values, *itr;
+              EINA_LIST_FOREACH(l, itr, value)
+                {
+                   if (l != itr) eina_strbuf_append(buf, ", ");
+                   _eolian_value_to_string(value, buf);
+                }
+              break;
+           }
       default: eina_strbuf_append_printf(buf, "%lX ", value->value.value);
      }
 }

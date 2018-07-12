@@ -51,7 +51,8 @@ typedef enum
    EOLIAN_DEBUG_UINT,
    EOLIAN_DEBUG_LIST,
    EOLIAN_DEBUG_OBJECT,
-   EOLIAN_DEBUG_VOID
+   EOLIAN_DEBUG_VOID,
+   EOLIAN_DEBUG_STRUCT
 } Eolian_Debug_Basic_Type;
 
 typedef struct
