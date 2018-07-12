@@ -58,10 +58,7 @@ typedef enum
 typedef struct
 {
    Eolian_Debug_Basic_Type type;
-   union
-     {
-        uint64_t value;
-     } value;
+   uint64_t value;
    Eina_List *complex_type_values;
 } Eolian_Debug_Value;
 

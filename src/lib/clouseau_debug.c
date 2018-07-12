@@ -264,7 +264,7 @@ _function_invoke(Eo *ptr, const Eolian_Function *foo, Eolian_Function_Type foo_t
         if (!ed_type) goto error;
 
         types[ffi_argc] = debug_types[ed_type].ffi_type_p;
-        values[ffi_argc] = &(params[argc].value.value.value);
+        values[ffi_argc] = &(params[argc].value.value);
         params[argc].eparam = eo_param;
         ffi_argc++;
         argc++;
@@ -285,13 +285,13 @@ _function_invoke(Eo *ptr, const Eolian_Function *foo, Eolian_Function_Type foo_t
              /* Out parameter */
              if (ed_type == EOLIAN_DEBUG_STRUCT)
                {
-                  params[argc].value.value.value = (uint64_t) calloc(_struct_mem_len_get(eo_type), 1);
-                  pointers[ffi_argc] = (char *)params[argc].value.value.value;
+                  params[argc].value.value = (uint64_t) calloc(_struct_mem_len_get(eo_type), 1);
+                  pointers[ffi_argc] = (char *)params[argc].value.value;
                }
              else
                {
-                  params[argc].value.value.value = 0;
-                  pointers[ffi_argc] = &(params[argc].value.value.value);
+                  params[argc].value.value = 0;
+                  pointers[ffi_argc] = &(params[argc].value.value);
                }
              params[argc].value.type = ed_type;
              types[ffi_argc] = &ffi_type_pointer;
@@ -301,7 +301,7 @@ _function_invoke(Eo *ptr, const Eolian_Function *foo, Eolian_Function_Type foo_t
           {
              /* In parameter */
              types[ffi_argc] = debug_types[ed_type].ffi_type_p;
-             values[ffi_argc] = &(params[argc].value.value.value);
+             values[ffi_argc] = &(params[argc].value.value);
           }
         ffi_argc++;
         argc++;
@@ -330,7 +330,7 @@ _function_invoke(Eo *ptr, const Eolian_Function *foo, Eolian_Function_Type foo_t
           {
              ffi_ret_type = debug_types[params[0].value.type].ffi_type_p;
           }
-        result = (char *)params[0].value.value.value;
+        result = (char *)params[0].value.value;
         /* If there is no return type but only one value is present, the value will
          * be returned by the function.
          * So we need FFI to not take it into account when invoking the function.
@@ -351,12 +351,12 @@ _function_invoke(Eo *ptr, const Eolian_Function *foo, Eolian_Function_Type foo_t
           {
              if (!param_as_ret)
                {
-                  ret->value.value.value = (uint64_t) result;
+                  ret->value.value = (uint64_t) result;
                   ret->value.type = ed_type;
                   ret->etype = eo_type;
                }
              else
-                params[0].value.value.value = (uint64_t) result;
+                params[0].value.value = (uint64_t) result;
           }
         goto success;
      }
@@ -580,26 +580,26 @@ _class_buffer_fill(Eo *obj, const Eolian_Class *ekl, char *buf)
              // if its a string we wont copy the pointer but the value
              if (params[i].value.type == EOLIAN_DEBUG_STRING)
                {
-                  if((char *)params[i].value.value.value == NULL)
-                     params[i].value.value.value = (uint64_t)"";
-                  len = strlen((char *)params[i].value.value.value) + 1;
-                  memcpy(buf + size, (char *)params[i].value.value.value, len);
+                  if((char *)params[i].value.value == NULL)
+                     params[i].value.value = (uint64_t)"";
+                  len = strlen((char *)params[i].value.value) + 1;
+                  memcpy(buf + size, (char *)params[i].value.value, len);
                   size += len;
                }
              else if (params[i].value.type == EOLIAN_DEBUG_STRUCT)
                {
                   const Eolian_Type *eo_type = eolian_parameter_type_get(params[i].eparam);
-                  size += _struct_buffer_fill(buf+size, eo_type, (char *)params[i].value.value.value);
+                  size += _struct_buffer_fill(buf+size, eo_type, (char *)params[i].value.value);
                }
              else
                {
                   const Eolian_Type *eo_type = eolian_parameter_type_get(params[i].eparam);
-                  size += _param_buffer_fill(buf+size, params[i].value.value.value,
+                  size += _param_buffer_fill(buf+size, params[i].value.value,
                         debug_types[params[i].value.type].size);
                   if (params[i].value.type == EOLIAN_DEBUG_LIST)
                     {
                        size += _complex_buffer_fill(buf+size, eo_type,
-                             params[i].value.value.value);
+                             params[i].value.value);
                     }
                }
           }
@@ -615,20 +615,20 @@ _class_buffer_fill(Eo *obj, const Eolian_Class *ekl, char *buf)
              //if its a string we wont copy the pointer but the values
              if (ret.value.type == EOLIAN_DEBUG_STRING)
                {
-                  if((char *)ret.value.value.value == NULL)
-                     ret.value.value.value =  (uint64_t)"";
-                  len = strlen((char *)ret.value.value.value) + 1;
-                  memcpy(buf + size, (char *)ret.value.value.value, len);
+                  if((char *)ret.value.value == NULL)
+                     ret.value.value =  (uint64_t)"";
+                  len = strlen((char *)ret.value.value) + 1;
+                  memcpy(buf + size, (char *)ret.value.value, len);
                   size += len;
                }
              else
                {
-                  size += _param_buffer_fill(buf+size, ret.value.value.value,
+                  size += _param_buffer_fill(buf+size, ret.value.value,
                         debug_types[ret.value.type].size);
                   if (ret.value.type == EOLIAN_DEBUG_LIST)
                     {
                        size += _complex_buffer_fill(buf+size,
-                             ret.etype, ret.value.value.value);
+                             ret.etype, ret.value.value);
                     }
                }
           }
@@ -1358,7 +1358,7 @@ eolian_debug_object_information_free(Eolian_Debug_Object_Information *main)
              EINA_LIST_FREE(func->params, param)
                {
                   if (param->value.type == EOLIAN_DEBUG_STRING)
-                     eina_stringshare_del((char *)param->value.value.value);
+                     eina_stringshare_del((char *)param->value.value);
                   free(param);
                }
              free(func);
@@ -1411,7 +1411,7 @@ _value_decode(char **buffer, unsigned int *size, const Eolian_Type *eo_type, Eol
         if (type == EOLIAN_DEBUG_STRING)
           {
              len = strlen(*buffer) + 1;
-             v->value.value = (uint64_t) eina_stringshare_add(*buffer);
+             v->value = (uint64_t) eina_stringshare_add(*buffer);
              *buffer += len;
              *size -= len;
           }
@@ -1435,7 +1435,7 @@ _value_decode(char **buffer, unsigned int *size, const Eolian_Type *eo_type, Eol
           {
              uint64_t value = 0;;
              EXTRACT(*buffer, &value, debug_types[type].size);
-             v->value.value = SWAP_64(value);
+             v->value = SWAP_64(value);
              *size -= debug_types[type].size;
              if (type == EOLIAN_DEBUG_LIST)
                {

@@ -368,7 +368,7 @@ _ptr_highlight(Clouseau_Extension *ext, Eolian_Debug_Value *v)
      {
       case EOLIAN_DEBUG_POINTER:
            {
-              _obj_highlight(ext, v->value.value);
+              _obj_highlight(ext, v->value);
               break;
            }
       case EOLIAN_DEBUG_LIST:
@@ -376,7 +376,7 @@ _ptr_highlight(Clouseau_Extension *ext, Eolian_Debug_Value *v)
               Eina_List *itr;
               EINA_LIST_FOREACH(v->complex_type_values, itr, v)
                 {
-                   _obj_highlight(ext, v->value.value);
+                   _obj_highlight(ext, v->value);
                 }
               break;
            }
@@ -464,66 +464,66 @@ _eolian_value_to_string(Eolian_Debug_Value *value, Eina_Strbuf *buf)
       case EOLIAN_DEBUG_STRING:
            {
               eina_strbuf_append_printf(buf, "\"%s\" ",
-                    (char *)value->value.value);
+                    (char *)value->value);
               break;
            }
       case EOLIAN_DEBUG_POINTER:
            {
               eina_strbuf_append_printf(buf, "%p ",
-                    (void *)value->value.value);
+                    (void *)value->value);
               break;
            }
       case EOLIAN_DEBUG_CHAR:
            {
               eina_strbuf_append_printf(buf, "%c ",
-                    (char)value->value.value);
+                    (char)value->value);
               break;
            }
       case EOLIAN_DEBUG_INT:
            {
               eina_strbuf_append_printf(buf, "%d ",
-                    (int)value->value.value);
+                    (int)value->value);
               break;
            }
       case EOLIAN_DEBUG_SHORT:
            {
               eina_strbuf_append_printf(buf, "%u ",
-                    (unsigned int)value->value.value);
+                    (unsigned int)value->value);
               break;
            }
       case EOLIAN_DEBUG_DOUBLE:
            {
               eina_strbuf_append_printf(buf, "%f ",
-                    (double)value->value.value);
+                    (double)value->value);
               break;
            }
       case EOLIAN_DEBUG_BOOLEAN:
            {
               eina_strbuf_append_printf(buf, "%s ",
-                    (value->value.value ? "true" : "false"));
+                    (value->value ? "true" : "false"));
               break;
            }
       case EOLIAN_DEBUG_LONG:
            {
               eina_strbuf_append_printf(buf, "%ld ",
-                    (long)value->value.value);
+                    (long)value->value);
               break;
            }
       case EOLIAN_DEBUG_UINT:
            {
               eina_strbuf_append_printf(buf, "%u ",
-                    (unsigned int)value->value.value);
+                    (unsigned int)value->value);
               break;
            }
       case EOLIAN_DEBUG_LIST:
            {
               Eina_List *l = value->complex_type_values, *itr;
-              eina_strbuf_append_printf(buf, "%lX [", value->value.value);
+              eina_strbuf_append_printf(buf, "%lX [", value->value);
               EINA_LIST_FOREACH(l, itr, value)
                 {
                    eina_strbuf_append_printf(buf, "%s%lX",
                          l != itr ? ", " : "",
-                         value->value.value);
+                         value->value);
                 }
               eina_strbuf_append(buf, "]");
               break;
@@ -538,7 +538,7 @@ _eolian_value_to_string(Eolian_Debug_Value *value, Eina_Strbuf *buf)
                 }
               break;
            }
-      default: eina_strbuf_append_printf(buf, "%lX ", value->value.value);
+      default: eina_strbuf_append_printf(buf, "%lX ", value->value);
      }
 }
 
