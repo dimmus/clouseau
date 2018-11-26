@@ -773,11 +773,15 @@ _obj_info_req_cb(Eina_Debug_Session *session, int srcid, void *buffer, int size 
    Eina_List *list = eina_list_append(NULL, okl);
    EINA_LIST_FOREACH(list, itr, kl)
      {
-        const Eolian_Class *inherit;
+        const Eolian_Class *inherit, *parent;
         Eina_Iterator *inherits_itr;
 
-        inherits_itr = eolian_class_inherits_get(kl);
-        size_curr += _class_buffer_fill(obj, kl, buf + size_curr);
+        parent = eolian_class_parent_get(kl);
+        if (!eina_list_data_find(list, parent))
+           list2 = eina_list_append(list, parent);
+
+        inherits_itr = eolian_class_extensions_get(kl);
+        size_curr += _class_buffer_fill(buf + size_curr, obj, kl);
 
         EINA_ITERATOR_FOREACH(inherits_itr, inherit)
           {
