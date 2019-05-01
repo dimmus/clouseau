@@ -10,6 +10,7 @@
 #include <getopt.h>
 
 #include <Efreet.h>
+#include <Efl_Ui.h>
 #include <Elementary.h>
 #include <Evas.h>
 #include <Ecore_File.h>
@@ -539,15 +540,15 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
    Eo *win, *bx, *lb;
 
    win = efl_add(EFL_UI_WIN_CLASS, _main_widgets->main_win,
-         efl_ui_win_type_set(efl_added, EFL_UI_WIN_DIALOG_BASIC),
+         efl_ui_win_type_set(efl_added, ELM_WIN_DIALOG_BASIC),
          efl_ui_win_autodel_set(efl_added, EINA_TRUE),
          efl_text_set(efl_added, title),
          efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
 
    bx = efl_add(EFL_UI_BOX_CLASS, win,
          efl_ui_direction_set(efl_added, EFL_UI_DIR_VERTICAL),
-         efl_gfx_size_hint_weight_set(efl_added, EFL_GFX_SIZE_HINT_EXPAND, EFL_GFX_SIZE_HINT_EXPAND),
-         efl_gfx_size_hint_align_set(efl_added, EFL_GFX_SIZE_HINT_FILL, EFL_GFX_SIZE_HINT_FILL),
+         efl_gfx_hint_weight_set(efl_added, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND),
+         efl_gfx_hint_align_set(efl_added, EVAS_HINT_FILL, EVAS_HINT_FILL),
          efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
    efl_content_set(win, bx);
 
@@ -555,8 +556,8 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
          efl_text_multiline_set(efl_added, EINA_TRUE),
          efl_text_halign_set(efl_added, 0.5),
          efl_text_set(efl_added, content),
-         efl_gfx_size_hint_weight_set(efl_added, EFL_GFX_SIZE_HINT_EXPAND, EFL_GFX_SIZE_HINT_EXPAND),
-         efl_gfx_size_hint_align_set(efl_added, EFL_GFX_SIZE_HINT_FILL, EFL_GFX_SIZE_HINT_FILL),
+         efl_gfx_hint_weight_set(efl_added, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND),
+         efl_gfx_hint_align_set(efl_added, EVAS_HINT_FILL, EVAS_HINT_FILL),
          efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
    efl_pack(bx, lb);
 
@@ -565,8 +566,8 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
         Eo *bx2;
         bx2 = efl_add(EFL_UI_BOX_CLASS, win,
               efl_ui_direction_set(efl_added, EFL_UI_DIR_HORIZONTAL),
-              efl_gfx_size_hint_weight_set(efl_added, EFL_GFX_SIZE_HINT_EXPAND, EFL_GFX_SIZE_HINT_EXPAND),
-              efl_gfx_size_hint_align_set(efl_added, EFL_GFX_SIZE_HINT_FILL, EFL_GFX_SIZE_HINT_FILL),
+              efl_gfx_hint_weight_set(efl_added, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND),
+              efl_gfx_hint_align_set(efl_added, EVAS_HINT_FILL, EVAS_HINT_FILL),
               efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
         efl_pack(bx, bx2);
 
@@ -574,7 +575,7 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
           {
              Eo *bt1 = efl_add(EFL_UI_BUTTON_CLASS, bx2,
                    efl_text_set(efl_added, but1_str),
-                   efl_gfx_size_hint_weight_set(efl_added, 0, 0),
+                   efl_gfx_hint_weight_set(efl_added, 0, 0),
                    efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
              if (cb1) efl_event_callback_add(bt1, EFL_UI_EVENT_CLICKED, cb1, win);
              efl_pack(bx2, bt1);
@@ -583,7 +584,7 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
           {
              Eo *bt2 = efl_add(EFL_UI_BUTTON_CLASS, bx2,
                    efl_text_set(efl_added, but2_str),
-                   efl_gfx_size_hint_weight_set(efl_added, 0, 0),
+                   efl_gfx_hint_weight_set(efl_added, 0, 0),
                    efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
              if (cb2) efl_event_callback_add(bt2, EFL_UI_EVENT_CLICKED, cb2, win);
              efl_pack(bx2, bt2);

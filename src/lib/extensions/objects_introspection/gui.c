@@ -7,6 +7,7 @@
 #ifndef ELM_INTERNAL_API_ARGESFSDFEFC
 #define ELM_INTERNAL_API_ARGESFSDFEFC
 #endif
+#include <Efl_Ui.h>
 #include <Elementary.h>
 #include "gui.h"
 
@@ -143,7 +144,7 @@ gui_take_screenshot_button_create(Eo *__main_parent)
    elm_icon1 = elm_icon_add(bt);
    evas_object_size_hint_weight_set(elm_icon1, 1.000000, 1.000000);
    efl_gfx_entity_visible_set(elm_icon1, EINA_TRUE);
-   efl_file_set(elm_icon1, TAKE_SCREENSHOT_ICON, NULL);
+   efl_file_set(elm_icon1, TAKE_SCREENSHOT_ICON);
    elm_object_part_content_set(bt, "icon", elm_icon1);
    efl_event_callback_add(bt, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
 
@@ -169,7 +170,7 @@ gui_show_screenshot_button_create(Eo *__main_parent)
    evas_object_size_hint_weight_set(elm_icon1, 1.000000, 1.000000);
    efl_gfx_entity_visible_set(elm_icon1, EINA_TRUE);
    efl_gfx_entity_size_set(elm_icon1, EINA_SIZE2D(40, 40));
-   efl_file_set(elm_icon1, SHOW_SCREENSHOT_ICON, NULL);
+   efl_file_set(elm_icon1, SHOW_SCREENSHOT_ICON);
    elm_object_part_content_set(bt, "icon", elm_icon1);
    efl_event_callback_add(bt, EFL_EVENT_DEL, _pubs_free_cb, pub_widgets);
 

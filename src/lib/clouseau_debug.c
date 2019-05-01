@@ -9,7 +9,6 @@
 #include <Evas.h>
 #include <Elementary.h>
 #define ELM_INTERNAL_API_ARGESFSDFEFC
-#include <elm_widget.h>
 
 #include "Clouseau_Debug.h"
 
@@ -338,7 +337,7 @@ _function_invoke(Eo *ptr, const Eolian_Function *foo, Eolian_Function_Type foo_t
         ffi_argc--;
      }
 
-   const char *full_func_name = eolian_function_full_c_name_get(foo,  EOLIAN_PROP_GET, EINA_FALSE);
+   const char *full_func_name = eolian_function_full_c_name_get(foo,  EOLIAN_PROP_GET);
    void *eo_func = dlsym(RTLD_DEFAULT, full_func_name);
    if (!eo_func) goto error;
    ffi_cif cif;
@@ -526,7 +525,7 @@ _api_resolvable(Eo *obj, const Eolian_Function *function)
    const char *func_c_name;
    void *func_api;
 
-   func_c_name = eolian_function_full_c_name_get(function, EOLIAN_PROP_GET, EINA_FALSE);
+   func_c_name = eolian_function_full_c_name_get(function, EOLIAN_PROP_GET);
    func_api = dlsym(RTLD_DEFAULT, func_c_name);
    op = _efl_object_op_api_id_get(func_api, obj, func_c_name, __FILE__, __LINE__);
    _efl_object_call_resolve(obj, func_c_name, &call_data, op, __FILE__, __LINE__);
