@@ -546,7 +546,7 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
          efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
 
    bx = efl_add(EFL_UI_BOX_CLASS, win,
-         efl_ui_direction_set(efl_added, EFL_UI_DIR_VERTICAL),
+         efl_ui_layout_orientation_set(efl_added, EFL_UI_LAYOUT_ORIENTATION_VERTICAL),
          efl_gfx_hint_weight_set(efl_added, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND),
          efl_gfx_hint_align_set(efl_added, EVAS_HINT_FILL, EVAS_HINT_FILL),
          efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
@@ -565,7 +565,7 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
      {
         Eo *bx2;
         bx2 = efl_add(EFL_UI_BOX_CLASS, win,
-              efl_ui_direction_set(efl_added, EFL_UI_DIR_HORIZONTAL),
+              efl_ui_layout_orientation_set(efl_added, EFL_UI_LAYOUT_ORIENTATION_HORIZONTAL),
               efl_gfx_hint_weight_set(efl_added, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND),
               efl_gfx_hint_align_set(efl_added, EVAS_HINT_FILL, EVAS_HINT_FILL),
               efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
