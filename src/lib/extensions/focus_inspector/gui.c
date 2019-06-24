@@ -25,7 +25,7 @@ _sel_relation_func(void *data EINA_UNUSED, Evas_Object *obj, void *event_info EI
 }
 
 static void
-_reload(void *data, Evas_Object *obj, void *event_info EINA_UNUSED)
+_reload(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    if (selected_manager)
      com_defailt_manager(data, (void*)selected_manager->ptr);
