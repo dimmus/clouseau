@@ -577,7 +577,7 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
                    efl_text_set(efl_added, but1_str),
                    efl_gfx_hint_weight_set(efl_added, 0, 0),
                    efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
-             if (cb1) efl_event_callback_add(bt1, EFL_UI_EVENT_CLICKED, cb1, win);
+             if (cb1) efl_event_callback_add(bt1, EFL_INPUT_EVENT_CLICKED, cb1, win);
              efl_pack(bx2, bt1);
           }
         if (but2_str)
@@ -586,7 +586,7 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
                    efl_text_set(efl_added, but2_str),
                    efl_gfx_hint_weight_set(efl_added, 0, 0),
                    efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
-             if (cb2) efl_event_callback_add(bt2, EFL_UI_EVENT_CLICKED, cb2, win);
+             if (cb2) efl_event_callback_add(bt2, EFL_INPUT_EVENT_CLICKED, cb2, win);
              efl_pack(bx2, bt2);
           }
      }

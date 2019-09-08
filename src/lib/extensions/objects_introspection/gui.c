@@ -139,7 +139,7 @@ gui_take_screenshot_button_create(Eo *__main_parent)
    pub_widgets->bt = bt;
    evas_object_size_hint_weight_set(bt, 1.000000, 1.000000);
    evas_object_show(bt);
-   efl_event_callback_add(bt, EFL_UI_EVENT_CLICKED, take_screenshot_button_clicked, NULL);
+   efl_event_callback_add(bt, EFL_INPUT_EVENT_CLICKED, take_screenshot_button_clicked, NULL);
 
    elm_icon1 = elm_icon_add(bt);
    evas_object_size_hint_weight_set(elm_icon1, 1.000000, 1.000000);
@@ -164,7 +164,7 @@ gui_show_screenshot_button_create(Eo *__main_parent)
    evas_object_size_hint_weight_set(bt, 1.000000, 1.000000);
    evas_object_show(bt);
    evas_object_resize(bt, 73, 30);
-   efl_event_callback_add(bt, EFL_UI_EVENT_CLICKED, show_screenshot_button_clicked, NULL);
+   efl_event_callback_add(bt, EFL_INPUT_EVENT_CLICKED, show_screenshot_button_clicked, NULL);
 
    elm_icon1 = elm_icon_add(bt);
    evas_object_size_hint_weight_set(elm_icon1, 1.000000, 1.000000);
