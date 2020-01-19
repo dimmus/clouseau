@@ -552,9 +552,10 @@ _dialog_box_create(const char *title, const char *content, const char *but1_str,
          efl_gfx_entity_visible_set(efl_added, EINA_TRUE));
    efl_content_set(win, bx);
 
-   lb = efl_add(EFL_UI_TEXT_CLASS, bx,
+   lb = efl_add(EFL_UI_TEXTBOX_CLASS, bx,
          efl_text_multiline_set(efl_added, EINA_TRUE),
-         efl_text_halign_set(efl_added, 0.5),
+         efl_text_interactive_editable_set(efl_added, EINA_FALSE),
+         efl_text_horizontal_align_set(efl_added, 0.5),
          efl_text_set(efl_added, content),
          efl_gfx_hint_weight_set(efl_added, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND),
          efl_gfx_hint_align_set(efl_added, EVAS_HINT_FILL, EVAS_HINT_FILL),

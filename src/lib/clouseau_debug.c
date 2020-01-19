@@ -279,7 +279,7 @@ _function_invoke(Eo *ptr, const Eolian_Function *foo, Eolian_Function_Type foo_t
         params[argc].eparam = eo_param;
 
         if (foo_type == EOLIAN_PROP_GET ||
-              (foo_type == EOLIAN_METHOD && eolian_parameter_direction_get(eo_param) == EOLIAN_OUT_PARAM))
+              (foo_type == EOLIAN_METHOD && eolian_parameter_direction_get(eo_param) == EOLIAN_PARAMETER_OUT))
           {
              /* Out parameter */
              if (ed_type == EOLIAN_DEBUG_STRUCT)
