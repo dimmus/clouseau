@@ -29,9 +29,12 @@
 
 #define EOLIAN_DEBUG_MAXARGS 15
 
+#define EWAPI EAPI EAPI_WEAK
+
 #include <Eo.h>
 #include <Eolian.h>
 #include <Elementary.h>
+#include <Efl_Ui.h>
 
 typedef void (*Eo_Debug_Class_Extract_Cb)(void *data, uint64_t kl, char *kl_name);
 
