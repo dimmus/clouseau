@@ -1,24 +1,28 @@
-Clouseau
+<div align="center">
+
+# Clouseau
+
+</div>
 
 Clouseau is a UI inspection tool aimed to debug EFL applications.
 
 Requirements:
 
-  efl (1.20 +)
+* efl (1.20 +)
 
-Compiling:
+## Compiling:
 
-1. mkdir build
-2. cd build
-3. cmake -DCMAKE_INSTALL_PREFIX=/your_install_path ..
-4. make
-5. (sudo) make install
+    $ mkdir build
+    $ cd build
+    $ cmake -DCMAKE_INSTALL_PREFIX=/your_install_path ..
+    $ make
+    $ sudo make install
 
-How to use it?
+## How to use it?
 
 1. Run efl_debugd on the machine where the program to debug has to run
 2. Run your program
-3. Run clouseau_client -l / -r [port]
+3. Run `clouseau_client -l / -r [port]`
 4. Choose the extension you want to use
 5. Choose your application
 
