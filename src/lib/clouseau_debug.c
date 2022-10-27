@@ -473,7 +473,7 @@ _complex_buffer_fill(char *buf, const Eolian_Type *eo_type, uint64_t value)
    else if (!strcmp(eo_tname, "list"))
      {
         Eina_List *int_l = (Eina_List *)value;
-        Eina_Stringshare *free_foo_str = eolian_type_free_func_get(eo_type);
+        Eina_Stringshare *free_foo_str = eolian_typedecl_free_func_get(eolian_type_typedecl_get(eo_type));
         l = eina_list_clone(int_l);
         if (free_foo_str)
           {
